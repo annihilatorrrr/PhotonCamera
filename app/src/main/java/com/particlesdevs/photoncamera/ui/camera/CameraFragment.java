@@ -536,7 +536,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
     public void launchGallery() {
         Intent galleryIntent = new Intent(activity, GalleryActivity.class);
-        startActivity(galleryIntent);
+        // Create gallery bundle
+        galleryIntent.putExtra("CameraFragment", true);
+        
+        startActivity(galleryIntent, null);
     }
 
     public void launchSettings() {

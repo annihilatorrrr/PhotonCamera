@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.gallery.ui;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.databinding.DataBindingUtil;
@@ -23,9 +24,13 @@ public class GalleryActivity extends BaseActivity {
     private ActivityGalleryBinding activityGalleryBinding;
     private GalleryViewModel viewModel;
 
+    private boolean externalUsage = false;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Object fragment = getIntent().getExtras().get("CameraFragment");
+        externalUsage = fragment == null;
         getDelegate().setLocalNightMode(PreferenceKeys.getThemeValue());
         activityGalleryBinding = DataBindingUtil.setContentView(this, R.layout.activity_gallery);
         viewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
@@ -45,6 +50,13 @@ public class GalleryActivity extends BaseActivity {
         activityGalleryBinding = null;
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (externalUsage) {
+            finish();
+        }
+    }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

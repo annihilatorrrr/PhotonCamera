@@ -59,9 +59,28 @@
         </activity>
 
         <activity
+                android:name="com.particlesdevs.photoncamera.gallery.ui.GalleryActivity"
+                android:label="@string/gallery_name"
+                android:theme="@style/Theme.Photon.BaseApp"
+                android:icon="@drawable/round"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PICK" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="vnd.android.cursor.dir/image" />
+                <data android:mimeType="vnd.android.cursor.dir/video" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name="com.particlesdevs.photoncamera.ui.camera.CameraActivity"
             android:configChanges="orientation|keyboardHidden|screenSize" />
-        <activity android:name="com.particlesdevs.photoncamera.gallery.ui.GalleryActivity" />
+        <!-- <activity android:name="com.particlesdevs.photoncamera.gallery.ui.GalleryActivity" /> -->
 
         <provider
             android:name="androidx.core.content.FileProvider"
