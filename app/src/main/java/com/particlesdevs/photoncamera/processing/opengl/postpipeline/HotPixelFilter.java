@@ -28,7 +28,7 @@ public class HotPixelFilter extends Node {
         WorkingTexture = previousNode.WorkingTexture;
         glProg.setTextureCompute("outTexture",WorkingTexture,true);
         for(int i =0; i<5;i++)
-        glProg.computeManual(WorkingTexture.mSize.x/(8*tileSize),WorkingTexture.mSize.y/(8*tileSize),3);
+            glProg.computeManual(WorkingTexture.mSize.x/(8*tileSize),WorkingTexture.mSize.y/(8*tileSize),3);
         glProg.closed = true;
     }
 }

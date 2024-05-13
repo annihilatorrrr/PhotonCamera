@@ -16,6 +16,7 @@ public class RAW16Saver extends DefaultSaver{
 
     public void addImage(Image image) {
         if (PhotonCamera.getSettings().selectedMode == CameraMode.UNLIMITED) {
+            Log.d(TAG, "unlimitedaddImage: " + this + " " + mUnlimitedProcessor);
             mUnlimitedProcessor.unlimitedCycle(image);
         } else {
             Log.d(TAG, "start buffer size:" + IMAGE_BUFFER.size());

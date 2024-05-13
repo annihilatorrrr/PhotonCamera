@@ -4,20 +4,34 @@ import android.graphics.ImageFormat;
 import android.util.Log;
 
 public class ImageSaverSelector {
+    private static JPEGSaver JPEGSaver;
+    private static YUVSaver YUVSaver;
+    private static RAW16Saver RAW16Saver;
+
     private static final String TAG = "ImageSaverSelector";
+
+    public static void init(SaverImplementation saverImplementation) {
+        JPEGSaver = new JPEGSaver(saverImplementation.processingEventsListener);
+        YUVSaver = new YUVSaver(saverImplementation.processingEventsListener);
+        RAW16Saver = new RAW16Saver(saverImplementation.processingEventsListener);
+    }
+
     public static SaverImplementation getImageSaver(int format, SaverImplementation saverImplementation) {
         switch (format) {
             case ImageFormat.JPEG:
-                saverImplementation = new JPEGSaver(saverImplementation.processingEventsListener);
+                saverImplementation = JPEGSaver;
+                //saverImplementation = new JPEGSaver(saverImplementation.processingEventsListener);
                 break;
 
             case ImageFormat.YUV_420_888:
-                saverImplementation = new YUVSaver(saverImplementation.processingEventsListener);
+                saverImplementation = YUVSaver;
+                //saverImplementation = new YUVSaver(saverImplementation.processingEventsListener);
                 break;
 
             //case ImageFormat.RAW10:
             case ImageFormat.RAW_SENSOR:
-                saverImplementation = new RAW16Saver(saverImplementation.processingEventsListener);
+                saverImplementation = RAW16Saver;
+                //saverImplementation = new RAW16Saver(saverImplementation.processingEventsListener);
                 break;
 
             default:

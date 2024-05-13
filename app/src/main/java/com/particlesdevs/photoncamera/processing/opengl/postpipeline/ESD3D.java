@@ -20,22 +20,20 @@ public class ESD3D extends Node {
 
     @Override
     public void Run() {
-        if(basePipeline.main4 == null)
-            basePipeline.main4 = glUtils.medianDown(previousNode.WorkingTexture,4);
-        GLTexture grad;
-
+        //if(basePipeline.main4 == null)
+        //    basePipeline.main4 = glUtils.medianDown(previousNode.WorkingTexture,4);
+        //GLTexture grad;
+        /*
         if(previousNode.WorkingTexture != basePipeline.main3){
-            grad = basePipeline.main3;
+            //grad = basePipeline.main3;
             WorkingTexture = basePipeline.getMain();
         }
         else {
-            grad = basePipeline.getMain();
+            //grad = basePipeline.getMain();
             WorkingTexture = basePipeline.main3;
-        }
+        }*/
         //glUtils.ConvDiff(previousNode.WorkingTexture, grad, 0.f);
-
-
-
+        WorkingTexture = basePipeline.getMain();
 
         {
             Log.d(Name, "NoiseS:" + basePipeline.noiseS + ", NoiseO:" + basePipeline.noiseO);
@@ -49,15 +47,15 @@ public class ESD3D extends Node {
             glProg.setDefine("KERNELSIZE", ks);
             glProg.setDefine("MSIZE", msize);
             glProg.useAssetProgram("esd3d2");
-            glProg.setTexture("NoiseMap", basePipeline.main4);
+            //glProg.setTexture("NoiseMap", basePipeline.main4);
             glProg.setTexture("InputBuffer", previousNode.WorkingTexture);
-            glProg.setTexture("GradBuffer", grad);
+            //glProg.setTexture("GradBuffer", grad);
             glProg.drawBlocks(WorkingTexture);
         }
         glProg.closed = true;
-        if(needClose) {
+        /*if(needClose) {
             basePipeline.main4.close();
             basePipeline.main4 = null;
-        }
+        }*/
     }
 }

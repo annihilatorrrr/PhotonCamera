@@ -5,6 +5,7 @@ import android.graphics.Point;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
+import android.util.Log;
 
 import com.particlesdevs.photoncamera.api.Camera2ApiAutoFix;
 import com.particlesdevs.photoncamera.api.ParseExif;
@@ -23,6 +24,8 @@ public class UnlimitedProcessor extends ProcessorBase {
     private static final String TAG = "UnlimitedProcessor";
     public static int unlimitedCounter = 1;
     private static boolean unlimitedEnd = false;
+
+    private static Image lastImage;
     private AverageRaw averageRaw;
     private boolean lock = false;
     private boolean fillParams = false;
@@ -51,7 +54,6 @@ public class UnlimitedProcessor extends ProcessorBase {
         this.cameraRotation = cameraRotation;
         unlimitedEnd = false;
         lock = false;
-        fillParams = false;
         this.callback = callback;
     }
 
@@ -62,25 +64,21 @@ public class UnlimitedProcessor extends ProcessorBase {
         }
         int width = image.getPlanes()[0].getRowStride() / image.getPlanes()[0].getPixelStride();
         int height = image.getHeight();
-
         PhotonCamera.getParameters().rawSize = new Point(width, height);
-
-        if (averageRaw == null) {
-
-
-            averageRaw = new AverageRaw(PhotonCamera.getParameters().rawSize, "UnlimitedAvr");
-        }
-        if (!fillParams) {
-            fillParams = true;
+        if(!fillParams){
             PhotonCamera.getParameters().FillConstParameters(characteristics, PhotonCamera.getParameters().rawSize);
             PhotonCamera.getParameters().FillDynamicParameters(captureResult);
             PhotonCamera.getParameters().cameraRotation = this.cameraRotation;
-
             exifData.IMAGE_DESCRIPTION = PhotonCamera.getParameters().toString();
+            fillParams = true;
+        }
+        if (averageRaw == null) {
+            averageRaw = new AverageRaw(PhotonCamera.getParameters().rawSize, "UnlimitedAvr");
         }
         averageRaw.additionalParams = new AverageParams(null, image.getPlanes()[0].getBuffer());
         averageRaw.Run();
         unlimitedCounter++;
+        /*
         if (unlimitedEnd) {
             unlimitedEnd = false;
             lock = true;
@@ -94,8 +92,12 @@ public class UnlimitedProcessor extends ProcessorBase {
                 processingEventsListener.onProcessingError("Unlimited Processing Failed!");
                 e.printStackTrace();
             }
+        }*/
+        //image.close();//code block
+        if (lastImage != null) {
+            lastImage.close();
         }
-        image.close();//code block
+        lastImage = image;
     }
 
     private void processUnlimited(Image image) {
@@ -104,11 +106,11 @@ public class UnlimitedProcessor extends ProcessorBase {
         processingEventsListener.onProcessingStarted("Unlimited");
         averageRaw.FinalScript();
         ByteBuffer unlimitedBuffer = averageRaw.Output;
-        averageRaw.close();
-        averageRaw = null;
         image.getPlanes()[0].getBuffer().position(0);
         image.getPlanes()[0].getBuffer().put(unlimitedBuffer);
         image.getPlanes()[0].getBuffer().position(0);
+        averageRaw.close();
+        averageRaw = null;
         if (saveRAW) {
 
             processingEventsListener.onProcessingFinished("Unlimited rawSaver Processing Finished");
@@ -143,7 +145,18 @@ public class UnlimitedProcessor extends ProcessorBase {
     }
 
     public void unlimitedEnd() {
-        unlimitedEnd = true;
+        unlimitedEnd = false;
+        lock = true;
+        FrameNumberSelector.frameCount = unlimitedCounter;
+        PhotonCamera.getParameters().noiseModeler.computeStackingNoiseModel();
+        unlimitedCounter = 1;
+        try {
+            processUnlimited(lastImage);
+        } catch (Exception e) {
+            callback.onFailed();
+            processingEventsListener.onProcessingError("Unlimited Processing Failed!");
+            e.printStackTrace();
+        }
+        lastImage.close();
     }
-
 }

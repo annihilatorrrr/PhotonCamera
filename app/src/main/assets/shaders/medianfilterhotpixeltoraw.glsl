@@ -1,6 +1,6 @@
 
 precision highp float;
-precision mediump sampler2D;
+precision highp sampler2D;
 // Input texture
 uniform sampler2D InputBuffer;
 uniform int CfaPattern;

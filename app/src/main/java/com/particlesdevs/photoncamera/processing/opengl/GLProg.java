@@ -170,7 +170,7 @@ public class GLProg implements AutoCloseable {
             }
         }
         if (shaderHandle == 0) {
-            throw new RuntimeException("Error creating shader.");
+            throw new RuntimeException("Error creating shader. Program:" + shaderSource);
         }
         return shaderHandle;
     }
@@ -244,6 +244,8 @@ public class GLProg implements AutoCloseable {
 
     public void draw() {
         mSquare.draw(vPosition());
+        glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+        glMemoryBarrier(GL_ALL_SHADER_BITS);
         glFlush();
     }
 

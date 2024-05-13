@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.getImageSaver;
+import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.init;
 
 public class ImageSaver {
     /**
@@ -52,6 +53,7 @@ public class ImageSaver {
     }
     public ImageSaver(ProcessingEventsListener processingEventsListener) {
         implementation = new DefaultSaver(processingEventsListener);
+        init(implementation);
     }
 
     public void initProcess(ImageReader mReader) {
@@ -68,6 +70,7 @@ public class ImageSaver {
             int format = mImage.getFormat();
             imageFormat = mReader.getImageFormat();
             implementation = getImageSaver(format, implementation);
+            Log.d(TAG,"Implementation:" + implementation);
             implementation.frameCount = desiredFrameCount;
             implementation.newBurst = newBurst;
             implementation.addImage(mImage);
@@ -90,6 +93,7 @@ public class ImageSaver {
     }
 
     public void unlimitedStart(CameraCharacteristics characteristics, CaptureResult captureResult, int cameraRotation) {
+        implementation = ImageSaverSelector.getImageSaver(ImageFormat.RAW_SENSOR, implementation);
         implementation.unlimitedStart(imageFormat,characteristics,captureResult,cameraRotation);
     }
 

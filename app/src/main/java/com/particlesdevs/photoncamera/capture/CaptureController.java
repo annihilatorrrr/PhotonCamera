@@ -1687,7 +1687,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             IsoExpoSelector.useTripod = PhotonCamera.getGyro().getTripod();
 
             if (frameCount == -1) {
-                for (int i = 0; i < IsoExpoSelector.patternSize; i++) {
+                for (int i = 0; i < 1; i++) {
                     IsoExpoSelector.setExpo(captureBuilder, i, this);
                     captures.add(captureBuilder.build());
                 }
@@ -1778,7 +1778,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     //if (!isDualSession)
                     //    unlockFocus();
                     //else
-                        createCameraPreviewSession(false);
+                    createCameraPreviewSession(false);
                     if(maxFrameCount[0] != -1) PhotonCamera.getGyro().CompleteSequence();
 
                     if (PhotonCamera.getSettings().selectedMode != CameraMode.UNLIMITED) {
@@ -1825,9 +1825,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             //mCaptureSession.setRepeatingBurst(captures, CaptureCallback, null);
             burst = true;
             Camera2ApiAutoFix.ApplyBurst();
-            //if (isDualSession)
-            //    createCameraPreviewSession(true);
-            //else {
+            if (isDualSession)
+                createCameraPreviewSession(true);
+            else {
             //mCaptureSession.stopRepeating();
             //mCaptureSession.abortCaptures();
                 switch (PhotonCamera.getSettings().selectedMode) {
@@ -1840,7 +1840,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         mCaptureSession.captureBurst(captures, CaptureCallback, null);
                         break;
                 }
-            //}
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -1918,9 +1918,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
     public void callUnlimitedEnd() {
         onUnlimited = false;
-        mImageSaver.unlimitedEnd();
+        //mImageSaver.unlimitedEnd();
+        processExecutor.execute(() -> mImageSaver.unlimitedEnd());
         abortCaptures();
-        createCameraPreviewSession(false);
+        //createCameraPreviewSession(false);
         unlimitedStarted = false;
     }
 

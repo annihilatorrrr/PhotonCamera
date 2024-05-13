@@ -39,5 +39,4 @@ void main() {
         1.f/float(unlimitedcount)
         );
     }
-    //Output = clamp(Output,0.0,balance);
 }
