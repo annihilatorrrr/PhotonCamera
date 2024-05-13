@@ -39,7 +39,6 @@ import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.hardware.camera2.params.TonemapCurve;
 import android.media.CamcorderProfile;
 import android.media.ImageReader;
 import android.media.MediaRecorder;

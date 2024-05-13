@@ -29,8 +29,15 @@ public class GalleryActivity extends BaseActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Object fragment = getIntent().getExtras().get("CameraFragment");
-        externalUsage = fragment == null;
+        Intent intent = getIntent();
+        Bundle extras = intent.getExtras();
+        if (extras != null) {
+            Object fragment = getIntent().getExtras().get("CameraFragment");
+            externalUsage = fragment == null;
+        } else {
+            externalUsage = true;
+        }
+
         getDelegate().setLocalNightMode(PreferenceKeys.getThemeValue());
         activityGalleryBinding = DataBindingUtil.setContentView(this, R.layout.activity_gallery);
         viewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
