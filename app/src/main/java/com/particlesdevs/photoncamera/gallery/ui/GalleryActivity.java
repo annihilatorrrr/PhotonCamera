@@ -51,13 +51,6 @@ public class GalleryActivity extends BaseActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (externalUsage) {
-            finish();
-        }
-    }
-    @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == GalleryFileOperations.REQUEST_PERM_DELETE) {
