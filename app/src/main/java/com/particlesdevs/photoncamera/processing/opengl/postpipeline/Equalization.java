@@ -524,7 +524,7 @@ public class Equalization extends Node {
     float whiteBalanceSaturation = 1.35f;
     float[] tonemapCoeffs = new float[]{-0.78360f / 1.0063f, 0.84690f / 1.0063f, 0.9430f / 1.0063f, 0f};
     boolean disableEqualization = false;
-    boolean enableTonemap = true;
+    boolean enableTonemap = false;
     float highlightCompress = 0.4f;
     float contrast = 0.2f;
     boolean useOldEqualization = false;
@@ -689,6 +689,7 @@ public class Equalization extends Node {
         if(basePipeline.mSettings.DebugData)GenerateCurveBitm(histParser.outputArr[1],histParser.outputArr[2],histParser.outputArr[3]);
 
         double shadowW = (basePipeline.mSettings.shadows);
+        Log.d(Name,"ShadowW:"+shadowW);
         double avrbr = 0.0;
 
         for(int i =0; i<hist.length;i++){

@@ -205,6 +205,7 @@ void main() {
     //br = clamp(br,0.0,1.0);
     sRGB/=br;
     float HistEq = texture(Histogram, vec2(1.0/8192.0 + br*(1.0-1.0/256.0), 0.5f)).r;
+    HistEq = mix(HistEq,br,clamp((1.25-br)*3.0,0.0,1.0));
     sRGB*=HistEq;
     //float bsat = mix(sqrt(sRGB.z/HistEq),1.0,0.8);
     //sRGB.z = HistEq*100.0;

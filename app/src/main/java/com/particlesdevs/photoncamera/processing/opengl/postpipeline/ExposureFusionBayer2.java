@@ -40,9 +40,13 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("STRHIGH",strHigh);
         glProg.setDefine("CURVE",true);
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
+        glProg.setDefine("COMPRESSOR", (float) basePipeline.mSettings.compressor);
+        Log.d(Name,"Compressor:"+basePipeline.mSettings.compressor);
         glProg.useAssetProgram("exposebayer2",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("InterpolatedCurve",interpolatedCurve);
+        glProg.setTexture("ShadowMap", shadowMap);
+        glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
         //glProg.setVar("factor", str);
         GLTexture outp = new GLTexture(WorkSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         glProg.drawBlocks(outp);
@@ -97,7 +101,8 @@ public class ExposureFusionBayer2 extends Node {
             w+=glHistogram.outputArr[0][i];
         }
         Log.d(Name,"Underexp pos:"+avr/w);
-        return (256 - avr/w)/256;
+        //return (256 - avr/w)/256;
+        return Math.min(0.7f*256/(avr/w + 1),1.f);
         //return mix(avr/w,min,underExposeMinFusion);
     }
 
@@ -118,27 +123,31 @@ public class ExposureFusionBayer2 extends Node {
     GLHistogram glHistogram;
     Point initialSize;
     Point WorkSize;
-    float overExposeMpy = 1.8f;
-    float overExposeMaxFusion = 0.9f;
-    float underExposeMpy = 1.0f;
+    float overExposeMpy = 1.0f;
+    float overExposeMaxFusion = 1.0f;
+    float underExposeMpy = 0.7f;
     float underExposeMinFusion = 0.0f;
     float gammaKSearch = 1.0f;
-    float baseExpose = 1.0f;
+    float baseExpose = 0.65f;
     float gaussSize = 0.5f;
-    float targetLuma = 0.5f;
+    float targetLuma = 1.0f;
     float downScalePerLevel = 2.2f;
-    float dehazing = 0.25f;
+    float dehazing = 0.0f;
 
     float softUpperLevel = 0.1f;
     float softLoverLevel = 0.0f;
-    float fusionExpoLowLimit = 1.f/3.f;
-    float fusionExpoHighLimit = 5.f;
+    float fusionExpoLowLimit = 1.f/16.f;
+    float fusionExpoHighLimit = 16.f;
     int curvePointsCount = 5;
     float[] toneCurveX;
     float[] toneCurveY;
+
+    float[] shadowCurveX;
+    float[] shadowCurveY;
     GLTexture interpolatedCurve;
+    GLTexture shadowMap;
     boolean disableFusion = false;
-    boolean useSymmetricExposureFork = true;
+    boolean useSymmetricExposureFork = false;
     @Override
     public void Run() {
         disableFusion = getTuning("DisableFusion",disableFusion);
@@ -165,10 +174,14 @@ public class ExposureFusionBayer2 extends Node {
         softLoverLevel = getTuning("SoftLevel", softLoverLevel);
         toneCurveX = new float[curvePointsCount];
         toneCurveY = new float[curvePointsCount];
+        shadowCurveX = new float[curvePointsCount];
+        shadowCurveY = new float[curvePointsCount];
         for(int i = 0; i<curvePointsCount;i++){
             float line = i/((float)(curvePointsCount-1.f));
             toneCurveX[i] = line;
             toneCurveY[i] = 1.0f;
+            shadowCurveX[i] = line;
+            shadowCurveY[i] = 1.0f;
         }
 
         if(curvePointsCount == 5) {
@@ -178,12 +191,26 @@ public class ExposureFusionBayer2 extends Node {
             toneCurveX[3] = 0.95f;
             toneCurveX[4] = 1.0f;
 
-            toneCurveY[0] = 0.7f;
+            toneCurveY[0] = 1.0f;
             toneCurveY[1] = 1.0f;
             toneCurveY[2] = 1.0f;
-            toneCurveY[3] = 0.85f;
-            toneCurveY[4] = 0.40f;
+            toneCurveY[3] = 1.0f;
+            toneCurveY[4] = 1.0f;
+
+            shadowCurveX[0] = 0.0f;
+            shadowCurveX[1] = 0.07f;
+            shadowCurveX[2] = 0.2f;
+            shadowCurveX[3] = 0.95f;
+            shadowCurveX[4] = 1.0f;
+
+            shadowCurveY[0] = 8.0f;
+            shadowCurveY[1] = 4.0f;
+            shadowCurveY[2] = 2.0f;
+            shadowCurveY[3] = 0.0f;
+            shadowCurveY[4] = 0.0f;
         }
+
+
 
         toneCurveX = getTuning("TonemapCurveX", toneCurveX);
         toneCurveY = getTuning("TonemapCurveY", toneCurveY);
@@ -196,14 +223,20 @@ public class ExposureFusionBayer2 extends Node {
             if(toneCurveY[i] > maxC) maxC = toneCurveY[i];
         }
 
+
         SplineInterpolator splineInterpolator = SplineInterpolator.createMonotoneCubicSpline(curveX,curveY);
+        SplineInterpolator splineInterpolatorShadows = SplineInterpolator.createMonotoneCubicSpline(curveX,curveY);
         float[] interpolatedCurveArr = new float[1024];
+        float[] interpolatedCurveShadowsArr = new float[1024];
         for(int i =0 ;i<interpolatedCurveArr.length;i++){
             float line = i/((float)(interpolatedCurveArr.length-1.f));
             interpolatedCurveArr[i] = splineInterpolator.interpolate(line);
+            interpolatedCurveShadowsArr[i] = splineInterpolatorShadows.interpolate(line);
         }
         interpolatedCurve = new GLTexture(new Point(interpolatedCurveArr.length,1),
                 new GLFormat(GLFormat.DataType.FLOAT_16), BufferUtils.getFrom(interpolatedCurveArr),GL_LINEAR,GL_CLAMP_TO_EDGE);
+        shadowMap = new GLTexture(new Point(interpolatedCurveShadowsArr.length,1),
+                new GLFormat(GLFormat.DataType.FLOAT_16), BufferUtils.getFrom(interpolatedCurveShadowsArr),GL_LINEAR,GL_CLAMP_TO_EDGE);
 
         GLTexture in = previousNode.WorkingTexture;
         initialSize = new Point(previousNode.WorkingTexture.mSize);
@@ -232,11 +265,14 @@ public class ExposureFusionBayer2 extends Node {
 
         overexposure = Math.min(256.f,overexposure);
         underexposure = Math.max(1.f/256.f,underexposure);
+
+
         if(useSymmetricExposureFork){
             float mpy = overexposure*underexposure;
             overexposure/=mpy;
             underexposure/=mpy;
         }
+
         overexposure*=overExposeMpy;
         underexposure*=underExposeMpy;
         overexposure = Math.min(fusionExpoHighLimit,overexposure);
@@ -331,6 +367,7 @@ public class ExposureFusionBayer2 extends Node {
 
         binnedFuse.close();
         interpolatedCurve.close();
+        shadowMap.close();
         //WorkingTexture = unexpose(binnedFuse,normalExpo.gauss[0], (float)basePipeline.mSettings.gain*((PostPipeline)basePipeline).AecCorr/2.f);
         WorkingTexture = previousNode.WorkingTexture;
         Log.d(Name,"Output Size:"+binnedFuse.mSize);

@@ -67,6 +67,10 @@ float gammaEncode(float x) {
     //return 1.055 * sqrt(x+EPS) - 0.055;
     return (GAMMAX1*x+GAMMAX2*x*x+GAMMAX3*x*x*x);
 }
+float gammaEncode0(float x) {
+return x <= 0.0031308f ? x * 12.92f : 1.055f * pow(x, 0.4166667f) - 0.055f;
+}
+
 float gammaEncode2(float x) {
     //return 1.055 * sqrt(x+EPS) - 0.055;
     return texture(GammaCurve,vec2(x - 1.0/1024.0,0.5)).r;
@@ -156,12 +160,13 @@ vec3 tonemap(vec3 rgb) {
     minmax.y = sorted.z;
 
     // Apply tonemapping curve to min, max RGB channel values
-    /*minmax = pow(minmax, vec2(3.f)) * toneMapCoeffs.x +
+    //vec4 toneMapCoeffs = vec4(-0.7836f, 0.8469f, 0.943f, 0.0209f);
+    minmax = pow(minmax, vec2(3.f)) * toneMapCoeffs.x +
     pow(minmax, vec2(2.f)) * toneMapCoeffs.y +
     minmax * toneMapCoeffs.z +
-    toneMapCoeffs.w;*/
-    minmax.r = texture(TonemapTex,vec2(minmax.r,0.5f)).r;
-    minmax.g = texture(TonemapTex,vec2(minmax.g,0.5f)).r;
+    toneMapCoeffs.w;
+    //minmax.r = texture(TonemapTex,vec2(minmax.r,0.5f)).r;
+    //minmax.g = texture(TonemapTex,vec2(minmax.g,0.5f)).r;
 
     //minmax = mix(minmax, minmaxsin, 0.9f);
 
@@ -170,8 +175,8 @@ vec3 tonemap(vec3 rgb) {
     if (sorted.z == sorted.x) {
         newMid = minmax.y;
     } else {
-        newMid = minmax.x + ((minmax.y - minmax.x) * (sorted.y - sorted.x) /
-        (sorted.z - sorted.x));
+        float yprog = (sorted.y - sorted.x) / (sorted.z - sorted.x);
+        newMid = minmax.x + (minmax.y - minmax.x) * yprog;
     }
 
     vec3 finalRGB;
@@ -257,7 +262,8 @@ vec3 numerator = v * (vec3(1.0f) + (v / vec3(max_white * max_white)));
 return numerator / (vec3(1.0f) + v);
 }
 
-vec3 applyColorSpace(vec3 pRGB,float tonemapGain){
+
+vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     vec3 neutralPoint = vec3(NEUTRALPOINT);
     //pRGB = clamp(reinhard_extended(pRGB*tonemapGain,max(1.0,tonemapGain)), vec3(0.0), neutralPoint);
     pRGB *= tonemapGain;
@@ -278,13 +284,11 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain){
     }
     #endif
     pRGB = corr*sensorToIntermediate*pRGB;
-
-    pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*2.0)),vec3(0.0),vec3(1.0));
-
+    pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*0.35)),vec3(0.0),vec3(1.0));
+    pRGB = clamp(reinhard_extended(pRGB*gainsVal,max(1.0,gainsVal*0.8)),vec3(0.0),vec3(1.0));
+    pRGB = tonemap(pRGB);
     //ISO tint correction
     //pRGB = mix(vec3(pRGB.r*0.99*(TINT2),pRGB.g*(TINT),pRGB.b*1.025*(TINT2)),pRGB,clamp(br*10.0,0.0,1.0));
-
-    //pRGB = tonemap(pRGB);
 
     //pRGB = saturate(pRGB,br);
 
@@ -317,81 +321,14 @@ void main() {
 
     float tonemapGain = 1.f;
     #if FUSION == 1
-    //vec2 grad = vec2(texelFetch(InputBuffer, xy+ivec2(-1,0), 0).g-texelFetch(InputBuffer, xy+ivec2(1,0), 0).g,
-    //texelFetch(InputBuffer, xy+ivec2(0,-1), 0).g-texelFetch(InputBuffer, xy+ivec2(0,1), 0).g);
-    /*tonemapGain = textureBicubic(FusionMap, vec2(xy+ivec2(0,0))/vec2(textureSize(InputBuffer, 0))).r/(sRGB.r+sRGB.g+sRGB.b);
-    t=texelFetch(InputBuffer, xy+ivec2(0,2), 0).rgb;
-    tonemapGain += textureBicubic(FusionMap, vec2(xy+ivec2(0,2))/vec2(textureSize(InputBuffer, 0))).r/(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(2,0), 0).rgb;
-    tonemapGain += textureBicubic(FusionMap, vec2(xy+ivec2(2,0))/vec2(textureSize(InputBuffer, 0))).r/(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(0,-2), 0).rgb;
-    tonemapGain += textureBicubic(FusionMap, vec2(xy+ivec2(0,-2))/vec2(textureSize(InputBuffer, 0))).r/(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(-2,0), 0).rgb;
-    tonemapGain += textureBicubic(FusionMap,vec2(xy+ivec2(-2,0))/vec2(textureSize(InputBuffer, 0))).r/(t.r+t.g+t.b);
-    tonemapGain = (tonemapGain/5.f)*(sRGB.r+sRGB.g+sRGB.b);*/
-    /*
-    t = sRGB;
-    tonemapGain = textureBicubic(FusionMap, vec2(xy+ivec2(0,0))/vec2(textureSize(InputBuffer, 0))).r;
-    t+=texelFetch(InputBuffer, xy+ivec2(0,1), 0).rgb;
-    t+=texelFetch(InputBuffer, xy+ivec2(1,0), 0).rgb;
-    t+=texelFetch(InputBuffer, xy+ivec2(0,-1), 0).rgb;
-    t+=texelFetch(InputBuffer, xy+ivec2(-1,0), 0).rgb;
-    tonemapGain = ((tonemapGain)/((t.r+t.g+t.b)/(5.0)))*(sRGB.r+sRGB.g+sRGB.b)*50.0;*/
-    //ivec2 xy2 = xy/2;
-    //vec2 xy2 = 2.0*vec2(xy/2)/vec2(textureSize(InputBuffer, 0));
-    //vec2 oneStep = vec2(1.0)/vec2(textureSize(InputBuffer, 0));
-    /*tonemapGain = texelFetch(FusionMap, xy2, 0).r/sqrt(sRGB.r+sRGB.g+sRGB.b);
-    t=texelFetch(InputBuffer, xy+ivec2(0,2), 0).rgb;
-    tonemapGain += texelFetch(FusionMap, xy2+ivec2(0,1), 0).r/sqrt(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(2,0), 0).rgb;
-    tonemapGain += texelFetch(FusionMap, xy2+ivec2(1,0), 0).r/sqrt(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(0,-2), 0).rgb;
-    tonemapGain += texelFetch(FusionMap, xy2+ivec2(0,-1), 0).r/sqrt(t.r+t.g+t.b);
-    t=texelFetch(InputBuffer, xy+ivec2(-2,0), 0).rgb;
-    tonemapGain += texelFetch(FusionMap, xy2+ivec2(-1,0), 0).r/sqrt(t.r+t.g+t.b);
-    tonemapGain = (tonemapGain/5.f)*sqrt(sRGB.r+sRGB.g+sRGB.b)*50.0;
-    grad = abs(grad);*/
     float tempV = 0.0;
     float minG,maxG;
     float minImg, maxImg;
     ivec2 xy2 = xy/2;
-        /*
-    tempV = getGain(vec2(0,-1));
-    minG = tempV;
-    maxG = tempV;
-    tempV = getGain(vec2(-1,0));
-    minG = min(tempV,minG);
-    maxG = max(tempV,maxG);
-    tempV = getGain(vec2(0,0));
-    minG = min(tempV,minG);
-    maxG = max(tempV,maxG);
-    tempV = getGain(vec2(0,1));
-    minG = min(tempV,minG);
-    maxG = max(tempV,maxG);
-    tempV = getGain(vec2(1,0));
-    minG = min(tempV,minG);
-    maxG = max(tempV,maxG);
-
-    tempV = texelFetch(InputBuffer, xy+ivec2(0,0), 0).g;
-    minImg = tempV;
-    maxImg = tempV;
-    tempV = texelFetch(InputBuffer, xy+ivec2(0,-1), 0).g;
-    minImg = min(tempV,minImg);
-    maxImg = max(tempV,maxImg);
-    tempV = texelFetch(InputBuffer, xy+ivec2(-1,0), 0).g;
-    minImg = min(tempV,minImg);
-    maxImg = max(tempV,maxImg);
-    tempV = texelFetch(InputBuffer, xy+ivec2(0,1), 0).g;
-    minImg = min(tempV,minImg);
-    maxImg = max(tempV,maxImg);
-    tempV = texelFetch(InputBuffer, xy+ivec2(1,0), 0).g;
-    minImg = min(tempV,minImg);
-    maxImg = max(tempV,maxImg);*/
     float brInitial = 0.f;
     float brCorrected = 0.f;
     float blurInitial = 0.f;
     float blurCorrected = 0.f;
-
     for(int i = -1; i<=2;i++){
         for(int j = -1; j<=2;j++){
             float v = dot(texelFetch(InputBuffer, xy+ivec2(i,j), 0).rgb, vec3(1.f));
@@ -404,20 +341,15 @@ void main() {
     float brightening = blurCorrected/(blurInitial+EPS);
     float corrected = blurCorrected + detail*brightening;
     tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb,vec3(1.f))+EPS);
-    //tonemapGain = texture(FusionMap, (gl_FragCoord.xy)/vec2(INSIZE)).r;
-    //tonemapGain = getGain(vec2(0.0,0.0));
-    //if(tonemapGain > 0.0){
-    //    tonemapGain = 1.0/tonemapGain;
-    //} else tonemapGain = -tonemapGain;
-    //float mixG = (sRGB.g-minImg+0.001)/(maxImg-minImg+0.001);
-    //mixG = clamp(mixG,0.0,1.0);
-    //tonemapGain = mix(maxG,minG,mixG);
     tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);
     #endif
-    vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
-    tonemapGain *= (gains.r+gains.g+gains.b+gains.a)/4.0;
+    //vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
+    //tonemapGain *= (gains.r+gains.g+gains.b+gains.a)/4.0;
     float br = (sRGB.r+sRGB.g+sRGB.b)/3.0;
-    sRGB = applyColorSpace(sRGB,tonemapGain);
+    vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
+    gains.rgb = vec3(gains.r,(gains.g+gains.b)/2.0,gains.a);
+    float gainsVal = dot(gains.rgb,vec3(1.0/3.0));
+    sRGB = applyColorSpace(sRGB,tonemapGain, gainsVal);
     //sRGB = clamp(sRGB,0.0,1.0);
     #if LUT == 1
     //sRGB = lookup(sRGB);

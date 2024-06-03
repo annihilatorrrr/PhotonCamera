@@ -107,29 +107,29 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
 
         if(curvePointsCount == 6){
             intenseCurveX[0] = 0.0f;
-            intenseCurveX[1] = 0.2f;
-            intenseCurveX[2] = 0.4f;
+            intenseCurveX[1] = 0.1f;
+            intenseCurveX[2] = 0.2f;
             intenseCurveX[3] = 0.6f;
             intenseCurveX[4] = 0.95f;
             intenseCurveX[5] = 1.0f;
 
-            intenseCurveY[0] = 1.0f;
-            intenseCurveY[1] = 1.0f;
-            intenseCurveY[2] = 1.0f;
+            intenseCurveY[0] = 2.0f;
+            intenseCurveY[1] = 1.5f;
+            intenseCurveY[2] = 1.25f;
             intenseCurveY[3] = 1.0f;
             intenseCurveY[4] = 1.0f;
             intenseCurveY[5] = 1.0f;
 
             intenseHardCurveX[0] = 0.0f;
-            intenseHardCurveX[1] = 0.2f;
-            intenseHardCurveX[2] = 0.4f;
+            intenseHardCurveX[1] = 0.1f;
+            intenseHardCurveX[2] = 0.2f;
             intenseHardCurveX[3] = 0.6f;
             intenseHardCurveX[4] = 0.95f;
             intenseHardCurveX[5] = 1.0f;
 
-            intenseHardCurveY[0] = 1.0f;
-            intenseHardCurveY[1] = 1.0f;
-            intenseHardCurveY[2] = 1.0f;
+            intenseHardCurveY[0] = 2.0f;
+            intenseHardCurveY[1] = 1.5f;
+            intenseHardCurveY[2] = 1.25f;
             intenseHardCurveY[4] = 1.0f;
             intenseHardCurveY[3] = 1.0f;
             intenseHardCurveY[5] = 1.0f;
@@ -252,7 +252,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setTexture("InputBuffer",super.previousNode.WorkingTexture);
         glProg.setTexture("IntenseCurve",interpolatedCurve);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
-        //glProg.setVar("toneMapCoeffs", Converter.CUSTOM_ACR3_TONEMAP_CURVE_COEFFS);
+        glProg.setVar("toneMapCoeffs", Converter.CUSTOM_ACR3_TONEMAP_CURVE_COEFFS);
         glProg.setVar("sensorToIntermediate",basePipeline.mParameters.sensorToProPhoto);
         glProg.setVar("intermediateToSRGB",cct);
         if(((PostPipeline)basePipeline).FusionMap != null) glProg.setTexture("FusionMap",((PostPipeline)basePipeline).FusionMap);
@@ -260,7 +260,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setVar("activeSize",2,2,basePipeline.mParameters.sensorPix.right-basePipeline.mParameters.sensorPix.left-2,
                 basePipeline.mParameters.sensorPix.bottom-basePipeline.mParameters.sensorPix.top-2);
         //glProg.setVar("neutralPoint",WP);
-        Log.d(Name,"compressor:"+1.f/((float)basePipeline.mSettings.compressor));
+        //Log.d(Name,"compressor:"+1.f/((float)basePipeline.mSettings.compressor));
         //glProg.setVar("saturation0",sat);
         //glProg.setVar("saturation",0.f);
         //WorkingTexture = new GLTexture(super.previousNode.WorkingTexture.mSize,new GLFormat(GLFormat.DataType.FLOAT_16, GLConst.WorkDim),null);
