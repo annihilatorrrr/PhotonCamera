@@ -52,7 +52,7 @@ void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
     xy+=ivec2(0,yOffset);
     vec3 cin = vec3(texelFetch(InputBuffer, xy, 0).rgb);
-    float noisefactor = dot(cin,vec3(0.1,0.8,0.1));
+    float noisefactor = dot(cin,vec3(0.15,0.7,0.15));
     vec3 final_colour = vec3(0.0);
     float sigX = 2.5;
     float sigY = (noisefactor*noisefactor*NOISES + NOISEO + 0.0000001);

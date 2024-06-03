@@ -3,6 +3,8 @@ precision mediump sampler2D;
 precision highp float;
 uniform sampler2D InputBuffer;
 uniform sampler2D InterpolatedCurve;
+uniform sampler2D ShadowMap;
+uniform sampler2D GainMap;
 uniform float factor;
 out vec4 result;
 #define NEUTRALPOINT 1.0,1.0,1.0
@@ -12,6 +14,9 @@ out vec4 result;
 #define INVERSE 0
 #define STRLOW 1.0
 #define STRHIGH 1.0
+#define COMPRESSOR 0.0
+#import interpolation
+
 float gammaEncode(float x) {
     return sqrt(x);
 }
@@ -30,11 +35,15 @@ float stddev(vec3 XYZ) {
 vec3 brIn(vec4 inp, float factor2){
     float br2 = inp.r+inp.g+inp.b+inp.a;
     br2/=4.0;
+    float gammaUse = 0.0;
     #if CURVE == 1
     float texinput = texture(InterpolatedCurve,vec2(br2,0.5)).r;
     factor2=mix(1.0,factor2,texinput);
+    float shadowinput = texture(ShadowMap,vec2(br2,0.5)).r;
+    factor2=mix(1.0,factor2,1.0+shadowinput*COMPRESSOR);
     #endif
     inp=clamp(reinhard_extended(inp*factor2,min(factor2,1.0)),0.0,1.0);
+
     return vec3(inp.r,(inp.g+inp.b)/2.0,inp.a);
 }
 vec3 brIn2(vec4 inp, float factor2){
@@ -58,7 +67,9 @@ void main() {
     inp.b = texelFetch(InputBuffer, xyCenter+ivec2(0,1), 0).r;
     inp.a = texelFetch(InputBuffer, xyCenter+ivec2(1,1), 0).r;
     inp = clamp(inp,vec4(0.0001),vec3(NEUTRALPOINT).rggb)/vec3(NEUTRALPOINT).rggb;
-
+    //vec4 gains = textureBicubicHardware(GainMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0)));
+    //gains.rgb = vec3(gains.r,(gains.g+gains.b)/2.0,gains.a);
+    //inp *= dot(gains.rgb,vec3(1.0/3.0));
     vec3 v3 = brIn2(inp,STRLOW);
     float br = luminocity(v3);
     br = gammaEncode(clamp(br-DH,0.0,1.0));
@@ -66,8 +77,6 @@ void main() {
     result.g = stddev(v3);
 
     v3 = brIn(inp,STRHIGH);
-
-
     br = luminocity(v3);
     br = gammaEncode(clamp(br-DH,0.0,1.0));
     result.b = br;
