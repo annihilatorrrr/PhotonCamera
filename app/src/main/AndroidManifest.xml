@@ -65,7 +65,7 @@
                 android:label="@string/gallery_name"
                 android:taskAffinity=""
                 android:theme="@style/Theme.Photon.BaseApp"
-                android:icon="@drawable/round"
+                android:icon="@mipmap/ic_gallery_launcher"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
