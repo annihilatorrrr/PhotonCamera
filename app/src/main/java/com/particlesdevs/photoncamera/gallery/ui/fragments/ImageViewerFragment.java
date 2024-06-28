@@ -176,6 +176,7 @@ public class ImageViewerFragment extends Fragment {
         fragmentGalleryImageViewerBinding.topControlsContainer.setOnBack(this::onBack);
         fragmentGalleryImageViewerBinding.topControlsContainer.setOnQuickCompare(this::onQuickCompare);
         fragmentGalleryImageViewerBinding.exifLayout.histogramView.setHistogramLoadingListener(this::isHistogramLoading);
+        fragmentGalleryImageViewerBinding.setOnclickempty(this::onEmptyViewClicked);
     }
 
     @Override
@@ -332,6 +333,11 @@ public class ImageViewerFragment extends Fragment {
                 updateExif();
             }
         }
+    }
+
+    private void onEmptyViewClicked(View view) {
+        NavController navController = Navigation.findNavController(view);
+        navController.navigate(R.id.action_imageViewerFragment_to_gallerySettingsFragment);
     }
 
     public void updateScaleText() {

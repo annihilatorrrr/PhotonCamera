@@ -69,6 +69,15 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         viewModel.getAllImageFilesData().observe(getViewLifecycleOwner(), this::initImageAdapter);
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if(viewModel.isUpdatePending()) {
+            viewModel.fetchAllImages();
+            viewModel.setUpdatePending(false);
+        }
+    }
+
     private void initImageAdapter(List<GalleryItem> galleryItems) {
         if (galleryItems != null) {
             this.galleryItems = galleryItems;
@@ -88,6 +97,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         fragmentGalleryImageLibraryBinding.fabGroup.setOnShareFabClicked(this::onShareFabClicked);
         fragmentGalleryImageLibraryBinding.fabGroup.setOnDeleteFabClicked(this::onDeleteFabClicked);
         fragmentGalleryImageLibraryBinding.fabGroup.setOnCompareFabClicked(this::onCompareFabClicked);
+        fragmentGalleryImageLibraryBinding.setOnSettingsFabClicked(this::onSettingsFabClicked);
     }
 
     private void onCompareFabClicked(View view) {
@@ -133,6 +143,11 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         } else {
             closeFABMenu();
         }
+    }
+
+    private void onSettingsFabClicked(View view) {
+        NavController navController = Navigation.findNavController(view);
+        navController.navigate(R.id.action_imageLibraryFragment_to_gallerySettingsFragment);
     }
 
     private void showFABMenu() {

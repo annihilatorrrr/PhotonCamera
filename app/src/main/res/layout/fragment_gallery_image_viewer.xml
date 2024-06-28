@@ -31,6 +31,9 @@
         <variable
                 name="scale"
                 type="java.lang.String"/>
+        <variable
+                name="onclickempty"
+                type="android.view.View.OnClickListener" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -38,6 +41,12 @@
             android:layout_width="match_parent"
             android:animateLayoutChanges="true">
 
+        <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#000"
+                android:onClickListener="@{onclickempty}"
+                tools:visibility="gone" />
         <androidx.viewpager.widget.ViewPager
                 android:id="@+id/view_pager"
                 android:layout_width="match_parent"

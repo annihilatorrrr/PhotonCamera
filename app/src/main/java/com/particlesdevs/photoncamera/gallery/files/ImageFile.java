@@ -15,13 +15,15 @@ public final class ImageFile extends MediaFile {
     private final String displayName;
     private final long lastModified;
     private final long size;
+    private final String absolutePath;
 
-    public ImageFile(long id, Uri fileUri, String displayName, long lastModified, long size) {
+    public ImageFile(long id, Uri fileUri, String displayName, long lastModified, long size, String absolutePath) {
         this.id = id;
         this.fileUri = fileUri;
         this.displayName = displayName;
         this.lastModified = lastModified;
         this.size = size;
+        this.absolutePath = absolutePath;
     }
 
     @Override
@@ -49,7 +51,6 @@ public final class ImageFile extends MediaFile {
         return size;
     }
 
-    @NonNull
     @Override
     public String toString() {
         return "ImageFile{" +
@@ -57,6 +58,8 @@ public final class ImageFile extends MediaFile {
                 ", fileUri=" + fileUri +
                 ", displayName='" + displayName + '\'' +
                 ", lastModified=" + lastModified +
+                ", size=" + size +
+                ", absolutePath='" + absolutePath + '\'' +
                 '}';
     }
 
@@ -71,5 +74,9 @@ public final class ImageFile extends MediaFile {
     @Override
     public int hashCode() {
         return Objects.hash(id, displayName, lastModified);
+    }
+
+    public String getAbsolutePath() {
+        return absolutePath;
     }
 }

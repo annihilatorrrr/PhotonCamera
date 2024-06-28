@@ -15,6 +15,16 @@ import java.util.stream.Collectors;
 
 public class GalleryViewModel extends AndroidViewModel {
     private final MutableLiveData<List<GalleryItem>> allImageFiles = new MutableLiveData<>();
+    private boolean updatePending=false;
+
+
+    public boolean isUpdatePending() {
+        return updatePending;
+    }
+
+    public void setUpdatePending(boolean updatePending) {
+        this.updatePending = updatePending;
+    }
 
     public GalleryViewModel(@NonNull Application application) {
         super(application);
