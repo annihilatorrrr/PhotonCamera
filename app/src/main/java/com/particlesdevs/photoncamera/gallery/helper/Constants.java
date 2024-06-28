@@ -11,5 +11,6 @@ public class Constants {
 
     public static final int GALLERY_ITEM_TYPE_GRID = 100;
     public static final int GALLERY_ITEM_TYPE_LINEAR = 101;
+    public static final int GALLERY_ITEM_TYPE_LINEAR_FOLDER = 103;
 
 }

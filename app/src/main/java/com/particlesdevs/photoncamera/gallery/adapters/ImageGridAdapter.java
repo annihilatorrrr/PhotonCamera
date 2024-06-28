@@ -59,7 +59,7 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
     public GridItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
         ThumbnailSquareImageViewBinding thumbnailSquareImageViewBinding = ThumbnailSquareImageViewBinding.inflate(layoutInflater, parent, false);
-        if (itemType == Constants.GALLERY_ITEM_TYPE_LINEAR) {
+        if (itemType == Constants.GALLERY_ITEM_TYPE_LINEAR || itemType == Constants.GALLERY_ITEM_TYPE_LINEAR_FOLDER) {
             FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(dpToPx(70), dpToPx(70));
             layoutParams.setMargins(dpToPx(2), dpToPx(4), dpToPx(2), dpToPx(4));
             thumbnailSquareImageViewBinding.getRoot().setLayoutParams(layoutParams);
@@ -76,9 +76,15 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
     public void onBindViewHolder(@NonNull GridItemViewHolder holder, int position) {
         final GalleryItem galleryItem = galleryItemList.get(position);
         if (holder.binding instanceof ThumbnailSquareImageViewBinding) {
+
             ThumbnailSquareImageViewBinding thumbnailSquareImageViewBinding = (ThumbnailSquareImageViewBinding) holder.binding;
             thumbnailSquareImageViewBinding.selectionCircle.setVisibility(selectionHelper.isSelectionStarted() ? View.VISIBLE : View.GONE);
             thumbnailSquareImageViewBinding.setGalleryitem(galleryItem);
+            if(itemType==Constants.GALLERY_ITEM_TYPE_LINEAR_FOLDER)
+            {
+                thumbnailSquareImageViewBinding.thumbCaptionText.setVisibility(View.VISIBLE);
+                thumbnailSquareImageViewBinding.thumbTagText.setVisibility(View.GONE);
+            }
             thumbnailSquareImageViewBinding.setGalleryitemclickedlistener(new GalleryItemClickedListener() {
                 @Override
                 public void onItemClicked(View view, GalleryItem galleryItem) {

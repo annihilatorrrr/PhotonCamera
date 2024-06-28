@@ -20,12 +20,12 @@ import com.davemorrissey.labs.subscaleview.ImageSource;
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 import com.particlesdevs.photoncamera.gallery.compare.SSIVListener;
 import com.particlesdevs.photoncamera.gallery.model.GalleryItem;
+import com.particlesdevs.photoncamera.gallery.views.CustomSSIV;
 
 import org.apache.commons.io.FileUtils;
 
 import java.util.List;
 
-import static com.particlesdevs.photoncamera.gallery.helper.Constants.DOUBLE_TAP_ZOOM_DURATION_MS;
 
 
 public class ImageAdapter extends PagerAdapter {
@@ -118,36 +118,6 @@ public class ImageAdapter extends PagerAdapter {
 
     public interface ImageViewClickListener {
         void onImageViewClicked(View v);
-    }
-
-    public static class CustomSSIV extends SubsamplingScaleImageView {
-        private TouchCallBack touchCallBack;
-
-        public CustomSSIV(Context context) {
-            super(context);
-            setMinimumDpi(40);
-            setOrientation(SubsamplingScaleImageView.ORIENTATION_USE_EXIF);
-            setQuickScaleEnabled(true);
-            setEagerLoadingEnabled(false);
-            setDoubleTapZoomDuration(DOUBLE_TAP_ZOOM_DURATION_MS);
-            setPreferredBitmapConfig(Bitmap.Config.ARGB_8888);
-        }
-
-        @Override
-        public boolean onTouchEvent(@NonNull MotionEvent event) {
-            if (touchCallBack != null) {
-                touchCallBack.onTouched(getId());
-            }
-            return super.onTouchEvent(event);
-        }
-
-        public void setTouchCallBack(TouchCallBack touchCallBack) {
-            this.touchCallBack = touchCallBack;
-        }
-
-        public interface TouchCallBack {
-            void onTouched(int id);
-        }
     }
 }
 

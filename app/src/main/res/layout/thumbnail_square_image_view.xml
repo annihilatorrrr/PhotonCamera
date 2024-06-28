@@ -43,6 +43,19 @@
                     app:loadImage="@{galleryitem}"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center" />
+
+            <TextView
+                    android:id="@+id/thumb_caption_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:visibility="gone"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:textAlignment="center"
+                    tools:text="CAMERA"
+                    android:text="@{galleryitem.displayName}"
+                    android:padding="5dp"
+                    android:textSize="12sp"
+                    android:textAppearance="@style/BoldTextWithShadow" />
         </com.google.android.material.card.MaterialCardView>
 
 

@@ -8,15 +8,21 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.particlesdevs.photoncamera.gallery.files.GalleryFileOperations;
+import com.particlesdevs.photoncamera.gallery.files.ImageFile;
 import com.particlesdevs.photoncamera.gallery.model.GalleryItem;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class GalleryViewModel extends AndroidViewModel {
-    private final MutableLiveData<List<GalleryItem>> allImageFiles = new MutableLiveData<>();
-    private boolean updatePending=false;
+    private final MutableLiveData<GalleryItem> allSelectedImagesFolder = new MutableLiveData<>(GalleryItem.createEmpty());
+    private final MutableLiveData<List<GalleryItem>> selectedDisplayFolders = new MutableLiveData<>(new ArrayList<>(0));
 
+    private final MutableLiveData<List<GalleryItem>> currentFolderImages = new MutableLiveData<>(new ArrayList<>(0));
+
+    private boolean updatePending=false;
 
     public boolean isUpdatePending() {
         return updatePending;
@@ -30,11 +36,37 @@ public class GalleryViewModel extends AndroidViewModel {
         super(application);
     }
 
-    public void fetchAllImages() {
-        allImageFiles.setValue(GalleryFileOperations.fetchAllImageFiles(getApplication().getContentResolver()).stream().map(GalleryItem::new).collect(Collectors.toList()));
+    public void fetchAllMedia() {
+        List<GalleryItem> allFolders=GalleryFileOperations._fetchSelectedFolders(getApplication().getContentResolver()).stream().map((Function<GalleryFileOperations.ImagesFolder, GalleryItem>) imagesFolder -> {
+            GalleryItem folder = new GalleryItem(imagesFolder.getTopImage());
+            imagesFolder.getAllImageFiles().forEach(imageFile -> folder.getFiles().add(new GalleryItem(imageFile)));
+            folder.setDisplayName(imagesFolder.getFolderName());
+            return folder;
+        }).collect(Collectors.toList());
+        
+        ArrayList<ImageFile> all = (ArrayList<ImageFile>) GalleryFileOperations.extractAllSelectedImages();
+        GalleryItem ALL_Folder=new GalleryItem(all.get(0));
+        ALL_Folder.setDisplayName("ALL");
+        ALL_Folder.getFiles().addAll(all.stream().map(GalleryItem::new).collect(Collectors.toList()));
+        allSelectedImagesFolder.setValue(ALL_Folder);
+
+        allFolders.add(0,ALL_Folder);
+        selectedDisplayFolders.setValue(allFolders);
     }
 
-    public LiveData<List<GalleryItem>> getAllImageFilesData() {
-        return allImageFiles;
+    public LiveData<GalleryItem> getAllSelectedImageFolder() {
+        return allSelectedImagesFolder;
+    }
+
+    public MutableLiveData<List<GalleryItem>> getCurrentFolderImages() {
+        return currentFolderImages;
+    }
+
+    public void setCurrentFolderImages(GalleryItem currentFolder) {
+        currentFolderImages.setValue(currentFolder.getFiles());
+    }
+
+    public MutableLiveData<List<GalleryItem>> getSelectedDisplayFolders() {
+        return selectedDisplayFolders;
     }
 }

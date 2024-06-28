@@ -3,7 +3,6 @@ package com.particlesdevs.photoncamera.gallery.ui;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.databinding.DataBindingUtil;
@@ -41,7 +40,8 @@ public class GalleryActivity extends BaseActivity {
         getDelegate().setLocalNightMode(PreferenceKeys.getThemeValue());
         activityGalleryBinding = DataBindingUtil.setContentView(this, R.layout.activity_gallery);
         viewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
-        viewModel.fetchAllImages();
+        viewModel.fetchAllMedia();
+        viewModel.setCurrentFolderImages(viewModel.getAllSelectedImageFolder().getValue());
 //        DataBindingUtil.setContentView(this, R.layout.activity_gallery);
     }
 

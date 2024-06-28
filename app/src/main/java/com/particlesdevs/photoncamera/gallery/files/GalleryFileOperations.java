@@ -31,23 +31,34 @@ import java.util.stream.Collectors;
 public class GalleryFileOperations {
     public static final int REQUEST_PERM_DELETE = 1010;
     private static final String[] INCLUDED_IMAGE_FOLDERS = new String[]{"%DCIM/PhotonCamera/%", "%DCIM/PhotonCamera/Raw/%", "%DCIM/Camera/%"};
-    private static final ArrayList<String> SELECTED_FOLDERS = new ArrayList<>();
+    private static final ArrayList<String> SELECTED_FOLDERS_IDS = new ArrayList<>();
     private static final ArrayList<ImagesFolder> ALL_FOLDERS = new ArrayList<>();
+    private static final ArrayList<ImagesFolder> SELECTED_FOLDERS = new ArrayList<>();
 
-    public static List<ImageFile> fetchAllImageFiles(ContentResolver contentResolver) {
+    public static ArrayList<ImagesFolder> getSelectedFolders() {
+        return SELECTED_FOLDERS;
+    }
+
+    public static ArrayList<ImagesFolder> _fetchSelectedFolders(ContentResolver contentResolver) {
         FindAllFoldersWithImages(contentResolver);
-        ArrayList<ImageFile> imageFiles = new ArrayList<>();
+        SELECTED_FOLDERS_IDS.clear();
         SELECTED_FOLDERS.clear();
-        SELECTED_FOLDERS.addAll(PreferenceKeys.getStringSet(PreferenceKeys.Key.FOLDERS_LIST));
-        if(SELECTED_FOLDERS.isEmpty())
-        {
-            SELECTED_FOLDERS.add("Camera"); //in case the user has not selected any folder
+        SELECTED_FOLDERS_IDS.addAll(PreferenceKeys.getStringSet(PreferenceKeys.Key.FOLDERS_LIST));
+        if (SELECTED_FOLDERS_IDS.isEmpty()) {
+            SELECTED_FOLDERS_IDS.add("Camera"); //in case the user has not selected any folder
         }
-        SELECTED_FOLDERS.forEach(s -> ALL_FOLDERS.forEach(imagesFolder -> {
+        SELECTED_FOLDERS_IDS.forEach(s -> ALL_FOLDERS.forEach(imagesFolder -> {
             if (String.valueOf(imagesFolder.folderId).equals(s) || imagesFolder.folderName.equals(s)) {
-                imageFiles.addAll(imagesFolder.getAllImageFiles());
+                SELECTED_FOLDERS.add(imagesFolder);
             }
         }));
+        SELECTED_FOLDERS.sort(Comparator.comparing(o -> o.folderName));
+        return SELECTED_FOLDERS;
+    }
+
+    public static List<ImageFile> extractAllSelectedImages() {
+        ArrayList<ImageFile> imageFiles = new ArrayList<>();
+        SELECTED_FOLDERS.forEach(imagesFolder -> imageFiles.addAll(imagesFolder.getAllImageFiles()));
 /*
         ArrayList<ImageFile> images = new ArrayList<>();
         String[] projection = new String[]{MediaStore.MediaColumns.DATA,MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.SIZE};
@@ -174,6 +185,12 @@ public class GalleryFileOperations {
         private String folderName;
         private ArrayList<ImageFile> imageFiles;
         private long folderId;
+        private ImageFile topImage;
+
+
+        public ImageFile getTopImage() {
+            return topImage;
+        }
 
         public long getFolderId() {
             return folderId;
@@ -257,7 +274,11 @@ public class GalleryFileOperations {
             }
             cursor.close();
         }
-
+        //find latest image:
+        ALL_FOLDERS.forEach(imagesFolder -> {
+            imagesFolder.getAllImageFiles().sort(Comparator.comparingLong(value -> -value.getLastModified()));
+            imagesFolder.topImage = imagesFolder.getAllImageFiles().get(0);
+        });
         ALL_FOLDERS.sort(Comparator.comparing(o -> o.folderName));
         return ALL_FOLDERS;
     }

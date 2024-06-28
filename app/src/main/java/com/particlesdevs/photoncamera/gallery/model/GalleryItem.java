@@ -2,10 +2,12 @@ package com.particlesdevs.photoncamera.gallery.model;
 
 import android.widget.Checkable;
 
+import com.particlesdevs.photoncamera.gallery.files.ImageFile;
 import com.particlesdevs.photoncamera.gallery.files.MediaFile;
 
 import org.apache.commons.io.FileUtils;
 
+import java.util.ArrayList;
 import java.util.Locale;
 
 /**
@@ -15,10 +17,16 @@ public class GalleryItem implements Checkable {
     private final MediaFile file;
     private final String mediaTypeTag;
     private boolean isChecked;
+    private String displayName;
+    private final ArrayList<GalleryItem> files = new ArrayList<>(0);
 
     public GalleryItem(MediaFile file) {
         this.file = file;
         this.mediaTypeTag = getTagName(file.getDisplayName());
+        this.displayName = file.getDisplayName();
+    }
+    public static GalleryItem createEmpty(){
+        return new GalleryItem(new ImageFile(0,null,"",0,0,""));
     }
 
     public String getMediaTypeTag() {
@@ -37,6 +45,17 @@ public class GalleryItem implements Checkable {
 
     public MediaFile getFile() {
         return file;
+    }
+
+    public ArrayList<GalleryItem> getFiles() {
+        return files;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+    public String getDisplayName() {
+        return displayName;
     }
 
     @Override
