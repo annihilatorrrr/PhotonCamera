@@ -58,6 +58,7 @@ public class CustomBinding {
     @BindingAdapter("loadImage")
     public static void loadImage(ImageView imageView, GalleryItem galleryItem) {
         if (galleryItem != null) {
+            imageView.post(()->
             Glide
                     .with(imageView)
                     .asBitmap()
@@ -68,7 +69,7 @@ public class CustomBinding {
                             .override(150, 150)
                             .optionalCenterCrop().useUnlimitedSourceGeneratorsPool(true)
                     )
-                    .into(imageView);
+                    .into(imageView));
         }
     }
 }
