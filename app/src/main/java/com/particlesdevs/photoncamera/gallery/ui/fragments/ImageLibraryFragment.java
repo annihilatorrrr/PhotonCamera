@@ -6,7 +6,10 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.activity.OnBackPressedDispatcher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -14,6 +17,7 @@ import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,10 +25,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.snackbar.Snackbar;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.databinding.FragmentGalleryImageLibraryBinding;
+import com.particlesdevs.photoncamera.databinding.ThumbnailSquareImageViewBinding;
+import com.particlesdevs.photoncamera.gallery.adapters.DragSelectionItemTouchListener;
 import com.particlesdevs.photoncamera.gallery.adapters.ImageGridAdapter;
 import com.particlesdevs.photoncamera.gallery.files.GalleryFileOperations;
 import com.particlesdevs.photoncamera.gallery.files.ImageFile;
 import com.particlesdevs.photoncamera.gallery.helper.Constants;
+import com.particlesdevs.photoncamera.gallery.interfaces.OnItemInteractionListener;
 import com.particlesdevs.photoncamera.gallery.model.GalleryItem;
 import com.particlesdevs.photoncamera.gallery.viewmodel.GalleryViewModel;
 
@@ -48,12 +55,23 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
     private RecyclerView linearRecyclerView;
 
 
-
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         fragmentGalleryImageLibraryBinding = DataBindingUtil.inflate(inflater, R.layout.fragment_gallery_image_library, container, false);
         navController = NavHostFragment.findNavController(this);
+        navController.addOnDestinationChangedListener((navController, navDestination, bundle) -> onImageSelectionStopped());
+        OnBackPressedCallback back = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (imageGridAdapter != null && !imageGridAdapter.getSelectedItems().isEmpty()) {
+                    onImageSelectionStopped();
+                } else {
+                    navController.navigateUp();
+                }
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), back);
         return fragmentGalleryImageLibraryBinding.getRoot();
     }
 
@@ -65,20 +83,46 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         recyclerView = fragmentGalleryImageLibraryBinding.imageGridRv;
         recyclerView.setHasFixedSize(true);
         recyclerView.setItemViewCacheSize(10); //trial
+        recyclerView.addOnItemTouchListener(new DragSelectionItemTouchListener(recyclerView.getContext(), new OnItemInteractionListener() {
+            @Override
+            public void onItemClicked(RecyclerView view, RecyclerView.ViewHolder holder, int position) {
+                select(holder, position);
+            }
+
+            @Override
+            public void onLongItemClicked(RecyclerView view, RecyclerView.ViewHolder holder, int position) {
+                select(holder, position);
+            }
+
+            @Override
+            public void onMultipleViewHoldersSelected(RecyclerView view, List<RecyclerView.ViewHolder> selections) {
+            }
+
+            @Override
+            public void onViewHolderHovered(RecyclerView view, RecyclerView.ViewHolder holder) {
+                select(holder, holder.getAbsoluteAdapterPosition());
+            }
+
+            private void select(RecyclerView.ViewHolder holder, int position) {
+                ImageGridAdapter.GridItemViewHolder gridHolder = ((ImageGridAdapter.GridItemViewHolder) holder);
+                ThumbnailSquareImageViewBinding binding = (ThumbnailSquareImageViewBinding) gridHolder.getBinding();
+                imageGridAdapter.selectGalleryItem(binding.imageCard, galleryItems.get(position));
+            }
+        }));
         observeAllMediaFiles();
         initListeners();
     }
-    private void initLinearRecyclerAdapter(List<GalleryItem> galleryItems){
+
+    private void initLinearRecyclerAdapter(List<GalleryItem> galleryItems) {
         if (galleryItems != null) {
             ImageLibraryFragment frag = this;
             linearGridAdapter = new ImageGridAdapter(galleryItems, Constants.GALLERY_ITEM_TYPE_LINEAR_FOLDER);
             linearGridAdapter.setHasStableIds(true);
             linearGridAdapter.setGridAdapterCallback(new ImageGridAdapter.GridAdapterCallback() {
                 @Override
-                public void onItemClicked(int position, View view, GalleryItem galleryItem) {
-                        frag.onImageSelectionStopped();
-                        initImageAdapter(galleryItem.getFiles());
-                        viewModel.setCurrentFolderImages(galleryItem);
+                public void onItemClicked(int position, View view, GalleryItem galleryFolder) {
+                    frag.onImageSelectionStopped();
+                    viewModel.setCurrentFolderImages(galleryFolder);
                 }
 
                 @Override
@@ -94,15 +138,16 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
             linearRecyclerView.setAdapter(linearGridAdapter);
         }
     }
+
     private void observeAllMediaFiles() {
         viewModel.getCurrentFolderImages().observe(getViewLifecycleOwner(), this::initImageAdapter);
-        viewModel.getSelectedDisplayFolders().observe(getViewLifecycleOwner(),this::initLinearRecyclerAdapter);
+        viewModel.getSelectedDisplayFolders().observe(getViewLifecycleOwner(), this::initLinearRecyclerAdapter);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if(viewModel.isUpdatePending()) {
+        if (viewModel.isUpdatePending()) {
             viewModel.fetchAllMedia();
             viewModel.setCurrentFolderImages(viewModel.getAllSelectedImageFolder().getValue());
             viewModel.setUpdatePending(false);
@@ -112,7 +157,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
     private void initImageAdapter(List<GalleryItem> galleryItems) {
         if (galleryItems != null) {
             this.galleryItems = galleryItems;
-            imageGridAdapter = new ImageGridAdapter(this.galleryItems,Constants.GALLERY_ITEM_TYPE_GRID);
+            imageGridAdapter = new ImageGridAdapter(this.galleryItems, Constants.GALLERY_ITEM_TYPE_GRID);
             imageGridAdapter.setHasStableIds(true);
             imageGridAdapter.setGridAdapterCallback(this);
             recyclerView.setAdapter(imageGridAdapter);
@@ -132,7 +177,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         fragmentGalleryImageLibraryBinding.settingsFab.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                if(fragmentGalleryImageLibraryBinding.scrollingGalleryFolderView.getVisibility()==View.VISIBLE)
+                if (fragmentGalleryImageLibraryBinding.scrollingGalleryFolderView.getVisibility() == View.VISIBLE)
                     fragmentGalleryImageLibraryBinding.scrollingGalleryFolderView.setVisibility(View.GONE);
                 else
                     fragmentGalleryImageLibraryBinding.scrollingGalleryFolderView.setVisibility(View.VISIBLE);
@@ -189,6 +234,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
     private void onSettingsFabClicked(View view) {
         NavController navController = Navigation.findNavController(view);
         navController.navigate(R.id.action_imageLibraryFragment_to_gallerySettingsFragment);
+        imageGridAdapter.deselectAll();
     }
 
     private void showFABMenu() {
@@ -221,11 +267,15 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
 
     @Override
     public void onImageSelectionStopped() {
-        imageGridAdapter.deselectAll();
-        if (isFABOpen) {
-            closeFABMenu();
+        if (imageGridAdapter != null) {
+            imageGridAdapter.deselectAll();
+            if (isFABOpen) {
+                closeFABMenu();
+            }
+            if (fragmentGalleryImageLibraryBinding != null) {
+                fragmentGalleryImageLibraryBinding.setButtonsVisible(false);
+            }
         }
-        fragmentGalleryImageLibraryBinding.setButtonsVisible(false);
     }
 
     @Override

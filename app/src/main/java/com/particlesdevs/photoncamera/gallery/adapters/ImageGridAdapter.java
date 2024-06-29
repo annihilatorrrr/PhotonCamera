@@ -89,11 +89,7 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
                 @Override
                 public void onItemClicked(View view, GalleryItem galleryItem) {
                     if (selectionHelper.isSelectionStarted() && itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
-                        if (selectionHelper.toggleSelection(galleryItem)) {
-                            selectView(view);
-                        } else {
-                            deselectView(view);
-                        }
+                        selectGalleryItem(view,galleryItem);
                     } else {
                         gridAdapterCallback.onItemClicked(holder.getAbsoluteAdapterPosition(), view, galleryItem);
                     }
@@ -101,14 +97,6 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
 
                 @Override
                 public boolean onItemLongClicked(View view, GalleryItem galleryItem) {
-                    if (itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
-                        if (selectionHelper.toggleSelection(galleryItem)) {
-                            selectView(view);
-                        } else {
-                            deselectView(view);
-                        }
-                        return true;
-                    }
                     return false;
                 }
             });
@@ -163,6 +151,19 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
         return position;
     }
 
+    public boolean selectGalleryItem(View view, GalleryItem item) {
+        if (itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
+            if (selectionHelper.toggleSelection(item)) {
+                selectView(view);
+            } else {
+                deselectView(view);
+            }
+            return true;
+        }
+        return false;
+    }
+
+
     public interface GridAdapterCallback {
         void onItemClicked(int position, View view, GalleryItem galleryItem);
 
@@ -177,6 +178,10 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
         public GridItemViewHolder(ViewBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
+        }
+
+        public ViewBinding getBinding() {
+            return binding;
         }
     }
 
