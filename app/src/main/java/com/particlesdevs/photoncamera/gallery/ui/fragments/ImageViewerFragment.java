@@ -383,10 +383,8 @@ public class ImageViewerFragment extends Fragment {
     public void handleImagesDeletedCallback(boolean isDeleted) {
         if (isDeleted && indexToDelete >= 0) {
             galleryItems.remove(indexToDelete);
+            seek_position=indexToDelete;
             initImageAdapter(galleryItems);
-            refreshLinearGridAdapter(galleryItems);
-            //auto scroll to the next photo
-            viewPager.setCurrentItem(indexToDelete, true);
             updateExif();
             Toast.makeText(getContext(), R.string.image_deleted, Toast.LENGTH_SHORT).show();
             indexToDelete = -1;

@@ -13,24 +13,24 @@
         <action
                 android:id="@+id/action_imageViewFragment_to_imageLibraryFragment"
                 app:destination="@id/imageLibraryFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit" />
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit" />
         <action
                 android:id="@+id/action_imageViewerFragment_to_imageCompareFragment"
                 app:destination="@id/imageCompareFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit" />
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit" />
         <action
                 android:id="@+id/action_imageViewerFragment_to_gallerySettingsFragment"
                 app:destination="@id/gallerySettingsFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit"/>
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit"/>
     </fragment>
     <fragment
             android:id="@+id/imageLibraryFragment"
@@ -40,25 +40,25 @@
         <action
                 android:id="@+id/action_imageLibraryFragment_to_imageViewerFragment"
                 app:destination="@id/imageViewerFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit">
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit">
         </action>
         <action
                 android:id="@+id/action_imageLibraryFragment_to_imageCompareFragment"
                 app:destination="@id/imageCompareFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit"/>
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit"/>
         <action
                 android:id="@+id/action_imageLibraryFragment_to_gallerySettingsFragment"
                 app:destination="@id/gallerySettingsFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit"/>
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit"/>
 
     </fragment>
     <fragment
@@ -68,10 +68,10 @@
         <action
                 android:id="@+id/action_imageCompareFragment_to_imageLibraryFragment"
                 app:destination="@id/imageLibraryFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit"/>
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit"/>
     </fragment>
 
     <fragment
@@ -81,9 +81,9 @@
         <action
                 android:id="@+id/action_gallerySettingsFragment_to_imageLibraryFragment"
                 app:destination="@id/imageLibraryFragment"
-                app:enterAnim="@anim/animate_slide_up_enter"
-                app:exitAnim="@anim/animate_slide_up_exit"
-                app:popEnterAnim="@anim/animate_slide_down_enter"
-                app:popExitAnim="@anim/animate_slide_down_exit"/>
+                app:enterAnim="@anim/slide_up_enter"
+                app:exitAnim="@anim/slide_up_exit"
+                app:popEnterAnim="@anim/slide_down_enter"
+                app:popExitAnim="@anim/slide_down_exit"/>
     </fragment>
 </navigation>
