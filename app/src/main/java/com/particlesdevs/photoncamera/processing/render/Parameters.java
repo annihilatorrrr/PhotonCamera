@@ -214,6 +214,7 @@ public class Parameters {
         if (sensorSpecifics.CCTExists) {
             if (sensorSpecifics.calibrationTransform1 != null) {
                 calibration1 = sensorSpecifics.calibrationTransform1;
+                Log.d(TAG, "Using custom calibration transform 1:"+ calibration1);
             }
             if (sensorSpecifics.calibrationTransform2 != null) {
                 calibration2 = sensorSpecifics.calibrationTransform2;
@@ -311,6 +312,9 @@ public class Parameters {
             sensorToProPhoto[6] = 0.0f;
             sensorToProPhoto[7] = 0.0f;
             sensorToProPhoto[8] = 1.0f / whitePoint[2];
+            Log.d(TAG, "Using captured color correction transform");
+        } else {
+            Log.d(TAG, "Using calculated color correction transform");
         }
         Log.d(TAG, Arrays.toString(sensorToProPhoto) + PhotonCamera.getSettings().colorMethod);
         Converter.multiply(Converter.HDRXCCM, Converter.sProPhotoToXYZ, /*out*/proPhotoToSRGB);
