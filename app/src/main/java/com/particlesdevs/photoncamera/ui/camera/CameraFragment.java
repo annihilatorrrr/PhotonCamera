@@ -41,6 +41,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -423,10 +424,14 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
     private RectF getScreenRectFromMeteringRect(MeteringRectangle meteringRectangle) {
         if (captureController.mImageReaderPreview == null) return new RectF();
-        float left = (((float) meteringRectangle.getY() / captureController.mImageReaderPreview.getHeight()) * (textureView.getWidth()));
-        float top = (((float) meteringRectangle.getX() / captureController.mImageReaderPreview.getWidth()) * (textureView.getHeight()));
-        float width = (((float) meteringRectangle.getHeight() / captureController.mImageReaderPreview.getHeight()) * (textureView.getWidth()));
-        float height = (((float) meteringRectangle.getWidth() / captureController.mImageReaderPreview.getWidth()) * (textureView.getHeight()));
+        Size size = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE);
+        if (size == null) {
+            size = new Size(captureController.mImageReaderPreview.getWidth(), captureController.mImageReaderPreview.getHeight());
+        }
+        float left = (((float) meteringRectangle.getY() / size.getHeight()) * (textureView.getWidth()));
+        float top = (((float) meteringRectangle.getX() / size.getWidth()) * (textureView.getHeight()));
+        float width = (((float) meteringRectangle.getHeight() / size.getHeight()) * (textureView.getWidth()));
+        float height = (((float) meteringRectangle.getWidth() / size.getWidth()) * (textureView.getHeight()));
         //left = textureView.getWidth() - left;
         return new RectF(
                 //meteringRectangle.getY()-left, //Left

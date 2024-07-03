@@ -6,6 +6,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.util.Log;
+import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -71,9 +72,9 @@ public class TouchFocus {
     private void setFocus(int x, int y) {
         Point size = new Point(captureController.mImageReaderPreview.getWidth(), captureController.mImageReaderPreview.getHeight());
         Point CurUi = new Point(textureView.getWidth(),textureView.getHeight());
-        Rect sizee = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+        Size sizee = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE);
         if (sizee == null) {
-            sizee = new Rect(0, 0, size.x, size.y);
+            sizee = new Size(size.x, size.y);
         }
         if (x < 0)
             x = 0;
@@ -85,23 +86,23 @@ public class TouchFocus {
         if (x > CurUi.x)
             x  =CurUi.x;*/
         //use 1/6 from the the sensor size for the focus rect
-        int width_to_set = sizee.width() / 8;
+        int width_to_set = sizee.getWidth() / 8;
         float kProp = (float) CurUi.x / (float) (CurUi.y);
         int height_to_set = (int) (width_to_set * kProp);
-        float x_scale = (float) sizee.width() / (float) CurUi.y;
-        float y_scale = (float) sizee.height() / (float) CurUi.x;
+        float x_scale = (float) sizee.getWidth() / (float) CurUi.y;
+        float y_scale = (float) sizee.getHeight() / (float) CurUi.x;
         int x_to_set = (int) (x * x_scale) - width_to_set / 2;
         int y_to_set = (int) (y * y_scale) - height_to_set / 2;
         Log.v(TAG,"y_to_set:"+y_to_set);
-        y_to_set = sizee.height()-y_to_set-height_to_set;
+        y_to_set = sizee.getHeight()-y_to_set-height_to_set;
         if (x_to_set < 0)
             x_to_set = 0;
         if (y_to_set < 0)
             y_to_set = 0;
-        if (y_to_set - height_to_set > sizee.height())
-            y_to_set = sizee.height() - height_to_set;
-        if (x_to_set - width_to_set > sizee.width())
-            y_to_set = sizee.width() - width_to_set;
+        if (y_to_set - height_to_set > sizee.getHeight())
+            y_to_set = sizee.getHeight() - height_to_set;
+        if (x_to_set - width_to_set > sizee.getWidth())
+            y_to_set = sizee.getWidth() - width_to_set;
 
         MeteringRectangle rect_to_set = new MeteringRectangle(x_to_set, y_to_set, width_to_set, height_to_set, MeteringRectangle.METERING_WEIGHT_MAX - 1);
         MeteringRectangle[] rectaf = new MeteringRectangle[1];
