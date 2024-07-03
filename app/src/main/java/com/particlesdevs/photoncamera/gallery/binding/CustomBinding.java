@@ -58,17 +58,18 @@ public class CustomBinding {
     @BindingAdapter("loadImage")
     public static void loadImage(ImageView imageView, GalleryItem galleryItem) {
         if (galleryItem != null) {
+            imageView.post(()->
             Glide
                     .with(imageView)
                     .asBitmap()
                     .load(galleryItem.getFile().getFileUri())
                     .apply(new RequestOptions()
-                            .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+                            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
                             .signature(new ObjectKey(galleryItem.getFile().getDisplayName() + galleryItem.getFile().getLastModified()))
-                            .override(200, 200)
-                            .centerCrop()
+                            .override(150, 150)
+                            .optionalCenterCrop().useUnlimitedSourceGeneratorsPool(true)
                     )
-                    .into(imageView);
+                    .into(imageView));
         }
     }
 }

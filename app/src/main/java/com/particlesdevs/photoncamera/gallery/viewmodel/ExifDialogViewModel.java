@@ -133,7 +133,7 @@ public class ExifDialogViewModel extends AndroidViewModel {
                                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                                 .signature(new ObjectKey("hist" + imageFile.getDisplayName() + imageFile.getLastModified()))
                                 .override(800) //800*800
-                                .fitCenter())
+                                .fitCenter().useUnlimitedSourceGeneratorsPool(true))
                 .into(new CustomTarget<Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {

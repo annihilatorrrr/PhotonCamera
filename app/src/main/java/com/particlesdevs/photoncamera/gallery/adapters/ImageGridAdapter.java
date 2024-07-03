@@ -59,7 +59,7 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
     public GridItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
         ThumbnailSquareImageViewBinding thumbnailSquareImageViewBinding = ThumbnailSquareImageViewBinding.inflate(layoutInflater, parent, false);
-        if (itemType == Constants.GALLERY_ITEM_TYPE_LINEAR) {
+        if (itemType == Constants.GALLERY_ITEM_TYPE_LINEAR || itemType == Constants.GALLERY_ITEM_TYPE_LINEAR_FOLDER) {
             FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(dpToPx(70), dpToPx(70));
             layoutParams.setMargins(dpToPx(2), dpToPx(4), dpToPx(2), dpToPx(4));
             thumbnailSquareImageViewBinding.getRoot().setLayoutParams(layoutParams);
@@ -76,18 +76,20 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
     public void onBindViewHolder(@NonNull GridItemViewHolder holder, int position) {
         final GalleryItem galleryItem = galleryItemList.get(position);
         if (holder.binding instanceof ThumbnailSquareImageViewBinding) {
+
             ThumbnailSquareImageViewBinding thumbnailSquareImageViewBinding = (ThumbnailSquareImageViewBinding) holder.binding;
             thumbnailSquareImageViewBinding.selectionCircle.setVisibility(selectionHelper.isSelectionStarted() ? View.VISIBLE : View.GONE);
             thumbnailSquareImageViewBinding.setGalleryitem(galleryItem);
+            if(itemType==Constants.GALLERY_ITEM_TYPE_LINEAR_FOLDER)
+            {
+                thumbnailSquareImageViewBinding.thumbCaptionText.setVisibility(View.VISIBLE);
+                thumbnailSquareImageViewBinding.thumbTagText.setVisibility(View.GONE);
+            }
             thumbnailSquareImageViewBinding.setGalleryitemclickedlistener(new GalleryItemClickedListener() {
                 @Override
                 public void onItemClicked(View view, GalleryItem galleryItem) {
                     if (selectionHelper.isSelectionStarted() && itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
-                        if (selectionHelper.toggleSelection(galleryItem)) {
-                            selectView(view);
-                        } else {
-                            deselectView(view);
-                        }
+                        selectGalleryItem(view,galleryItem);
                     } else {
                         gridAdapterCallback.onItemClicked(holder.getAbsoluteAdapterPosition(), view, galleryItem);
                     }
@@ -95,14 +97,6 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
 
                 @Override
                 public boolean onItemLongClicked(View view, GalleryItem galleryItem) {
-                    if (itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
-                        if (selectionHelper.toggleSelection(galleryItem)) {
-                            selectView(view);
-                        } else {
-                            deselectView(view);
-                        }
-                        return true;
-                    }
                     return false;
                 }
             });
@@ -157,6 +151,19 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
         return position;
     }
 
+    public boolean selectGalleryItem(View view, GalleryItem item) {
+        if (itemType == Constants.GALLERY_ITEM_TYPE_GRID) {
+            if (selectionHelper.toggleSelection(item)) {
+                selectView(view);
+            } else {
+                deselectView(view);
+            }
+            return true;
+        }
+        return false;
+    }
+
+
     public interface GridAdapterCallback {
         void onItemClicked(int position, View view, GalleryItem galleryItem);
 
@@ -171,6 +178,10 @@ public class ImageGridAdapter extends RecyclerView.Adapter<ImageGridAdapter.Grid
         public GridItemViewHolder(ViewBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
+        }
+
+        public ViewBinding getBinding() {
+            return binding;
         }
     }
 

@@ -351,6 +351,10 @@ public class PreferenceKeys {
         return preferenceKeys.settingsManager.getString(SCOPE_GLOBAL, key);
     }
 
+    public static Set<String> getStringSet(Key key) {
+        return preferenceKeys.settingsManager.getStringSet(SCOPE_GLOBAL, key,new HashSet<>(0));
+    }
+
     public static boolean getBool(Key key) {
         return preferenceKeys.settingsManager.getBoolean(SCOPE_GLOBAL, key);
     }
@@ -431,7 +435,8 @@ public class PreferenceKeys {
         /**
          * Per Lens File
          */
-        PER_LENS_FILE_NAME(R.string._per_lens);
+        PER_LENS_FILE_NAME(R.string._per_lens),
+        FOLDERS_LIST(R.string.pref_folders_list);
         public final String mValue;
 
         Key(@StringRes int stringId) {

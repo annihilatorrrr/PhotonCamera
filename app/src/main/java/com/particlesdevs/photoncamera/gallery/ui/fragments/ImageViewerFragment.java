@@ -40,11 +40,12 @@ import com.particlesdevs.photoncamera.gallery.helper.Constants;
 import com.particlesdevs.photoncamera.gallery.model.GalleryItem;
 import com.particlesdevs.photoncamera.gallery.viewmodel.ExifDialogViewModel;
 import com.particlesdevs.photoncamera.gallery.viewmodel.GalleryViewModel;
+import com.particlesdevs.photoncamera.gallery.views.CustomSSIV;
 import com.particlesdevs.photoncamera.processing.ImagePath;
-import com.particlesdevs.photoncamera.processing.ImageSaver;
 
 import org.apache.commons.io.FileUtils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +56,7 @@ import java.util.Locale;
  */
 public class ImageViewerFragment extends Fragment {
     private static final String TAG = ImageViewerFragment.class.getSimpleName();
-    private List<GalleryItem> galleryItems;
+    private List<GalleryItem> galleryItems=new ArrayList<>(0);
     private ExifDialogViewModel exifDialogViewModel;
     private ViewPager viewPager;
     private RecyclerView linearRecyclerView;
@@ -65,6 +66,7 @@ public class ImageViewerFragment extends Fragment {
     private FragmentGalleryImageViewerBinding fragmentGalleryImageViewerBinding;
     private boolean isExifVisible;
     private String mode;
+    private int seek_position = 0;
     private SSIVListener ssivListener = new SSIVListener() {
         @Override
         public void onScaleChanged(float newScale, int origin) {
@@ -109,8 +111,7 @@ public class ImageViewerFragment extends Fragment {
         fragmentGalleryImageViewerBinding.exifLayout.setExifmodel(exifDialogViewModel.getExifDataModel());
         fragmentGalleryImageViewerBinding.setExifmodel(exifDialogViewModel.getExifDataModel());
         navController = NavHostFragment.findNavController(this);
-        initImageAdapter(viewModel.getAllImageFilesData().getValue());
-        initLinearRecyclerAdapter(viewModel.getAllImageFilesData().getValue());
+        viewModel.getCurrentFolderImages().observe(getViewLifecycleOwner(),this::initImageAdapter);
     }
 
     private void initImageAdapter(List<GalleryItem> galleryItems) {
@@ -128,6 +129,9 @@ public class ImageViewerFragment extends Fragment {
                 }
             });
             viewPager.setAdapter(adapter);
+            initLinearRecyclerAdapter(galleryItems);
+            viewPager.setCurrentItem(seek_position);
+            linearRecyclerView.postDelayed(() -> linearRecyclerView.scrollToPosition(seek_position),500);
         }
     }
 
@@ -176,6 +180,7 @@ public class ImageViewerFragment extends Fragment {
         fragmentGalleryImageViewerBinding.topControlsContainer.setOnBack(this::onBack);
         fragmentGalleryImageViewerBinding.topControlsContainer.setOnQuickCompare(this::onQuickCompare);
         fragmentGalleryImageViewerBinding.exifLayout.histogramView.setHistogramLoadingListener(this::isHistogramLoading);
+        fragmentGalleryImageViewerBinding.setOnclickempty(this::onEmptyViewClicked);
     }
 
     @Override
@@ -195,8 +200,7 @@ public class ImageViewerFragment extends Fragment {
         Bundle bundle = getArguments();
         if (bundle != null) {
             mode = bundle.getString(Constants.MODE_KEY);
-            viewPager.setCurrentItem(bundle.getInt(Constants.IMAGE_POSITION_KEY, 0));
-            linearRecyclerView.scrollToPosition(bundle.getInt(Constants.IMAGE_POSITION_KEY, 0));
+            seek_position = bundle.getInt(Constants.IMAGE_POSITION_KEY, 0);
         }
     }
 
@@ -212,7 +216,7 @@ public class ImageViewerFragment extends Fragment {
         this.ssivListener = ssivListener;
     }
 
-    public ImageAdapter.CustomSSIV getCurrentSSIV() {
+    public CustomSSIV getCurrentSSIV() {
         return viewPager.findViewById(adapter.getSsivId(viewPager.getCurrentItem()));
     }
 
@@ -275,9 +279,9 @@ public class ImageViewerFragment extends Fragment {
                 if (data != null && data.getData() != null) {
                     String savedFilePath = data.getData().getPath();
                     Toast.makeText(getContext(), "Saved : " + savedFilePath, Toast.LENGTH_LONG).show();
-                    viewModel.fetchAllImages();
-                    initImageAdapter(viewModel.getAllImageFilesData().getValue());
-                    refreshLinearGridAdapter(viewModel.getAllImageFilesData().getValue());
+                    viewModel.fetchAllMedia();
+                    initImageAdapter(viewModel.getCurrentFolderImages().getValue());
+                    refreshLinearGridAdapter(viewModel.getCurrentFolderImages().getValue());
                     updateExif();
                 }
             }
@@ -334,6 +338,11 @@ public class ImageViewerFragment extends Fragment {
         }
     }
 
+    private void onEmptyViewClicked(View view) {
+        NavController navController = Navigation.findNavController(view);
+        navController.navigate(R.id.action_imageViewerFragment_to_gallerySettingsFragment);
+    }
+
     public void updateScaleText() {
         SubsamplingScaleImageView view = getCurrentSSIV();
         if (view != null) {
@@ -347,7 +356,7 @@ public class ImageViewerFragment extends Fragment {
 
     private void updateExif() {
         int position = viewPager.getCurrentItem();
-        if (galleryItems.size() > 0) {
+        if (!galleryItems.isEmpty()) {
             GalleryItem galleryItem = galleryItems.get(position);
             exifDialogViewModel.updateModel(requireContext().getContentResolver(), galleryItem.getFile());
             if (fragmentGalleryImageViewerBinding.getExifDialogVisible()) {
@@ -374,13 +383,17 @@ public class ImageViewerFragment extends Fragment {
     public void handleImagesDeletedCallback(boolean isDeleted) {
         if (isDeleted && indexToDelete >= 0) {
             galleryItems.remove(indexToDelete);
-            initImageAdapter(galleryItems);
-            refreshLinearGridAdapter(galleryItems);
-            //auto scroll to the next photo
-            viewPager.setCurrentItem(indexToDelete, true);
+            seek_position=indexToDelete;
+            if (!galleryItems.isEmpty()) {
+                initImageAdapter(galleryItems);
+            }
             updateExif();
             Toast.makeText(getContext(), R.string.image_deleted, Toast.LENGTH_SHORT).show();
             indexToDelete = -1;
+            if (galleryItems.isEmpty()) {
+                viewModel.setUpdatePending(true);
+                navController.navigateUp();
+            }
         } else {
             Toast.makeText(getContext(), "Deletion Failed!", Toast.LENGTH_SHORT).show();
         }
