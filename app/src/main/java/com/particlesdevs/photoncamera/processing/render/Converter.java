@@ -171,7 +171,7 @@ public class Converter {
             lerp(XYZToCamera1, XYZToCamera2, interpolationFactor, interpolationXYZToCamera);
             if (!invert(interpolationXYZToCamera, /*out*/interpolationXYZToCameraInverse)) {
                 throw new IllegalArgumentException(
-                        "Cannot invert XYZ to Camera matrix, input matrices are invalid.");
+                        "Cannot invert XYZ to Camera matrix, input matrices are invalid." + Arrays.toString(interpolationXYZToCamera) + " " + Arrays.toString(interpolationXYZToCameraInverse));
             }
             map(interpolationXYZToCameraInverse, cameraNeutral, /*out*/neutralGuess);
             double[] xy = calculateCIExyCoordinates(neutralGuess[0], neutralGuess[1],
