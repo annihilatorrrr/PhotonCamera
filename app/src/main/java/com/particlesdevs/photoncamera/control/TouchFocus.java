@@ -85,7 +85,7 @@ public class TouchFocus {
         if (x > CurUi.x)
             x  =CurUi.x;*/
         //use 1/6 from the the sensor size for the focus rect
-        int width_to_set = sizee.width() / 6;
+        int width_to_set = sizee.width() / 8;
         float kProp = (float) CurUi.x / (float) (CurUi.y);
         int height_to_set = (int) (width_to_set * kProp);
         float x_scale = (float) sizee.width() / (float) CurUi.y;
