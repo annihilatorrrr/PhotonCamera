@@ -250,7 +250,14 @@ public class GalleryFileOperations {
 //                Log.i("FolderID", String.valueOf(bucketId));
 
                 for (int i = 0; i < ALL_FOLDERS.size(); i++) {
-                    if (ALL_FOLDERS.get(i).getFolderName().equals(bucketName)) {
+                    String fname = ALL_FOLDERS.get(i).getFolderName();
+                    if (fname == null){
+                        ALL_FOLDERS.remove(i);
+                        i--;
+                        continue;
+                    }
+
+                    if (fname.equals(bucketName)) {
                         is_folder_already_added = true;
                         position = i;
                         break;
