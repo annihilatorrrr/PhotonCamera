@@ -107,8 +107,9 @@ public class PostPipeline extends GLBasePipeline {
         glint.parameters = parameters;
 
         BuildDefaultPipeline();
-
-        return runAll().getBufferedImage();
+        Bitmap res = runAll().getBufferedImage();
+        GLTexture.closeAll();
+        return res;
     }
 
     private void BuildDefaultPipeline() {

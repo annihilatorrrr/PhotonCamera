@@ -25,6 +25,7 @@ public class GLTexture implements AutoCloseable {
     private static int count = 0;
     public final GLFormat mFormat;
     private static boolean[] ids = new boolean[256];
+    private static int[] textures = new int[256];
     public GLTexture(GLTexture in,GLFormat format) {
         this(in.mSize,new GLFormat(format),null,in.mFormat.filter,in.mFormat.wrap,0);
     }
@@ -75,18 +76,22 @@ public class GLTexture implements AutoCloseable {
         mFormat.filter = textureFilter;
         mFormat.wrap = textureWrapper;
         int[] TexID = new int[1];
+        glGenTextures(1,TexID,0);
+        Log.println(Log.DEBUG,"GLTexture","TexID:"+TexID[0]);
         for(int i = 1; i<ids.length;i++){
             if(!ids[i]){
                 Log.d("GLTexture","get:"+i);
                 if(count < i){
                     count = i;
-                    glGenTextures(1,TexID,0);
+                    //glGenTextures(1,TexID,0);
                 }
-                TexID[0] = i;
+                //TexID[0] = i;
+                textures[i] = TexID[0];
                 ids[i] = true;
                 break;
             }
         }
+
         mTextureID = TexID[0];
         //Log.d("GLTexture","Size:"+size+" ID:"+mTextureID);
         glActiveTexture(GL_TEXTURE1+mTextureID);
@@ -110,14 +115,17 @@ public class GLTexture implements AutoCloseable {
         this.mSize = size;
         this.mGLFormat = glFormat.getGLFormatInternal();
         int[] TexID = new int[1];
+        glGenTextures(1,TexID,0);
+        Log.println(Log.DEBUG,"GLTexture","TexID:"+TexID[0]);
         for(int i = 1; i<ids.length;i++){
             if(!ids[i]){
                 Log.d("GLTexture","get:"+i);
                 if(count < i){
                     count = i;
-                    glGenTextures(1,TexID,0);
+                    //glGenTextures(1,TexID,0);
                 }
-                TexID[0] = i;
+                //TexID[0] = i;
+                textures[i] = TexID[0];
                 ids[i] = true;
                 break;
             }
@@ -211,6 +219,16 @@ public class GLTexture implements AutoCloseable {
             }
         }
         Log.d("GLTexture","notClosed:"+str.toString());
+    }
+
+    public static void closeAll(){
+        for(int i =0; i<ids.length;i++){
+            if(ids[i]) {
+                glDeleteTextures(1,new int[]{textures[i]},0);
+                ids[i] = false;
+            }
+        }
+        count = 0;
     }
 
     @Override
