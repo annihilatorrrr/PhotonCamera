@@ -127,7 +127,7 @@ public class SensorSpecifics {
                                 current.CalibrationTransform1 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.CalibrationTransform1[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.CalibrationTransform1[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
@@ -135,7 +135,7 @@ public class SensorSpecifics {
                                 current.CalibrationTransform2 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.CalibrationTransform2[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.CalibrationTransform2[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
@@ -143,7 +143,7 @@ public class SensorSpecifics {
                                 current.ColorTransform1 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.ColorTransform1[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.ColorTransform1[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
@@ -151,7 +151,7 @@ public class SensorSpecifics {
                                 current.ColorTransform2 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.ColorTransform2[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.ColorTransform2[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
@@ -159,7 +159,7 @@ public class SensorSpecifics {
                                 current.ForwardMatrix1 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.ForwardMatrix1[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.ForwardMatrix1[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
@@ -167,7 +167,7 @@ public class SensorSpecifics {
                                 current.ForwardMatrix2 = new float[3][3];
                                 for (int i = 0; i < 3; i++) {
                                     for(int j =0; j < 3;j++)
-                                        current.ForwardMatrix2[i][j] = (float)Double.parseDouble(istr[i]);
+                                        current.ForwardMatrix2[i][j] = (float)Double.parseDouble(istr[i + j*3]);
                                 }
                                 break;
                             }
