@@ -110,6 +110,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
             }
         }));
         observeAllMediaFiles();
+        viewModel.getUpdatePending().observe(getViewLifecycleOwner(),this::onUpdatePending);
         initListeners();
     }
 
@@ -144,10 +145,8 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         viewModel.getSelectedDisplayFolders().observe(getViewLifecycleOwner(), this::initLinearRecyclerAdapter);
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (viewModel.isUpdatePending()) {
+    private void onUpdatePending(Boolean pending) {
+        if (pending) {
             viewModel.fetchAllMedia();
             viewModel.setCurrentFolderImages(viewModel.getAllSelectedImageFolder().getValue());
             viewModel.setUpdatePending(false);
@@ -300,11 +299,14 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
             String numOfFiles = String.valueOf(filesToDelete.size());
             String totalFileSize = FileUtils.byteCountToDisplaySize((int) filesToDelete.stream().mapToLong(value -> value.getFile().getSize()).sum());
             galleryItems.removeAll(filesToDelete);
-            imageGridAdapter.setGalleryItemList(galleryItems);
-            imageGridAdapter.notifyItemRangeChanged(0, imageGridAdapter.getItemCount());
-
+            if(!galleryItems.isEmpty()) {
+                imageGridAdapter.setGalleryItemList(galleryItems);
+                imageGridAdapter.notifyItemRangeChanged(0, imageGridAdapter.getItemCount());
+            }
             onImageSelectionStopped();
-
+            if(galleryItems.isEmpty()) {
+                viewModel.setUpdatePending(true);
+            }
             Snackbar.make(getView(),
                     getString(R.string.multiple_deleted_success, numOfFiles, totalFileSize),
                     Snackbar.LENGTH_SHORT).show();

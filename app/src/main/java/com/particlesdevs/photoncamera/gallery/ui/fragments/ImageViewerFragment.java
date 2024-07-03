@@ -356,7 +356,7 @@ public class ImageViewerFragment extends Fragment {
 
     private void updateExif() {
         int position = viewPager.getCurrentItem();
-        if (galleryItems.size() > 0) {
+        if (!galleryItems.isEmpty()) {
             GalleryItem galleryItem = galleryItems.get(position);
             exifDialogViewModel.updateModel(requireContext().getContentResolver(), galleryItem.getFile());
             if (fragmentGalleryImageViewerBinding.getExifDialogVisible()) {
@@ -384,10 +384,16 @@ public class ImageViewerFragment extends Fragment {
         if (isDeleted && indexToDelete >= 0) {
             galleryItems.remove(indexToDelete);
             seek_position=indexToDelete;
-            initImageAdapter(galleryItems);
+            if (!galleryItems.isEmpty()) {
+                initImageAdapter(galleryItems);
+            }
             updateExif();
             Toast.makeText(getContext(), R.string.image_deleted, Toast.LENGTH_SHORT).show();
             indexToDelete = -1;
+            if (galleryItems.isEmpty()) {
+                viewModel.setUpdatePending(true);
+                navController.navigateUp();
+            }
         } else {
             Toast.makeText(getContext(), "Deletion Failed!", Toast.LENGTH_SHORT).show();
         }

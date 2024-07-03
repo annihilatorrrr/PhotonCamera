@@ -21,15 +21,15 @@ public class GalleryViewModel extends AndroidViewModel {
     private final MutableLiveData<List<GalleryItem>> selectedDisplayFolders = new MutableLiveData<>(new ArrayList<>(0));
 
     private final MutableLiveData<List<GalleryItem>> currentFolderImages = new MutableLiveData<>(new ArrayList<>(0));
+    private final MutableLiveData<Boolean> updatePendingLiveData=new MutableLiveData<>(false);
 
-    private boolean updatePending=false;
 
-    public boolean isUpdatePending() {
-        return updatePending;
+    public MutableLiveData<Boolean> getUpdatePending() {
+        return updatePendingLiveData;
     }
 
     public void setUpdatePending(boolean updatePending) {
-        this.updatePending = updatePending;
+        updatePendingLiveData.setValue(updatePending);
     }
 
     public GalleryViewModel(@NonNull Application application) {
@@ -45,12 +45,14 @@ public class GalleryViewModel extends AndroidViewModel {
         }).collect(Collectors.toList());
         
         ArrayList<ImageFile> all = (ArrayList<ImageFile>) GalleryFileOperations.extractAllSelectedImages();
-        GalleryItem ALL_Folder=new GalleryItem(all.get(0));
-        ALL_Folder.setDisplayName("ALL");
-        ALL_Folder.getFiles().addAll(all.stream().map(GalleryItem::new).collect(Collectors.toList()));
-        allSelectedImagesFolder.setValue(ALL_Folder);
+        if (!all.isEmpty()) {
+            GalleryItem ALL_Folder = new GalleryItem(all.get(0));
+            ALL_Folder.setDisplayName("ALL");
+            ALL_Folder.getFiles().addAll(all.stream().map(GalleryItem::new).collect(Collectors.toList()));
+            allSelectedImagesFolder.setValue(ALL_Folder);
 
-        allFolders.add(0,ALL_Folder);
+            allFolders.add(0, ALL_Folder);
+        }
         selectedDisplayFolders.setValue(allFolders);
     }
 
