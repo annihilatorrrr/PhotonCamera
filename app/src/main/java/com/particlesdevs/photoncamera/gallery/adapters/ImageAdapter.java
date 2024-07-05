@@ -75,9 +75,9 @@ public class ImageAdapter extends PagerAdapter {
             scaleImageView.setTouchCallBack(ssivListener);
         }
         scaleImageView.setOnImageEventListener(imageEventListener);
-        if (fileExt.equalsIgnoreCase("jpg") || fileExt.equalsIgnoreCase("png")) {
+        if (!fileExt.equalsIgnoreCase("dng")) {
             scaleImageView.setImage(ImageSource.uri(galleryItem.getFile().getFileUri()));
-        } else if (fileExt.equalsIgnoreCase("dng")) { //For DNG Files
+        } else { //For DNG Files, load as a bitmap
             Glide.with(container.getContext())
                     .asBitmap()
                     .load(galleryItem.getFile().getFileUri())
