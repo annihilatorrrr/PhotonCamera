@@ -91,7 +91,7 @@ public class ExifDialogViewModel extends AndroidViewModel {
         String disp_focal = Rational.parseRational(attr_focal == null ? "NaN" : attr_focal).doubleValue() + "mm";
         String disp_iso = "ISO" + attr_iso;
 
-        exifDialogModel.setTitle(imageFile.getDisplayName());
+        exifDialogModel.setTitle(imageFile.getAbsolutePath());
         exifDialogModel.setRes(attr_length + "x" + attr_width);
         exifDialogModel.setDevice(attr_make + " " + attr_model);
         exifDialogModel.setDate(getDateText(attr_date));

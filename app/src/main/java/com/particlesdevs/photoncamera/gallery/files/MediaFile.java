@@ -17,4 +17,6 @@ public abstract class MediaFile {
 
     public abstract long getSize();
 
+    public abstract String getAbsolutePath();
+
 }
