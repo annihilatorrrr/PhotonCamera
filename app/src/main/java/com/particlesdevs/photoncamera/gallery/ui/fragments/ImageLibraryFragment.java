@@ -86,7 +86,7 @@ public class ImageLibraryFragment extends Fragment implements ImageGridAdapter.G
         recyclerView.addOnItemTouchListener(new DragSelectionItemTouchListener(recyclerView.getContext(), new OnItemInteractionListener() {
             @Override
             public void onItemClicked(RecyclerView view, RecyclerView.ViewHolder holder, int position) {
-                select(holder, position);
+                //select(holder, position);
             }
 
             @Override
