@@ -46,6 +46,7 @@ public class GalleryFileOperations {
         SELECTED_FOLDERS_IDS.addAll(PreferenceKeys.getStringSet(PreferenceKeys.Key.FOLDERS_LIST));
         if (SELECTED_FOLDERS_IDS.isEmpty()) {
             SELECTED_FOLDERS_IDS.add("Camera"); //in case the user has not selected any folder
+            SELECTED_FOLDERS_IDS.add("Raw");
         }
         SELECTED_FOLDERS_IDS.forEach(s -> ALL_FOLDERS.forEach(imagesFolder -> {
             if (String.valueOf(imagesFolder.folderId).equals(s) || imagesFolder.folderName.equals(s)) {
