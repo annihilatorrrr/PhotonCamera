@@ -15,7 +15,7 @@
     <string name="saturation">Saturazione</string>
     <string name="sharpness">Nitidezza</string>
     <string name="turn_on_round_edges">Mostra angoli curvi</string>
-    <string name="raw">Salva RAW + JPEG</string>
+    <string name="raw">Salva</string>
     <string name="general">Generali</string>
     <string name="hdrxNR">Riduzione del rumore</string>
     <string name="turn_on_watermark">Abilita filigrana</string>

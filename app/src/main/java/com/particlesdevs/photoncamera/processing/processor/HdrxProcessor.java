@@ -36,7 +36,7 @@ public class HdrxProcessor extends ProcessorBase {
     private int imageFormat;
     /* config */
     private int alignAlgorithm;
-    private boolean saveRAW;
+    private int saveRAW;
     private CameraMode cameraMode;
     private ArrayList<GyroBurst> BurstShakiness;
 
@@ -45,7 +45,7 @@ public class HdrxProcessor extends ProcessorBase {
         super(processingEventsListener);
     }
 
-    public void configure(int alignAlgorithm, boolean saveRAW, CameraMode cameraMode) {
+    public void configure(int alignAlgorithm, int saveRAW, CameraMode cameraMode) {
         this.alignAlgorithm = alignAlgorithm;
         this.saveRAW = saveRAW;
         this.cameraMode = cameraMode;
@@ -255,14 +255,8 @@ public class HdrxProcessor extends ProcessorBase {
             Wrapper.outputBuffer(output);
             Wrapper.processFrame(NoiseS, NoiseO, 1.5f, 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
                     , processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
-            if (saveRAW){
-                for (int i = 1; i < images.size(); i++) {
-                    images.get(i).image.close();
-                }
-            } else {
-                for (int i = 1; i < images.size(); i++) {
-                    images.get(i).image.close();
-                }
+            for (int i = 1; i < images.size(); i++) {
+                images.get(i).image.close();
             }
         } else {
             WrapperGPU.loadInterpolatedGainMap(interpolateGainMap.Output);
@@ -272,14 +266,8 @@ public class HdrxProcessor extends ProcessorBase {
             Log.d(TAG, "Packing");
             WrapperGPU.packImages();
             Log.d(TAG, "Packed");
-            if (saveRAW){
-                for (int i = 1; i < images.size(); i++) {
-                    images.get(i).image.close();
-                }
-            } else {
-                for (int i = 1; i < images.size(); i++) {
-                    images.get(i).image.close();
-                }
+            for (int i = 1; i < images.size(); i++) {
+                images.get(i).image.close();
             }
             if(alignAlgorithm == 1) {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];
@@ -305,7 +293,7 @@ public class HdrxProcessor extends ProcessorBase {
         } else {
             result = output;
         }
-        if (saveRAW && alignAlgorithm != 2) {
+        if ((saveRAW >= 1) && alignAlgorithm != 2) {
             int patchWL = (int) FAKE_WL;
 
             Camera2ApiAutoFix.patchWL(characteristics, captureResult, patchWL);
@@ -326,6 +314,12 @@ public class HdrxProcessor extends ProcessorBase {
             parameters.blackLevel[1] -= bl;
             parameters.blackLevel[2] -= bl;
             parameters.blackLevel[3] = 0.f;*/
+            if (saveRAW == 2) {
+                processingEventsListener.onProcessingFinished("HdrX RAW Processing Finished");
+                callback.onFinished();
+                images.get(0).image.close();
+                return;
+            }
         }
         /*else {
             if(alignAlgorithm == 0) {

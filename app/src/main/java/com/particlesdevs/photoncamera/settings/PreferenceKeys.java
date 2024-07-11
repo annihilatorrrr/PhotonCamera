@@ -3,7 +3,6 @@ package com.particlesdevs.photoncamera.settings;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
-import android.hardware.camera2.CameraManager;
 import android.util.Log;
 
 import androidx.annotation.StringRes;
@@ -12,7 +11,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
-import com.particlesdevs.photoncamera.api.CameraManager2;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 
 import java.util.Arrays;
@@ -20,8 +18,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import static android.content.Context.CAMERA_SERVICE;
 
 /**
  * Created by Vibhor 06/09/2020
@@ -190,8 +186,8 @@ public class PreferenceKeys {
         return preferenceKeys.settingsManager.getBoolean(SCOPE_GLOBAL, Key.KEY_HDRX_NR);
     }
 
-    public static boolean isSaveRawOn() {
-        return preferenceKeys.settingsManager.getBoolean(SCOPE_GLOBAL, Key.KEY_SAVE_RAW);
+    public static int isSaveRaw() {
+        return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_SAVE_RAW);
     }
 
     public static boolean isBatterySaverOn(){
@@ -204,7 +200,7 @@ public class PreferenceKeys {
     public static void setBatterySaver(boolean value) {
         preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_ENERGY_SAVING,value);
     }
-    public static void setSaveRaw(boolean value) {
+    public static void setSaveRaw(int value) {
         preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_SAVE_RAW,value);
     }
 

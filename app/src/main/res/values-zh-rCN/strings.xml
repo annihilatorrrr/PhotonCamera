@@ -20,7 +20,7 @@
     <string name="turn_on_grid">网格</string>
     <string name="noise_reduction_str">降噪强度</string>
     <string name="noise_merge_str">降噪合并强度</string>
-    <string name="raw">保存为 RAW + JPEG</string>
+    <string name="raw">保存为</string>
     <string name="turn_on_round_edges">圆角</string>
     <string name="enable_remosaic">启用 Remosaic</string>
     <string name="general">通用</string>

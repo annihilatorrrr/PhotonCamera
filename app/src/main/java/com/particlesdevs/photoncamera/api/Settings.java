@@ -30,7 +30,7 @@ public class Settings {
     public double compressor;
     public double gain;
     public double shadows;
-    public boolean rawSaver;
+    public int rawSaver;
     public boolean QuadBayer;
     public int cfaPattern;
     public int theme;
@@ -73,7 +73,7 @@ public class Settings {
         shadows = PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_SHADOWS_SEEKBAR);
         hdrx = PreferenceKeys.isHdrxNrOn();
         cfaPattern = PreferenceKeys.getCFAValue();
-        rawSaver = PreferenceKeys.isSaveRawOn();
+        rawSaver = PreferenceKeys.isSaveRaw();
         remosaic = PreferenceKeys.isRemosaicOn();
         eisPhoto = PreferenceKeys.isEisPhotoOn();
         QuadBayer = PreferenceKeys.isQuadBayerOn();

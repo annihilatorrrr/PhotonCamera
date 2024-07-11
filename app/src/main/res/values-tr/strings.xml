@@ -16,7 +16,7 @@
     <string name="saturation">Doygunluk</string>
     <string name="sharpness">Keskinlik</string>
     <string name="turn_on_grid">Izgarayı göster</string>
-    <string name="raw">RAW + JPEG kaydet</string>
+    <string name="raw">Kaydet</string>
     <string name="turn_on_round_edges">Yuvarlak kenarları etkinleştir</string>
     <string name="enable_remosaic">Remosaic etkinleştir</string>
     <string name="general">Genel</string>

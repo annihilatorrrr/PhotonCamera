@@ -31,13 +31,13 @@ public class UnlimitedProcessor extends ProcessorBase {
     private boolean fillParams = false;
 
     /* config */
-    private boolean saveRAW;
+    private int saveRAW;
 
     public UnlimitedProcessor(ProcessingEventsListener processingEventsListener) {
         super(processingEventsListener);
     }
 
-    public void configure(boolean saveRAW) {
+    public void configure(int saveRAW) {
         this.saveRAW = saveRAW;
     }
 
@@ -111,7 +111,7 @@ public class UnlimitedProcessor extends ProcessorBase {
         image.getPlanes()[0].getBuffer().position(0);
         averageRaw.close();
         averageRaw = null;
-        if (saveRAW) {
+        if (saveRAW >= 1) {
 
             processingEventsListener.onProcessingFinished("Unlimited rawSaver Processing Finished");
 
@@ -123,8 +123,11 @@ public class UnlimitedProcessor extends ProcessorBase {
             Camera2ApiAutoFix.resetWL(characteristics, captureResult, (int) FAKE_WL);
 
             processingEventsListener.notifyImageSavedStatus(imageSaved, dngFile);
-
-            return;
+            if (saveRAW == 2) {
+                processingEventsListener.onProcessingFinished("Unlimited RAW Processing Finished");
+                callback.onFinished();
+                return;
+            }
         }
 
         IncreaseWLBL();

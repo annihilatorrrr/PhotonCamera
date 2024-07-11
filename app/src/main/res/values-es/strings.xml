@@ -16,7 +16,7 @@
     <string name="saturation">Saturacion</string>
     <string name="sharpness">Nitidez</string>
     <string name="turn_on_grid">Mostrar cuadricula</string>
-    <string name="raw">Guardar RAW + JPEG</string>
+    <string name="raw">Guardar</string>
     <string name="turn_on_round_edges">Activar bordes redondos</string>
     <string name="enable_remosaic">Activar remosaico</string>
     <string name="general">General</string>

@@ -1,11 +1,13 @@
 package com.particlesdevs.photoncamera.ui;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.particlesdevs.photoncamera.AiPhoto;
+import com.particlesdevs.photoncamera.ui.camera.CameraActivity;
 import com.particlesdevs.photoncamera.util.FileManager;
 
 import java.io.File;
@@ -30,7 +32,7 @@ public class SplashActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        AiPhoto.initAi(this);
+        startActivity(new Intent(SplashActivity.this, CameraActivity.class));
         finish();
     }
 }

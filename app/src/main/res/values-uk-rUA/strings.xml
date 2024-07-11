@@ -20,7 +20,7 @@
     <string name="turn_on_grid">Показати сітку</string>
     <string name="noise_reduction_str">Потужність зменшення шуму</string>
     <string name="noise_merge_str">Сила злиття шумів</string>
-    <string name="raw">Зберегти RAW + JPEG</string>
+    <string name="raw">Зберегти</string>
     <string name="turn_on_round_edges">Увімкнути круглі краї</string>
     <string name="enable_remosaic">Ввімкнути Remosaic</string>
     <string name="general">Загальні</string>

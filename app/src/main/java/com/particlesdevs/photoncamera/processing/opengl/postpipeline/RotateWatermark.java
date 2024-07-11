@@ -1,20 +1,13 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Point;
-import android.opengl.GLUtils;
 import android.util.Log;
 
-import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
-import com.particlesdevs.photoncamera.util.FileManager;
 
-import java.io.File;
 import java.io.IOException;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
@@ -42,6 +35,7 @@ public class RotateWatermark extends Node {
 
         //else lutbm = BitmapFactory.decodeResource(PhotonCamera.getResourcesStatic(), R.drawable.neutral_lut);
         glProg.setDefine("WATERMARK",watermarkNeeded);
+
         glProg.useAssetProgram("addwatermark_rotate");
         try {
             watermark = new GLImage(PhotonCamera.getAssetLoader().getInputStream("watermark/photoncamera_watermark.png"));
@@ -73,5 +67,10 @@ public class RotateWatermark extends Node {
         }
         Log.d(Name,"selected rotation:"+rot);
         glProg.setVar("rotate",rot);
+        glProg.setVar("cropSize",((PostPipeline)basePipeline).cropSize);
+        glProg.setVar("rawSize",basePipeline.mParameters.rawSize);
+        Log.d(Name,"Crop size:"+((PostPipeline)basePipeline).cropSize);
+        Log.d(Name,"Raw size:"+basePipeline.mParameters.rawSize);
+
     }
 }

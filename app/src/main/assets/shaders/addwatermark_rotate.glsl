@@ -4,6 +4,8 @@ uniform sampler2D InputBuffer;
 uniform sampler2D Watermark;
 uniform int yOffset;
 uniform int rotate;
+uniform ivec2 cropSize;
+uniform ivec2 rawSize;
 out vec4 Output;
 #define WATERMARK 1
 #define watersizek (15.0)
@@ -19,18 +21,22 @@ void main() {
     xy+=ivec2(0,yOffset)+ivec2(OFFSET);
     switch(rotate){
         case 0:
+        xy += ivec2(0,(rawSize.y-cropSize.y));
         cr = (vec2(xy+ivec2(0,-texSize.y))/(texS));
-        Output = texelFetch(InputBuffer, (xy), 0);
+        Output = texelFetch(InputBuffer, xy, 0);
         break;
         case 1:
-        cr = (vec2(xy+ivec2(0,-texSize.x))/(texS));
+        xy += ivec2((rawSize.y-cropSize.y),0);
+        cr = (vec2(xy+ivec2(-(rawSize.y-cropSize.y),-cropSize.x))/(texS));
         Output = texelFetch(InputBuffer, ivec2(texSize.x-xy.y,xy.x), 0);
         break;
         case 2:
-        cr = (vec2(xy+ivec2(0,-texSize.y))/(texS));
+        //xy += ivec2(0,-(texSize.y-rotatedSize.y)/4);
+        cr = (vec2(xy+ivec2(0,-cropSize.y))/(texS));
         Output = texelFetch(InputBuffer, ivec2(texSize.x-xy.x,texSize.y-xy.y), 0);
         break;
         case 3:
+        //xy += ivec2(-(texSize.x-rotatedSize.x)/4,0);
         cr = (vec2(xy+ivec2(0,-texSize.x))/(texS));
         Output = texelFetch(InputBuffer, ivec2(xy.y,texSize.y-xy.x),0);
         break;

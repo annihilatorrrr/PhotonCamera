@@ -16,7 +16,7 @@
     <string name="saturation">Saturaţie</string>
     <string name="sharpness">Acuitate</string>
     <string name="turn_on_grid">Arată grila</string>
-    <string name="raw">Salvează RAW + JPEG</string>
+    <string name="raw">Salvează</string>
     <string name="turn_on_round_edges">Permite colţuri rotunjite</string>
     <string name="enable_remosaic">Permite Remosaic</string>
     <string name="general">General</string>

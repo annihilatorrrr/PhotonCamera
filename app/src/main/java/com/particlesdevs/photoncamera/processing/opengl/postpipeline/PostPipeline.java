@@ -29,6 +29,7 @@ public class PostPipeline extends GLBasePipeline {
     public GLTexture GainMap;
     public ArrayList<Bitmap> debugData = new ArrayList<>();
     public ArrayList<ImageFrame> SAGAIN;
+    public Point cropSize;
     public float[] analyzedBL = new float[]{0.f, 0.f, 0.f};
     ;
     float regenerationSense = 1.f;
@@ -85,23 +86,25 @@ public class PostPipeline extends GLBasePipeline {
         noiseO = Math.max(noiseO, Float.MIN_NORMAL);
         noiseS = Math.max(noiseS, Float.MIN_NORMAL);
         Point rawSliced = parameters.rawSize;
+        cropSize = new Point(parameters.rawSize);
         if (PhotonCamera.getSettings().aspect169) {
             if (rawSliced.x > rawSliced.y) {
                 rawSliced = new Point(rawSliced.x, rawSliced.x * 9 / 16);
             } else {
                 rawSliced = new Point(rawSliced.y * 9 / 16, rawSliced.y);
             }
+            cropSize =  new Point(rawSliced);
         }
-        Point rotated = getRotatedCoords(rawSliced);
+        Point rotatedSize = getRotatedCoords(rawSliced);
         if (PhotonCamera.getSettings().energySaving || mParameters.rawSize.x * mParameters.rawSize.y < ResolutionSolution.smallRes) {
             GLDrawParams.TileSize = 8;
         } else {
             GLDrawParams.TileSize = 256;
         }
         GLFormat format = new GLFormat(GLFormat.DataType.SIMPLE_8, 4);
-        GLImage output = new GLImage(rotated, format);
+        GLImage output = new GLImage(rotatedSize, format);
 
-        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotated, output, format);
+        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format);
         glint = new GLInterface(glproc);
         stackFrame = inBuffer;
         glint.parameters = parameters;
@@ -132,7 +135,7 @@ public class PostPipeline extends GLBasePipeline {
                 //add(new ESD3DBayerCS());
                 //}
                 if(mSettings.alignAlgorithm != 2) {
-                    add(new Demosaic2());
+                    add(new Demosaic3());
                 }
 
                 //add(new ImpulsePixelFilter());

@@ -16,7 +16,7 @@
     <string name="saturation">Sytost barev</string>
     <string name="sharpness">Ostrost</string>
     <string name="turn_on_grid">Zobrazit mřížku</string>
-    <string name="raw">Uložit RAW + JPEG</string>
+    <string name="raw">Uložit</string>
     <string name="turn_on_round_edges">Zaoblené rohy</string>
     <string name="enable_remosaic">Povolit Re-Mosaikování</string>
     <string name="general">Obecné</string>

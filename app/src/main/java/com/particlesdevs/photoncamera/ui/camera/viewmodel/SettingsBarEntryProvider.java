@@ -79,7 +79,7 @@ public class SettingsBarEntryProvider extends ViewModel {
         updateEntry(eisEntry, PreferenceKeys.isEisPhotoOn());
         updateEntry(fpsEntry, PreferenceKeys.isFpsPreviewOn());
         updateEntry(quadEntry, PreferenceKeys.isQuadBayerOn());
-        updateEntry(saveRawEntry, PreferenceKeys.isSaveRawOn());
+        updateEntry(saveRawEntry, PreferenceKeys.isSaveRaw());
         updateEntry(batterySaverEntry, PreferenceKeys.isBatterySaverOn());
     }
 
@@ -120,7 +120,8 @@ public class SettingsBarEntryProvider extends ViewModel {
     private void  createSaveRawEntry() {
         saveRawEntry.addSettingsBarButtonModels(
                 SettingsBarButtonModel.newButtonModel(R.id.raw_off_button, R.drawable.ic_raw_off, R.string.jpg_only, 0, saveRawEntry),
-                SettingsBarButtonModel.newButtonModel(R.id.raw_on_button, R.drawable.ic_raw, R.string.raw_plus_jpg, 1, saveRawEntry)
+                SettingsBarButtonModel.newButtonModel(R.id.raw_on_button, R.drawable.ic_raw, R.string.raw_plus_jpg, 1, saveRawEntry),
+                SettingsBarButtonModel.newButtonModel(R.id.raw_only_button, R.drawable.ic_raw, R.string.raw_string, 2, saveRawEntry)
         );
     }
 

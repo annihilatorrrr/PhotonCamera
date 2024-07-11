@@ -245,7 +245,7 @@ final class CameraUIController implements CameraUIEventsListener,
                         PreferenceKeys.setEisPhoto(value.equals(1));
                         break;
                     case RAW:
-                        PreferenceKeys.setSaveRaw(value.equals(1));
+                        PreferenceKeys.setSaveRaw((Integer) value);
                         break;
                     case BATTERY_SAVER:
                         PreferenceKeys.setBatterySaver(value.equals(1));
