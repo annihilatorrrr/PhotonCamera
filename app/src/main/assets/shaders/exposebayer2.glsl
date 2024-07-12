@@ -66,11 +66,11 @@ void main() {
     inp.g = texelFetch(InputBuffer, xyCenter+ivec2(1,0), 0).r;
     inp.b = texelFetch(InputBuffer, xyCenter+ivec2(0,1), 0).r;
     inp.a = texelFetch(InputBuffer, xyCenter+ivec2(1,1), 0).r;
+    //vec4 gains = textureBicubicHardware(GainMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0)));
+    //inp *= (gains.r + gains.g + gains.b + gains.a) / 4.0;
     inp = clamp(inp,vec4(0.0001),vec3(NEUTRALPOINT).rggb)/vec3(NEUTRALPOINT).rggb;
 
-    vec4 gains = textureBicubicHardware(GainMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0)));
-    gains.rgb = vec3(gains.r,(gains.g+gains.b)/2.0,gains.a);
-    inp *= dot(gains.rgb,vec3(1.0/3.0));
+
 
     vec3 v3 = brIn2(inp,STRLOW);
     float br = luminocity(v3);

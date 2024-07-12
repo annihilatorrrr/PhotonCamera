@@ -331,7 +331,9 @@ void main() {
     float blurCorrected = 0.f;
     for(int i = -1; i<=2;i++){
         for(int j = -1; j<=2;j++){
+            //vec4 gains = textureBicubicHardware(GainMap, vec2(xy+ivec2(i,j))/vec2(textureSize(InputBuffer, 0)));
             float v = dot(texelFetch(InputBuffer, xy+ivec2(i,j), 0).rgb, vec3(1.f));
+            //v *= (gains.r+gains.g+gains.b+gains.a)/4.0;
             blurInitial += v;
             blurCorrected += v*getGain(vec2(ivec2(i,j)));
         }

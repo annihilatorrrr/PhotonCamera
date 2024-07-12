@@ -48,7 +48,7 @@ public class Demosaic2 extends Node {
         glProg.setDefine("NOISES",basePipeline.noiseS);
         glProg.setDefine("NOISEO",basePipeline.noiseO);
         startT();
-        glProg.useAssetProgram("demosaicp12");
+        glProg.useAssetProgram("demosaicp12b");
         glProg.setTexture("RawBuffer",previousNode.WorkingTexture);
         glProg.setTexture("GradBuffer",basePipeline.main3);
         if(basePipeline.mSettings.cfaPattern == -2) glProg.setDefine("QUAD","1");
