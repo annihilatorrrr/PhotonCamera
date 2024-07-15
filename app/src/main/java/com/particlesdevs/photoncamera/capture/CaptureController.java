@@ -1665,9 +1665,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
 
             if ((!(focus == 0.0 && Build.BRAND.equalsIgnoreCase("samsung")))) {
-                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_OFF);
-                captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CONTROL_AF_TRIGGER_IDLE);
-                captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, focus);
+                MeteringRectangle rectaf = new MeteringRectangle(0, 0, 0, 0, 0);
+                //captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_OFF);
+                //captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CONTROL_AF_TRIGGER_CANCEL);
+                //captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, focus);
+                captureBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{rectaf});
             }
             /*
             if(!isDualSession){
