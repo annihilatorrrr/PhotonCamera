@@ -60,6 +60,7 @@ out vec3 Output;
 #define MINP 1.0
 #define NOISEO 0.0
 #define LUT 0
+#define CONTRAST 1.0
 #import coords
 #import interpolation
 #import gaussian
@@ -284,7 +285,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     }
     #endif
     pRGB = corr*sensorToIntermediate*pRGB;
-    pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*0.35)),vec3(0.0),vec3(1.0));
+    pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*1.0)),vec3(0.0),vec3(1.0));
     pRGB = clamp(reinhard_extended(pRGB*gainsVal,max(1.0,gainsVal*0.8)),vec3(0.0),vec3(1.0));
     pRGB = tonemap(pRGB);
     //ISO tint correction
@@ -311,6 +312,16 @@ float getLm(ivec2 coordsShift){
     return inrgb.r+inrgb.g+inrgb.b;
 }
 
+float convSin(float x){
+    return 0.5 + 0.5*sin((2.0*x-1.0) * PI/2.0);
+}
+
+vec3 contrastSin(vec3 value, float contrast)
+{
+    vec3 contr = vec3(convSin(value.r),convSin(value.g),convSin(value.b));
+    return mix(value,contr,contrast);
+}
+
 
 void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
@@ -332,17 +343,17 @@ void main() {
     for(int i = -1; i<=2;i++){
         for(int j = -1; j<=2;j++){
             //vec4 gains = textureBicubicHardware(GainMap, vec2(xy+ivec2(i,j))/vec2(textureSize(InputBuffer, 0)));
-            float v = dot(texelFetch(InputBuffer, xy+ivec2(i,j), 0).rgb, vec3(1.f));
+            float v = dot(texelFetch(InputBuffer, xy+ivec2(i,j), 0).rgb/vec3(NEUTRALPOINT), vec3(0.299, 0.587, 0.114));
             //v *= (gains.r+gains.g+gains.b+gains.a)/4.0;
             blurInitial += v;
             blurCorrected += v*getGain(vec2(ivec2(i,j)));
         }
     }
 
-    float detail = dot(texelFetch(InputBuffer, xy, 0).rgb,vec3(1.f))-blurInitial;
+    float detail = dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))-blurInitial;
     float brightening = blurCorrected/(blurInitial+EPS);
     float corrected = blurCorrected + detail*brightening;
-    tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb,vec3(1.f))+EPS);
+    tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))+EPS);
     tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);
     #endif
     //vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
@@ -364,6 +375,7 @@ void main() {
     //float sat2 = SATURATION2;
     //sat2*=br;
     sRGB = saturate(sRGB,SATURATION2,SATURATION);
+    sRGB = contrastSin(sRGB,CONTRAST);
     float noiseO = (NOISEO*NOISEO)*0.25;
     noiseO = min(noiseO,0.25);
     Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);

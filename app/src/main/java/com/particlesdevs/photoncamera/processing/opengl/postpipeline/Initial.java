@@ -113,8 +113,8 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
             intenseCurveX[4] = 0.95f;
             intenseCurveX[5] = 1.0f;
 
-            intenseCurveY[0] = 1.3f;
-            intenseCurveY[1] = 1.1f;
+            intenseCurveY[0] = 1.0f;
+            intenseCurveY[1] = 1.0f;
             intenseCurveY[2] = 1.0f;
             intenseCurveY[3] = 1.0f;
             intenseCurveY[4] = 1.0f;
@@ -127,8 +127,8 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
             intenseHardCurveX[4] = 0.95f;
             intenseHardCurveX[5] = 1.0f;
 
-            intenseHardCurveY[0] = 1.3f;
-            intenseHardCurveY[1] = 1.1f;
+            intenseHardCurveY[0] = 1.0f;
+            intenseHardCurveY[1] = 1.0f;
             intenseHardCurveY[2] = 1.0f;
             intenseHardCurveY[4] = 1.0f;
             intenseHardCurveY[3] = 1.0f;
@@ -201,6 +201,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setDefine("MINP",minP);
         glProg.setDefine("NEUTRALPOINT",WP);
         glProg.setDefine("INSIZE",basePipeline.workSize);
+        glProg.setDefine("CONTRAST", (float) basePipeline.mSettings.contrastMpy);
         float[][] cube = null;
         ColorCorrectionTransform.CorrectionMode mode =  basePipeline.mParameters.CCT.correctionMode;
         if(mode == ColorCorrectionTransform.CorrectionMode.CUBES || mode == ColorCorrectionTransform.CorrectionMode.CUBE){
