@@ -132,7 +132,7 @@ public class IsoExpoSelector {
         if (pair.exposure < ExposureIndex.sec / 90 && PhotonCamera.getSettings().eisPhoto) {
             //HDR = true;
         }
-        if (step == baseFrame) {
+        if (step%6 == baseFrame) {
             if (pair.normalizedIso() <= 120.0/mpy1 && pair.exposure > ExposureIndex.sec / 70.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
                 pair.ReduceExpo();
             }
