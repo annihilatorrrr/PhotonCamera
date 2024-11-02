@@ -58,10 +58,10 @@ public class UnlimitedProcessor extends ProcessorBase {
     }
 
     public void unlimitedCycle(Image image) {
-        if (lock) {
+        /*if (lock) {
             image.close();
             return;
-        }
+        }*/
         int width = image.getPlanes()[0].getRowStride() / image.getPlanes()[0].getPixelStride();
         int height = image.getHeight();
         PhotonCamera.getParameters().rawSize = new Point(width, height);
@@ -94,10 +94,12 @@ public class UnlimitedProcessor extends ProcessorBase {
             }
         }*/
         //image.close();//code block
-        if (lastImage != null) {
-            lastImage.close();
-        }
+        Image prevImg = lastImage;
         lastImage = image;
+
+        if (prevImg != null) {
+            prevImg.close();
+        }
     }
 
     private void processUnlimited(Image image) {
@@ -114,13 +116,12 @@ public class UnlimitedProcessor extends ProcessorBase {
         if (saveRAW >= 1) {
 
             processingEventsListener.onProcessingFinished("Unlimited rawSaver Processing Finished");
-
-            Camera2ApiAutoFix.patchWL(characteristics, captureResult, (int) FAKE_WL);
+            Camera2ApiAutoFix.patchWL(characteristics, captureResult, (int) FAKE_WL-1);
 
             boolean imageSaved = ImageSaver.Util.saveStackedRaw(dngFile, image,
                     characteristics, captureResult, cameraRotation);
 
-            Camera2ApiAutoFix.resetWL(characteristics, captureResult, (int) FAKE_WL);
+            Camera2ApiAutoFix.resetWL(characteristics, captureResult, (int) FAKE_WL-1);
 
             processingEventsListener.notifyImageSavedStatus(imageSaved, dngFile);
             if (saveRAW == 2) {
