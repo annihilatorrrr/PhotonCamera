@@ -225,9 +225,15 @@ public class GLProg implements AutoCloseable {
             new Exception("glComputeLayout is null").printStackTrace();
             return;
         }
-        glDispatchCompute(size.x/glComputeLayout.xy.x + (size.x%glComputeLayout.xy.x),
-                size.y/glComputeLayout.xy.y + (size.y%glComputeLayout.xy.y),
-                z/glComputeLayout.z + (z%glComputeLayout.z));
+        int x = 0;
+        int y = 0;
+        int z0 = 0;
+        if (size.x%glComputeLayout.xy.x != 0) x = 1;
+        if (size.y%glComputeLayout.xy.y != 0) y = 1;
+        if (z%glComputeLayout.z != 0) z0 = 1;
+        glDispatchCompute(size.x/glComputeLayout.xy.x + x,
+                size.y/glComputeLayout.xy.y + y,
+                z/glComputeLayout.z + z0);
         glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
         glMemoryBarrier(GL_ALL_SHADER_BITS);
     }
@@ -239,6 +245,7 @@ public class GLProg implements AutoCloseable {
         glDispatchCompute(x, y, z);
         glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
         glMemoryBarrier(GL_ALL_SHADER_BITS);
+        glFinish();
     }
 
 
@@ -256,6 +263,7 @@ public class GLProg implements AutoCloseable {
     public void drawBlocks(GLTexture glTexture) {
         glTexture.BufferLoad();
         drawBlocks(glTexture.mSize.x, glTexture.mSize.y);
+        glFinish();
     }
 
     public void drawBlocks(int w, int h) {
