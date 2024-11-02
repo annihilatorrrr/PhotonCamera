@@ -57,9 +57,12 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("DH","("+dehaze+")");
         glProg.setDefine("NEUTRALPOINT",basePipeline.mParameters.whitePoint);
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
+        glProg.setDefine("STRLOW",str);
+        glProg.setDefine("STRHIGH",str);
         glProg.useAssetProgram("exposebayer2",false);
         glProg.setTexture("InputBuffer",in);
-        glProg.setVar("factor", str);
+        glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
+        //glProg.setVar("factor", str);
         GLTexture tex = basePipeline.getMain();
         glProg.drawBlocks(tex);
         return tex;
@@ -128,11 +131,11 @@ public class ExposureFusionBayer2 extends Node {
     float underExposeMpy = 0.7f;
     float underExposeMinFusion = 0.0f;
     float gammaKSearch = 1.0f;
-    float baseExpose = 0.65f;
+    float baseExpose = 1.00f;
     float gaussSize = 0.5f;
     float targetLuma = 1.0f;
     float downScalePerLevel = 2.2f;
-    float dehazing = 0.0f;
+    float dehazing = 0.2f;
 
     float softUpperLevel = 0.1f;
     float softLoverLevel = 0.0f;

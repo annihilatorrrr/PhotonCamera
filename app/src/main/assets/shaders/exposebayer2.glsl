@@ -66,21 +66,23 @@ void main() {
     inp.g = texelFetch(InputBuffer, xyCenter+ivec2(1,0), 0).r;
     inp.b = texelFetch(InputBuffer, xyCenter+ivec2(0,1), 0).r;
     inp.a = texelFetch(InputBuffer, xyCenter+ivec2(1,1), 0).r;
-    //vec4 gains = textureBicubicHardware(GainMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0)));
-    //inp *= (gains.r + gains.g + gains.b + gains.a) / 4.0;
+    vec4 gains = textureBicubicHardware(GainMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0)));
+    inp *= (gains.r + gains.g + gains.b + gains.a) / 4.0;
     inp = clamp(inp,vec4(0.0001),vec3(NEUTRALPOINT).rggb)/vec3(NEUTRALPOINT).rggb;
 
 
 
     vec3 v3 = brIn2(inp,STRLOW);
     float br = luminocity(v3);
-    br = gammaEncode(clamp(br-DH,0.0,1.0));
+    br = clamp(br-DH,0.0,1.0);
+    br = mix(gammaEncode(br),br,0.2);
     result.r = br;
     result.g = stddev(v3);
 
     v3 = brIn(inp,STRHIGH);
     br = luminocity(v3);
-    br = gammaEncode(clamp(br-DH,0.0,1.0));
+    br = clamp(br-DH,0.0,1.0);
+    br = mix(gammaEncode(br),br,0.2);
     result.b = br;
     result.a = stddev(v3);
 }

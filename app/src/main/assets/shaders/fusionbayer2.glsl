@@ -12,7 +12,7 @@ uniform sampler2D normalExpoDiff;
 uniform int level;
 uniform ivec2 upscaleIn;
 #define TARGET 0.5
-#define GAUSS 0.5
+#define GAUSS 0.05
 #define MAXLEVEL (1)
 out float result;
 #import gaussian
