@@ -3,8 +3,8 @@ precision highp sampler2D;
 uniform sampler2D bayerTexture;
 uniform sampler2D greenTexture;
 #define alpha 3.75
+#define L 7
 #define THRESHOLD 1.9
-#define L 3
 out vec2 Output;
 uniform int yOffset;
 
@@ -25,11 +25,11 @@ float dxy(ivec2 pos, int direction) {
     int pattern = getBayerPattern(pos);
     float useGreen = (pattern == 1 || pattern == 2) ? 1.0 : -1.0;
     if (direction == 0) {
-        return abs((4.0 * getBayerSample(pos) - 3.0 * getBayerSample(pos + ivec2(1,0)) - 3.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(-2,0)) + getBayerSample(pos + ivec2(2,0)))/6.0);
-        //return (2.0 * getBayerSample(pos) - getBayerSample(pos + ivec2(1,0)) - getBayerSample(pos + ivec2(-1,0)))/2.0;
+        //return abs((4.0 * getBayerSample(pos) - 3.0 * getBayerSample(pos + ivec2(1,0)) - 3.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(-2,0)) + getBayerSample(pos + ivec2(2,0)))/6.0);
+        return (2.0 * getBayerSample(pos) - getBayerSample(pos + ivec2(1,0)) - getBayerSample(pos + ivec2(-1,0)))/2.0;
     } else {
-        return abs((4.0 * getBayerSample(pos) - 3.0 * getBayerSample(pos + ivec2(0,1)) - 3.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,-2)) + getBayerSample(pos + ivec2(0,2)))/6.0);
-        //return (2.0 * getBayerSample(pos) - getBayerSample(pos + ivec2(0,1)) - getBayerSample(pos + ivec2(0,-1)))/2.0;
+        //return abs((4.0 * getBayerSample(pos) - 3.0 * getBayerSample(pos + ivec2(0,1)) - 3.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,-2)) + getBayerSample(pos + ivec2(0,2)))/6.0);
+        return (2.0 * getBayerSample(pos) - getBayerSample(pos + ivec2(0,1)) - getBayerSample(pos + ivec2(0,-1)))/2.0;
     }
 }
 
@@ -83,36 +83,38 @@ vec3 interpolateGreen(ivec2 pos) {
 float ph(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if (g[0] < 0.0) {
-        return g[1] - c;
+    if (g[0] > 0.0) {
+        return g[0] - c;
     }
-    return g[0] - c;
+    return g[1] - c;
 }
 
 float pv(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if (g[0] < 0.0) {
-        return g[2] - c;
+    if ((g[0] > 0.0) && (g[1] > 0.0)) {
+        return g[0] - c;
     }
-    return g[0] - c;
+    return g[2] - c;
 }
 
 float pd(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if (g[0] < 0.0) {
-        return (g[1]+g[2])/2.0 - c;
+    if ((g[0] > 0.0) && (g[1] > 0.0)) {
+        return g[0] - c;
     }
-    return g[0] - c;
+    return (g[1]+g[2])/2.0 - c;
 }
 
 float gd(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
-    if (g[0] < 0.0) {
-        return (g[1]+g[2])/2.0;
-    }
+    //if ((g[0] > 0.0) && (g[1] > 0.0)) {
     return g[0];
+    //if(g[0] == g[1] || g[0] == g[2]){
+    //    return g[0];
+    //}
+    //return (g[1]+g[2])/2.0;
 }
 
 
@@ -122,23 +124,25 @@ vec2 enhanceGreen(ivec2 pos) {
     int pattern = getBayerPattern(pos);
     float igE = IG(pos,1);
     float igS = IG(pos,0);
-    float igW = IG(pos + ivec2(-2,0),1);
-    float igN = IG(pos + ivec2(0,-2),0);
+    float igW = IG(pos + ivec2(2,0),1);
+    float igN = IG(pos + ivec2(0,2),0);
 
     float wE = 1.0 / (igE + 0.0001);
     float wS = 1.0 / (igS + 0.0001);
     float wW = 1.0 / (igW + 0.0001);
     float wN = 1.0 / (igN + 0.0001);
 
-    float dh = igE + igW;
-    float dv = igN + igS;
+    float dh = igE + igW + 0.01;
+    float dv = igN + igS + 0.01;
     float dir = 0.0;
     if (dh > dv) {
         dir = 1.0;
     } else {
         dir = 0.0;
     }
-    if (pattern == 1 || pattern == 2 || initialGreen[0] > 0.0) return vec2(initialGreen[0], dir); // Already green
+    float E = max(dh/dv, dv/dh);
+    //return vec2(gd(pos), dir);
+    if (pattern == 1 || pattern == 2 || (E >= THRESHOLD)) return vec2(gd(pos), dir); // Already green
 
     // Pass 2
     vec3 D = vec3(0.0);
@@ -148,19 +152,22 @@ vec2 enhanceGreen(ivec2 pos) {
         D.z += abs(pd(pos) - pd(pos + ivec2(2*dx, 0))) + abs(pd(pos) - pd(pos + ivec2(0, 2*dx)));
     }
     D.z /= 2.0;
-    vec3 gs = vec3(initialGreen[1], initialGreen[2], (initialGreen[1]+initialGreen[2])/2.0);
-    dh = D.y;
-    dv = D.x;
+    float gv = initialGreen[2];
+    float gh = initialGreen[1];
+    float gd = initialGreen[0];
     if (D.x < D.y && D.x < D.z) {
-        initialGreen[0] = gs[0];
-        dir = 1.0;
+        initialGreen[0] = gv;
+        dir = 0.0;
         //g = gs[1];
     } else if (D.y < D.x && D.y < D.z) {
-        initialGreen[0] = gs[1];
-        dir = 0.0;
+        initialGreen[0] = gh;
+        //initialGreen[0] = 1.0;
+        dir = 1.0;
         //g = gs[0];
     } else {
-        initialGreen[0] = gs[2];
+        initialGreen[0] = (gh+gv)/2.0;
+        //initialGreen[0] = gd;
+        //initialGreen[0] = gd;
         dir = 0.5;
         //g = gs[2];
     }
@@ -218,7 +225,12 @@ void main() {
     pos+=ivec2(0,yOffset);
     // Step 2: Green plane enhancement
     vec2 enhancedGreen = enhanceGreen(pos);
-
+    //vec3 initialGreen = interpolateGreen(pos);
     // Step 3: Red and Blue plane interpolation
+    //Output = vec2(enhancedGreen[0]);
+    //Output.x = IG(pos,1);
+    //Output.y = IG(pos,0);
+    //Output = vec2(gd(pos));
+    //Output = vec2(enhancedGreen[0],enhancedGreen[0]);
     Output = enhancedGreen;
 }

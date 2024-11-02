@@ -2,7 +2,9 @@ precision highp float;
 precision highp sampler2D;
 uniform sampler2D bayerTexture;
 #define alpha 3.75
-#define THRESHOLD 1.9
+//#define THRESHOLD 1.9
+#define THRESHOLD 0.0
+#define EPS 0.0001
 #define L 3
 out vec3 Output;
 uniform int yOffset;
@@ -77,7 +79,7 @@ float IG(ivec2 pos, int direction) {
 // Green plane interpolation
 vec3 interpolateGreen(ivec2 pos) {
     int pattern = getBayerPattern(pos);
-    if (pattern == 1 || pattern == 2) return vec3(getBayerSample(pos),0.0,0.0); // Already green
+    if (pattern == 1 || pattern == 2) return vec3(getBayerSample(pos),getBayerSample(pos),getBayerSample(pos)); // Already green
 
     float igE = IG(pos,1);
     float igS = IG(pos,0);
@@ -89,22 +91,29 @@ vec3 interpolateGreen(ivec2 pos) {
     float wW = 1.0 / (igW + 0.0001);
     float wN = 1.0 / (igN + 0.0001);
     // Pass 1
-    float gE = getBayerSample(pos + ivec2(0,1)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,2)))/2.0 + (getBayerSample(pos + ivec2(0,-1)) - 2.0 * getBayerSample(pos + ivec2(0,1)) + getBayerSample(pos + ivec2(0,3)))/8.0;
-    float gW = getBayerSample(pos + ivec2(0,-1)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,-2)))/2.0 + (getBayerSample(pos + ivec2(0,-3)) - 2.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,1)))/8.0;
-    float gN = getBayerSample(pos + ivec2(-1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
-    float gS = getBayerSample(pos + ivec2(1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
+    //float gE = getBayerSample(pos + ivec2(0,-1)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,2)))/2.0 + (getBayerSample(pos + ivec2(0,-1)) - 2.0 * getBayerSample(pos + ivec2(0,1)) + getBayerSample(pos + ivec2(0,3)))/8.0;
+    //float gW = getBayerSample(pos + ivec2(0,1)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,-2)))/2.0 + (getBayerSample(pos + ivec2(0,-3)) - 2.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,1)))/8.0;
+    //float gN = getBayerSample(pos + ivec2(1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
+    //float gS = getBayerSample(pos + ivec2(-1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
 
-    float gh = (gE * wE + gW * wW)/(wE + wW + 0.0001);
-    float gv = (gN * wN + gS * wS)/(wN + wS + 0.0001);
-    float gd = (gE * wE + gW * wW + gN * wN + gS * wS)/(wE + wW + wN + wS + 0.0001);
+    float gE = getBayerSample(pos + ivec2(0,-1));// + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,-2)))/2.0 + (getBayerSample(pos + ivec2(0,-3)) - 2.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,1)))/8.0;
+    float gW = getBayerSample(pos + ivec2(0,1));// + (getBayerSample(pos) - getBayerSample(pos + ivec2(0,2)))/2.0 + (getBayerSample(pos + ivec2(0,-1)) - 2.0 * getBayerSample(pos + ivec2(0,1)) + getBayerSample(pos + ivec2(0,3)))/8.0;
+    float gN = getBayerSample(pos + ivec2(1,0));// + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
+    float gS = getBayerSample(pos + ivec2(-1,0));// + (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
+    float gh = (gE * wE + gW * wW)/(wE + wW);
+    float gv = (gN * wN + gS * wS)/(wN + wS);
+    float gd = (gE * wE + gW * wW + gN * wN + gS * wS)/(wE + wW + wN + wS);
+    //float gh = (gE + gW)/2.0;
+    //float gv = (gN + gS)/2.0;
 
-    float dh = igE + igW;
-    float dv = igN + igS;
+
+    float dh = igE + igW + EPS;
+    float dv = igN + igS + EPS;
 
     float E = max(dh/dv, dv/dh);
 
     if (E < THRESHOLD) {
-        return vec3(-1.0, gh, gv);
+        return vec3(0.0, gh, gv);
     } else {
         if (dh > dv) {
             return vec3(gv, gh, gv);

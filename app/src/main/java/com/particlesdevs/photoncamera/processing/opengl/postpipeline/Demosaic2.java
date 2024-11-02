@@ -62,11 +62,23 @@ public class Demosaic2 extends Node {
 
         //Colour channels
         startT();
-        glProg.useAssetProgram("demosaicp2");
-        glProg.setTexture("RawBuffer", glTexture);
-        glProg.setTexture("GreenBuffer", outp);
+        int tile = 8;
         WorkingTexture = basePipeline.main3;
-        glProg.drawBlocks(WorkingTexture);
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp0ig",true);
+        glProg.setTextureCompute("inTexture", glTexture,false);
+        glProg.setTextureCompute("outTexture", WorkingTexture,true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+
+        WorkingTexture = basePipeline.main3;
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp2ec",true);
+        glProg.setTextureCompute("inTexture", glTexture,false);
+        glProg.setTextureCompute("greenTexture", outp,false);
+        glProg.setTextureCompute("igTexture", basePipeline.main3,false);
+        glProg.setTextureCompute("outTexture", WorkingTexture,true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+        //glProg.drawBlocks(WorkingTexture);
         glProg.close();
         endT("Demosaic2");
     }

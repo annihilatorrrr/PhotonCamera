@@ -26,23 +26,42 @@ public class Demosaic3 extends Node {
         glTexture = previousNode.WorkingTexture;
         //Gradients
         GLTexture outp;
+        int tile = 8;
+        WorkingTexture = basePipeline.main3;
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp0ig",true);
+        glProg.setTextureCompute("inTexture", glTexture,false);
+        glProg.setTextureCompute("outTexture", WorkingTexture,true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+
 
         //Colour channels
         startT();
-        glProg.useAssetProgram("demosaicp12e");
-        glProg.setTexture("bayerTexture",glTexture);
-        WorkingTexture = basePipeline.main3;
-        glProg.drawBlocks(WorkingTexture);
-        glProg.useAssetProgram("demosaicp12f");
-        glProg.setTexture("bayerTexture", glTexture);
-        glProg.setTexture("greenTexture", WorkingTexture);
         outp = basePipeline.getMain();
-        glProg.drawBlocks(outp);
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp12ec",true);
+        glProg.setTextureCompute("inTexture",glTexture, false);
+        glProg.setTextureCompute("igTexture",basePipeline.main3, false);
+        glProg.setTextureCompute("outTexture",outp, true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp12fc",true);
+        glProg.setTextureCompute("inTexture",glTexture, false);
+        glProg.setTextureCompute("igTexture",basePipeline.main3, false);
+        glProg.setTextureCompute("greenTexture",outp, false);
+        glProg.setTextureCompute("outTexture",outp, true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
         //glProg.drawBlocks(WorkingTexture);
-        glProg.useAssetProgram("demosaicp2");
-        glProg.setTexture("RawBuffer", glTexture);
-        glProg.setTexture("GreenBuffer", outp);
-        glProg.drawBlocks(WorkingTexture);
+
+        WorkingTexture = basePipeline.main3;
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("demosaicp2ec",true);
+        glProg.setTextureCompute("inTexture", glTexture,false);
+        glProg.setTextureCompute("greenTexture", outp,false);
+        glProg.setTextureCompute("igTexture", basePipeline.main3,false);
+        glProg.setTextureCompute("outTexture", WorkingTexture,true);
+        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
         glProg.close();
         endT("Demosaic2");
     }
