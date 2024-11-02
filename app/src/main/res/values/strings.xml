@@ -19,6 +19,7 @@
     <string name="gain">Gain</string>
     <string name="shadows">Shadows</string>
     <string name="contrmul">Contrast Multiply</string>
+    <string name="contrast">Contrast</string>
     <string name="contrconst">Constant</string>
     <string name="saturation">Saturation</string>
     <string name="expocompensation">Exposure Compensation</string>
