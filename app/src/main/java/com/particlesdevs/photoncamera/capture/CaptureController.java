@@ -134,7 +134,7 @@ import static android.hardware.camera2.CaptureRequest.FLASH_MODE;
 public class CaptureController implements MediaRecorder.OnInfoListener {
     public static final int RAW_FORMAT = ImageFormat.RAW_SENSOR;
     public static final int YUV_FORMAT = ImageFormat.YUV_420_888;
-    public static final int PREVIEW_FORMAT = ImageFormat.YUV_420_888;
+    public static final int PREVIEW_FORMAT = ImageFormat.JPEG;
     private static final String TAG = CaptureController.class.getSimpleName();
     public List<Future<?>> taskResults = new ArrayList<>();
     private final ExecutorService processExecutor;
@@ -1664,13 +1664,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             Log.d(TAG, "HDR:" + IsoExpoSelector.HDR);
 
 
-            if ((!(focus == 0.0 && Build.BRAND.equalsIgnoreCase("samsung")))) {
+            //if ((!(focus == 0.0 && Build.BRAND.equalsIgnoreCase("samsung")))) {
                 MeteringRectangle rectaf = new MeteringRectangle(0, 0, 0, 0, 0);
                 //captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_OFF);
                 //captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CONTROL_AF_TRIGGER_CANCEL);
                 //captureBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, focus);
                 captureBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{rectaf});
-            }
+            //}
             /*
             if(!isDualSession){
                 captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CONTROL_AF_TRIGGER_IDLE);
