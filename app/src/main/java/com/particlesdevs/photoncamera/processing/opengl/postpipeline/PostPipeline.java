@@ -31,7 +31,6 @@ public class PostPipeline extends GLBasePipeline {
     public ArrayList<ImageFrame> SAGAIN;
     public Point cropSize;
     public float[] analyzedBL = new float[]{0.f, 0.f, 0.f};
-    ;
     float regenerationSense = 1.f;
     float totalGain = 1.f;
     float AecCorr = 1.f;
@@ -104,7 +103,7 @@ public class PostPipeline extends GLBasePipeline {
         GLFormat format = new GLFormat(GLFormat.DataType.SIMPLE_8, 4);
         GLImage output = new GLImage(rotatedSize, format);
 
-        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format);
+        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format, GLDrawParams.Allocate.Heap);
         glint = new GLInterface(glproc);
         stackFrame = inBuffer;
         glint.parameters = parameters;
@@ -134,6 +133,11 @@ public class PostPipeline extends GLBasePipeline {
                 //if(PhotonCamera.getSettings().hdrxNR) {
                 //add(new ESD3DBayerCS());
                 //}
+                if (PhotonCamera.getSettings().hdrxNR) {
+                    add(new BayerFilter());
+                    if (nightMode)
+                        add(new BayerFilter());
+                }
                 if(mSettings.alignAlgorithm != 2) {
                     add(new Demosaic3());
                 }
@@ -146,12 +150,12 @@ public class PostPipeline extends GLBasePipeline {
          * * * All filters after demosaicing * * *
          */
 
-        if (PhotonCamera.getSettings().hdrxNR) {
+        //if (PhotonCamera.getSettings().hdrxNR) {
             //if (nightMode)
             //    add(new Wavelet());
-            add(new ESD3D(true));
             //add(new ESD3D(true));
-        }
+            //add(new ESD3D(true));
+        //}
 
         //add(new AWB());
         add(new Equalization());
