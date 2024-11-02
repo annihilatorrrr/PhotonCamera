@@ -693,7 +693,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         @Override
         public void onCaptureStillPictureStarted(Object o) {
             mCameraUIView.setCaptureProgressBarOpacity(1.0f);
-            textureView.post(() -> textureView.setAlpha(0.8f));
+            //textureView.post(() -> textureView.setAlpha(0.8f));
         }
 
         private long prevPlayTime = 0;
