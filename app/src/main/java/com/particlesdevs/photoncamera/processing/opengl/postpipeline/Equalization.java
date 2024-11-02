@@ -564,6 +564,12 @@ public class Equalization extends Node {
         Log.d("Equalization","rgb max shift:"+rmax+","+gmax+","+bmax);
         endT("Equalization Part 00");
         GLHistogram histParser = Analyze();
+        if (histParser.outputArr[0] == null) {
+            Log.d(Name, "No histogram data");
+            WorkingTexture = previousNode.WorkingTexture;
+            glProg.closed = true;
+            return;
+        }
         float[] histr = buildCumulativeHist(histParser.outputArr[0],1024);
         float[] histg = buildCumulativeHist(histParser.outputArr[1],1024);
         float[] histb = buildCumulativeHist(histParser.outputArr[2],1024);
@@ -717,11 +723,11 @@ public class Equalization extends Node {
                 BufferUtils.getFrom(hist), GL_LINEAR, GL_CLAMP_TO_EDGE);
         //GLTexture shadows = new GLTexture(hist.length,1,new GLFormat(GLFormat.DataType.FLOAT_16,3),
         //        FloatBuffer.wrap(shadowCurve), GL_LINEAR, GL_CLAMP_TO_EDGE);
-        glProg.setDefine("BL2",BLPredictShift);
+        //glProg.setDefine("BL2",BLPredictShift);
         glProg.setDefine("BR",(float)(shadowW)*shadowsSensitivity);
         File customlut = new File(FileManager.sPHOTON_TUNING_DIR,"lut.png");
         glProg.setDefine("TONEMAP",enableTonemap);
-        glProg.setDefine("DESAT",desaturate);
+        //glProg.setDefine("DESAT",desaturate);
         if(customlut.exists()){
             lutbm = new GLImage(customlut);
             lut = new GLTexture(lutbm,GL_LINEAR,GL_CLAMP_TO_EDGE,0);
