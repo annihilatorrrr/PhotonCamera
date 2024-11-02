@@ -119,6 +119,22 @@ public class ImageSaver {
             }
         }
 
+        public static boolean saveBitmapAsPNG(Path fileToSave, Bitmap img, int pngQuality, ParseExif.ExifData exifData) {
+            try {
+                OutputStream outputStream = Files.newOutputStream(fileToSave);
+                img.compress(Bitmap.CompressFormat.PNG, pngQuality, outputStream);
+                outputStream.flush();
+                outputStream.close();
+                img.recycle();
+                ExifInterface inter = ParseExif.setAllAttributes(fileToSave.toFile(), exifData);
+                inter.saveAttributes();
+                return true;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+
         //Different method name just for clarity of usage
         public static boolean saveStackedRaw(Path dngFilePath,
                                              Image image,
