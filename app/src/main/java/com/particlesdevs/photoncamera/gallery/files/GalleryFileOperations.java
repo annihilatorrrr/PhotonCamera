@@ -249,7 +249,9 @@ public class GalleryFileOperations {
 //                Log.i("Path", absolutePathOfImage);
 //                Log.i("Folder", bucketName);
 //                Log.i("FolderID", String.valueOf(bucketId));
-
+                if (bucketName == null) {
+                    continue;
+                }
                 for (int i = 0; i < ALL_FOLDERS.size(); i++) {
                     String fname = ALL_FOLDERS.get(i).getFolderName();
                     if (fname == null){
