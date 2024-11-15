@@ -88,7 +88,7 @@ public class IsoModel extends ManualModel<Integer> {
     }
 
     private int findPreferredKnobViewAngle(int indicatorCount) {
-        return (indicatorCount - 1) * 30;
+        return (indicatorCount - 1) * 20;
     }
 
 }

@@ -9,6 +9,7 @@ import android.util.Range;
 
 import com.particlesdevs.photoncamera.circularbarlib.R;
 import com.particlesdevs.photoncamera.circularbarlib.camera.ExposureIndex;
+import com.particlesdevs.photoncamera.circularbarlib.camera.IsoExpoSelector;
 import com.particlesdevs.photoncamera.circularbarlib.control.ManualParamModel;
 import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobInfo;
 import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
@@ -50,25 +51,67 @@ public class ShutterModel extends ManualModel<Long> {
         Log.v("ExpModel", "Max exp:" + maxexp);
         Log.v("ExpModel", "Min exp:" + minexp);
         double maxcnt = Math.log10((double) maxexp) / Math.log10(2);
+        double mincnt = Math.log10((double) minexp) / Math.log10(2);
         Log.v("ExpModel", "Max exp cnt:" + maxcnt);
-        for (double expCnt = (Math.log10(minexp) / Math.log10(2)); expCnt <= maxcnt; ) {
-            if (expCnt < maxcnt * 0.7) expCnt += 1.0 / 4.0;
-            else expCnt += 1.0 / 8.0;
+        // split to negative and positive log list
+        ArrayList<String> candidatesPos = new ArrayList<>();
+        ArrayList<Long> valuesPos = new ArrayList<>();
+        double secondExp = Math.log10(ExposureIndex.sec) / Math.log10(2);
+        for (double expCnt = secondExp; expCnt < maxcnt; ) {
             long val = (long) (Math.pow(2.0, expCnt));
+            // round val to 1000 from both sides
+            if (val % 10000 != 0) {
+                long val1 = val - val % 10000;
+                long val2 = val1 + 10000;
+                if (val - val1 > val2 - val) val = val2;
+                else val = val1;
+            }
             String out = ExposureIndex.sec2string(ExposureIndex.time2sec(val));
-            candidates.add(out);
-            values.add(val);
+            candidatesPos.add(out);
+            valuesPos.add(val);
+            expCnt += 1.0 / 4.0;
         }
+        candidatesPos.add(ExposureIndex.sec2string(ExposureIndex.time2sec(maxexp)));
+        valuesPos.add(maxexp);
+
+        ArrayList<String> candidatesNeg = new ArrayList<>();
+        ArrayList<Long> valuesNeg = new ArrayList<>();
+        for (double expCnt = secondExp - 1.0 / 4.0; expCnt > mincnt; ) {
+            long val = (long) (Math.pow(2.0, expCnt));
+            if(val > maxexp) continue;
+            String out = ExposureIndex.sec2string(ExposureIndex.time2sec(val));
+            candidatesNeg.add(out);
+            valuesNeg.add(val);
+            expCnt -= 1.0 / 4.0;
+        }
+        candidatesNeg.add(ExposureIndex.sec2string(ExposureIndex.time2sec(minexp)));
+        valuesNeg.add(minexp);
+
+        // invert negative list
+        for (int i = candidatesNeg.size() - 1; i >= 0; i--) {
+            candidates.add(candidatesNeg.get(i));
+            values.add(valuesNeg.get(i));
+        }
+        // add positive list
+        Log.d("ShutterModel", "Positive size: " + candidatesNeg.size());
+        for (int i = 0; i < candidatesPos.size(); i++) {
+            Log.d("ShutterModel", "Positive: " + candidatesPos.get(i) + " " + valuesPos.get(i));
+            candidates.add(candidatesPos.get(i));
+            values.add(valuesPos.get(i));
+        }
+
         int indicatorCount = 0;
-        int preferredIntervalCount = 8;
+        int preferredIntervalCount = 4;
         int tick = 0;
+        int tickShift = candidatesNeg.size()%preferredIntervalCount;
         while (tick < candidates.size()) {
-            boolean isLastItem = tick == candidates.size() - 1;
             ShadowTextDrawable drawable = new ShadowTextDrawable();
             drawable.setTextAppearance(context, R.style.ManualModeKnobText);
             ShadowTextDrawable drawableSelected = new ShadowTextDrawable();
             drawableSelected.setTextAppearance(context, R.style.ManualModeKnobTextSelected);
-            if (tick % preferredIntervalCount == 0 || isLastItem) {
+            int prefMpy = 1;
+            if(candidates.get(tick).length() > 5) prefMpy = 2;
+            if ((tick-tickShift) % (preferredIntervalCount*prefMpy) == 0) {
                 String text = candidates.get(tick);
                 drawable.setText(text);
                 drawableSelected.setText(text);

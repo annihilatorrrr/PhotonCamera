@@ -16,6 +16,8 @@ public class ManualParamModel extends Observable {
     public static final String ID_EV = "ev";
     public static final String ID_SHUTTER = "shutter";
     public static final String ID_ISO = "iso";
+
+    public static final String PANEL_INVISIBILITY = "panel_invisibility";
     private double currentFocusValue;
     private double currentEvValue;
     private double currentExposureValue;
@@ -72,6 +74,7 @@ public class ManualParamModel extends Observable {
         currentEvValue = EV_AUTO;
         currentExposureValue = EXPOSURE_AUTO;
         currentISOValue = ISO_AUTO;
+        notifyObservers(PANEL_INVISIBILITY);
     }
 
     @Override
