@@ -36,6 +36,10 @@ import java.util.Observer;
  * Created by Vibhor Srivastava on 07/Jan/2021
  */
 public class ParamController implements Observer {
+    public int ISO = -1;
+    public int EV = 0;
+    public long SHUTTER = -1;
+    public float FOCUS = -1;
     private static final String TAG = "ParamController";
     private final CaptureController captureController;
     private ManualParamModel manualParamModel;
@@ -119,17 +123,42 @@ public class ParamController implements Observer {
             ManualParamModel model = (ManualParamModel) observable;
             manualParamModel = model;
             if (object.equals(ManualParamModel.ID_ISO)) {
+                ISO = (int) model.getCurrentISOValue();
                 setISO((int) model.getCurrentISOValue(), model.getCurrentExposureValue());
             }
             if (object.equals(ManualParamModel.ID_EV)) {
+                EV = (int) model.getCurrentEvValue();
                 setEV((int) model.getCurrentEvValue());
             }
             if (object.equals(ManualParamModel.ID_SHUTTER)) {
+                SHUTTER = (long) model.getCurrentExposureValue();
                 setShutter((long) model.getCurrentExposureValue(), (int) model.getCurrentISOValue());
             }
             if (object.equals(ManualParamModel.ID_FOCUS)) {
+                FOCUS = (float) model.getCurrentFocusValue();
                 setFocus((float) model.getCurrentFocusValue());
             }
+            if(object.equals(ManualParamModel.PANEL_INVISIBILITY)) {
+                Log.d(TAG, "update: " + model.isManualMode());
+                ISO = -1;
+                EV = 0;
+                SHUTTER = -1;
+                FOCUS = -1;
+                captureController.unlockFocus();
+            }
+        }
+    }
+
+    public void setupPreview() {
+        if (manualParamModel != null) {
+            if(ISO != -1)
+                setISO(ISO, manualParamModel.getCurrentExposureValue());
+            if(EV != 0)
+                setEV(EV);
+            if(SHUTTER != -1)
+                setShutter(SHUTTER, ISO);
+            if(FOCUS != -1)
+                setFocus(FOCUS);
         }
     }
 
