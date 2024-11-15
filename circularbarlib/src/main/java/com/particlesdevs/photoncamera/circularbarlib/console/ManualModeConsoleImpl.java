@@ -176,13 +176,13 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
 
     private void setAutoText() {
         if(evModel != null)
-        evModel.setAutoTxt();
+            evModel.setAutoTxt();
         if(mfModel != null)
-        mfModel.setAutoTxt();
+            mfModel.setAutoTxt();
         if(expoTimeModel != null)
-        expoTimeModel.setAutoTxt();
+            expoTimeModel.setAutoTxt();
         if(isoModel != null)
-        isoModel.setAutoTxt();
+            isoModel.setAutoTxt();
     }
 
     @Override
@@ -191,13 +191,13 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
         knobModel.setKnobResetCalled(true);
         selectedModel = null;
         if(mfModel != null)
-        mfModel.resetModel();
+            mfModel.resetModel();
         if(expoTimeModel != null)
-        expoTimeModel.resetModel();
+            expoTimeModel.resetModel();
         if(isoModel != null)
-        isoModel.resetModel();
+            isoModel.resetModel();
         if(evModel != null)
-        evModel.resetModel();
+            evModel.resetModel();
         manualModeModel.setCheckedTextViewId(-1);
     }
 
