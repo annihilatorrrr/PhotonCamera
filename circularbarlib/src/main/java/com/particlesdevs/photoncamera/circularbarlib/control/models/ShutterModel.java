@@ -57,8 +57,9 @@ public class ShutterModel extends ManualModel<Long> {
         ArrayList<String> candidatesPos = new ArrayList<>();
         ArrayList<Long> valuesPos = new ArrayList<>();
         double secondExp = Math.log10(ExposureIndex.sec) / Math.log10(2);
-        for (double expCnt = secondExp; expCnt < maxcnt; ) {
+        for (double expCnt = secondExp; expCnt < maxcnt; expCnt += 1.0 / 4.0) {
             long val = (long) (Math.pow(2.0, expCnt));
+            if(val > maxexp) continue;
             // round val to 1000 from both sides
             if (val % 10000 != 0) {
                 long val1 = val - val % 10000;
@@ -69,20 +70,18 @@ public class ShutterModel extends ManualModel<Long> {
             String out = ExposureIndex.sec2string(ExposureIndex.time2sec(val));
             candidatesPos.add(out);
             valuesPos.add(val);
-            expCnt += 1.0 / 4.0;
         }
         candidatesPos.add(ExposureIndex.sec2string(ExposureIndex.time2sec(maxexp)));
         valuesPos.add(maxexp);
 
         ArrayList<String> candidatesNeg = new ArrayList<>();
         ArrayList<Long> valuesNeg = new ArrayList<>();
-        for (double expCnt = secondExp - 1.0 / 4.0; expCnt > mincnt; ) {
+        for (double expCnt = secondExp - 1.0 / 4.0; expCnt > mincnt; expCnt -= 1.0 / 4.0) {
             long val = (long) (Math.pow(2.0, expCnt));
             if(val > maxexp) continue;
             String out = ExposureIndex.sec2string(ExposureIndex.time2sec(val));
             candidatesNeg.add(out);
             valuesNeg.add(val);
-            expCnt -= 1.0 / 4.0;
         }
         candidatesNeg.add(ExposureIndex.sec2string(ExposureIndex.time2sec(minexp)));
         valuesNeg.add(minexp);
