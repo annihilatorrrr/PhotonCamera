@@ -147,7 +147,7 @@ public class Gyro {
         }
     }
     public void CompleteSequence() {
-
+        CompleteGyroBurst();
         integrate = false;
         delayUs = delayPreview;
         unregister();
