@@ -9,7 +9,7 @@ import android.media.Image;
 import android.util.Log;
 
 import com.particlesdevs.photoncamera.Wrapper;
-import com.particlesdevs.photoncamera.WrapperGPU;
+import com.particlesdevs.photoncamera.WrapperAl;
 import com.particlesdevs.photoncamera.api.Camera2ApiAutoFix;
 import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.api.ParseExif;
@@ -20,10 +20,8 @@ import com.particlesdevs.photoncamera.processing.ImageFrame;
 import com.particlesdevs.photoncamera.processing.ImageFrameDeblur;
 import com.particlesdevs.photoncamera.processing.ImageSaver;
 import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
-import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
 import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.InterpolateGainMap;
-import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -218,11 +216,11 @@ public class HdrxProcessor extends ProcessorBase {
         NoiseO = (float) Math.max(NoiseO * noisempy, Float.MIN_NORMAL);
         FrameNumberSelector.frameCount = cnt;
         Wrapper.init(width, height, cnt);
-        WrapperGPU.init(width, height, cnt);
+        WrapperAl.init(width, height, cnt);
         //WrapperGPU.InitCL();
         //WrapperGPU.nativeLib(new File(PhotonCamera.getLibsDirectory(),"libOpenCL.so").getAbsolutePath());
         if (alignAlgorithm != 0){
-            WrapperGPU.loadFrame(images.get(selected).buffer, 1.f);
+            WrapperAl.loadFrame(images.get(selected).buffer, 1.f);
         }
         for (int i = 0; i < cnt; i++) {
             float mpy = minMpy / images.get(i).pair.layerMpy;
@@ -238,7 +236,7 @@ public class HdrxProcessor extends ProcessorBase {
                     Log.d(TAG, "Base frame:" + i);
                     continue;
                 }
-                WrapperGPU.loadFrame(images.get(i).buffer, mpy);
+                WrapperAl.loadFrame(images.get(i).buffer, mpy);
             }
         }
 
@@ -269,22 +267,22 @@ public class HdrxProcessor extends ProcessorBase {
                 images.get(i).image.close();
             }
         } else {
-            WrapperGPU.loadInterpolatedGainMap(interpolateGainMap.Output);
+            WrapperAl.loadInterpolatedGainMap(interpolateGainMap.Output);
 
-            WrapperGPU.outputBuffer(output);
+            WrapperAl.outputBuffer(output);
 
             Log.d(TAG, "Packing");
-            WrapperGPU.packImages();
+            WrapperAl.packImages();
             Log.d(TAG, "Packed");
             for (int i = 1; i < images.size(); i++) {
                 images.get(i).image.close();
             }
             if(alignAlgorithm == 1) {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];
-                WrapperGPU.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
+                WrapperAl.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
                         , processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
             } else {
-                WrapperGPU.processFrameBayerShift(NoiseS,NoiseO,0.f, 0.f, 0.f,
+                WrapperAl.processFrameBayerShift(NoiseS,NoiseO,0.f, 0.f, 0.f,
                         processingParameters.whiteLevel, processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2],
                         processingParameters.cfaPattern);
             }

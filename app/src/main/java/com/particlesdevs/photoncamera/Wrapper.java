@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 public class Wrapper {
     static {
         System.loadLibrary("HdrX");
-        System.loadLibrary("AlignVectors");
         //System.loadLibrary("photon_accel");
     }
 

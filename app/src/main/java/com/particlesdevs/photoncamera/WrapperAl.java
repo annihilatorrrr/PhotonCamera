@@ -1,25 +1,14 @@
 package com.particlesdevs.photoncamera;
 
-import android.annotation.SuppressLint;
-import android.util.Log;
-
-import com.particlesdevs.photoncamera.app.PhotonCamera;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 //PhotonCamera
 //Copyright (C) 2020-2021  Eszdman
 //https://github.com/eszdman/PhotonCamera
 //Using this file when changing the main application package is prohibited
-public class WrapperGPU {
+public class WrapperAl {
     static {
-        System.loadLibrary("hdrxgpu");
+        System.loadLibrary("alignmentVectors");
     }
     /**
      * Function to create pointers for image buffers.
