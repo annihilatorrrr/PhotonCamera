@@ -1,6 +1,7 @@
 package com.particlesdevs.photoncamera.processing;
 
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
@@ -34,19 +35,12 @@ public class DefaultSaver extends SaverImplementation {
     }
 
     @HunterDebug
-    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
-        super.runRaw(imageFormat, characteristics, captureResult, burstShakiness, cameraRotation);
+    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
+        super.runRaw(imageFormat, characteristics, captureResult,captureRequest, burstShakiness, cameraRotation);
         //Wait for one frame at least.
         Log.d(TAG, "Acquiring:" + IMAGE_BUFFER.size());
         while (bufferLock){}
-        //newBurst = true;
-        while (IMAGE_BUFFER.size() < frameCount){
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        Log.d(TAG, "Acquired:" + IMAGE_BUFFER.size());
         bufferLock = true;
         Log.d(TAG,"Size:"+IMAGE_BUFFER.size());
         if (PhotonCamera.getSettings().frameCount == 1) {
@@ -89,29 +83,37 @@ public class DefaultSaver extends SaverImplementation {
         IMAGE_BUFFER.clear();
         IMAGE_BUFFER = imagebuffer;
         bufferLock = false;
+        for(int i =0; i<slicedBuffer.size();i++){
+            try{
+                slicedBuffer.get(i).getFormat();
+            } catch (IllegalStateException e){
+                slicedBuffer.remove(i);
+                i--;
+                Log.d(TAG,"IMGBufferSize:"+slicedBuffer.size());
+                Log.d(TAG,Log.getStackTraceString(e));
+            }
+        }
 
         Log.d(TAG,"moving images");
         //Log.d(TAG,"moved images:"+slicedBuffer.size());
-        AsyncTask.execute(() -> {
         hdrxProcessor.start(
                 dngFile,
                 jpgFile,
-                ParseExif.parse(captureResult),
+                ParseExif.parse(captureResult, captureRequest),
                 burstShakiness,
                 slicedBuffer,
                 imageFormat,
                 cameraRotation,
                 characteristics,
                 captureResult,
+                captureRequest,
                 processingCallback
         );
         slicedBuffer.clear();
-        });
-
     }
 
-    public void unlimitedStart(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, int cameraRotation) {
-        super.unlimitedStart(imageFormat, characteristics, captureResult, cameraRotation);
+    public void unlimitedStart(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, int cameraRotation) {
+        super.unlimitedStart(imageFormat, characteristics, captureResult, captureRequest, cameraRotation);
         Path dngFile = ImagePath.newDNGFilePath();
         Path jpgFile = ImagePath.newJPGFilePath();
 
@@ -119,9 +121,10 @@ public class DefaultSaver extends SaverImplementation {
         mUnlimitedProcessor.unlimitedStart(
                 dngFile,
                 jpgFile,
-                ParseExif.parse(captureResult),
+                ParseExif.parse(captureResult, captureRequest),
                 characteristics,
                 captureResult,
+                captureRequest,
                 cameraRotation,
                 processingCallback
         );

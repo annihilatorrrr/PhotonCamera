@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.processing.processor;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.util.Log;
@@ -22,6 +23,7 @@ import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
 import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
 import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.InterpolateGainMap;
+import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -59,6 +61,7 @@ public class HdrxProcessor extends ProcessorBase {
                       int cameraRotation,
                       CameraCharacteristics characteristics,
                       CaptureResult captureResult,
+                      CaptureRequest captureRequest,
                       ProcessingCallback callback) {
         this.jpgFile = jpgFile;
         this.dngFile = dngFile;
@@ -70,6 +73,8 @@ public class HdrxProcessor extends ProcessorBase {
         this.callback = callback;
         this.characteristics = characteristics;
         this.captureResult = captureResult;
+        this.captureRequest = captureRequest;
+        Log.d(TAG, "HdrxProcessor called start()");
         Run();
     }
 
@@ -84,7 +89,7 @@ public class HdrxProcessor extends ProcessorBase {
 //            }
         } catch (Exception e) {
             Log.e(TAG, ProcessingEventsListener.FAILED_MSG);
-            e.printStackTrace();
+            Log.e(TAG, "Error in HdrX Processing:"+Log.getStackTraceString(e));
             callback.onFailed();
             processingEventsListener.onProcessingError("HdrX Processing Failed");
         }
@@ -106,15 +111,13 @@ public class HdrxProcessor extends ProcessorBase {
         Log.d(TAG, "Api BlackLevel:" + characteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN));
         Parameters processingParameters = PhotonCamera.getParameters();
         processingParameters.FillConstParameters(characteristics, new Point(width, height));
-        processingParameters.FillDynamicParameters(captureResult);
-        processingParameters.cameraRotation = cameraRotation;
 
-        exifData.IMAGE_DESCRIPTION = processingParameters.toString();
 
         Log.d(TAG, "Wrapper.init");
         ArrayList<ImageFrame> images = new ArrayList<>();
         ByteBuffer lowexp = null;
         ByteBuffer highexp = null;
+        int ISO = 0;
         for (int i = 0; i < mImageFramesToProcess.size(); i++) {
             ByteBuffer byteBuffer;
             byteBuffer = mImageFramesToProcess.get(i).getPlanes()[0].getBuffer();
@@ -130,7 +133,14 @@ public class HdrxProcessor extends ProcessorBase {
                 frame.frameGyro = BurstShakiness.get(ind);
             }*/
             images.add(frame);
+            ISO += frame.pair.iso;
         }
+        ISO /= mImageFramesToProcess.size();
+
+        processingParameters.FillDynamicParameters(captureResult, captureRequest,ISO);
+        processingParameters.cameraRotation = cameraRotation;
+
+        exifData.IMAGE_DESCRIPTION = processingParameters.toString();
         ImageFrameDeblur imageFrameDeblur = new ImageFrameDeblur();
         imageFrameDeblur.firstFrameGyro = images.get(0).frameGyro.clone();
         for (int i = 0; i < images.size(); i++)
@@ -337,13 +347,23 @@ public class HdrxProcessor extends ProcessorBase {
         Bitmap img = pipeline.Run(result, PhotonCamera.getParameters());
 
         img = overlay(img, pipeline.debugData.toArray(new Bitmap[0]));
-        processingEventsListener.onProcessingFinished("HdrX JPG Processing Finished");
+        try {
+            processingEventsListener.onProcessingFinished("HdrX JPG Processing Finished");
+        }
+        catch (Exception e){
+            Log.d(TAG,"Error in processingEventsListener.onProcessingFinished:"+Log.getStackTraceString(e));
+        }
 
         //Saves the final bitmap
         boolean imageSaved = ImageSaver.Util.saveBitmapAsJPG(jpgFile, img,
                 ImageSaver.JPG_QUALITY, exifData);
 
-        processingEventsListener.notifyImageSavedStatus(imageSaved, jpgFile);
+        try {
+            processingEventsListener.notifyImageSavedStatus(imageSaved, jpgFile);
+        }
+        catch (Exception e){
+            Log.d(TAG,"Error in processingEventsListener.notifyImageSavedStatus:"+Log.getStackTraceString(e));
+        }
 
         pipeline.close();
 

@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.processing;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
 import android.media.Image;
@@ -51,12 +52,23 @@ public class ImageSaver {
     public void setFrameCount(int desiredFrameCount){
         this.desiredFrameCount = desiredFrameCount;
     }
+
+    public void updateFrameCount(int desiredFrameCount){
+        this.desiredFrameCount = desiredFrameCount;
+        this.implementation.frameCount = desiredFrameCount;
+    }
+
+    public int bufferSize(){
+        return SaverImplementation.IMAGE_BUFFER.size();
+    }
+
     public ImageSaver(ProcessingEventsListener processingEventsListener) {
         implementation = new DefaultSaver(processingEventsListener);
         init(implementation);
     }
 
     public void initProcess(ImageReader mReader) {
+        Log.v(TAG, "initProcess()");
         if((frameCounter < desiredFrameCount) || desiredFrameCount == -1) {
             Log.v(TAG, "initProcess() : called from \"" + Thread.currentThread().getName() + "\" Thread");
             Image mImage;
@@ -88,13 +100,13 @@ public class ImageSaver {
         frameCounter++;
     }
 
-    public void runRaw(CameraCharacteristics characteristics, CaptureResult captureResult, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
-        implementation.runRaw(imageFormat,characteristics,captureResult,burstShakiness,cameraRotation);
+    public void runRaw(CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
+        implementation.runRaw(imageFormat,characteristics,captureResult, captureRequest,burstShakiness,cameraRotation);
     }
 
-    public void unlimitedStart(CameraCharacteristics characteristics, CaptureResult captureResult, int cameraRotation) {
+    public void unlimitedStart(CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, int cameraRotation) {
         implementation = ImageSaverSelector.getImageSaver(ImageFormat.RAW_SENSOR, implementation);
-        implementation.unlimitedStart(imageFormat,characteristics,captureResult,cameraRotation);
+        implementation.unlimitedStart(imageFormat,characteristics,captureResult, captureRequest,cameraRotation);
     }
 
     public void unlimitedEnd() {

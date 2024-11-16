@@ -1,5 +1,6 @@
 package com.particlesdevs.photoncamera.api;
 
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.os.Build;
 import android.util.Log;
@@ -39,8 +40,13 @@ public class ParseExif {
         if (out != null) return out.toString();
         else return "";
     }
+    public static String requestget(CaptureRequest res, CaptureRequest.Key<?> key) {
+        Object out = res.get(key);
+        if (out != null) return out.toString();
+        else return "";
+    }
 
-    public static ExifData parse(CaptureResult result) {
+    public static ExifData parse(CaptureResult result, CaptureRequest request) {
         ExifData data = new ExifData();
 
         int rotation = PhotonCamera.getCaptureController().cameraRotation;
@@ -71,9 +77,17 @@ public class ParseExif {
         data.SENSITIVITY_TYPE = String.valueOf(ExifInterface.SENSITIVITY_TYPE_ISO_SPEED);
         data.PHOTOGRAPHIC_SENSITIVITY = String.valueOf(isonum);
         data.F_NUMBER = resultget(result, LENS_APERTURE);
-        data.FOCAL_LENGTH = ((int) (100 * Double.parseDouble(resultget(result, LENS_FOCAL_LENGTH)))) + "/100";
+        String focal = resultget(result, LENS_FOCAL_LENGTH);
+        if (!focal.isEmpty()) {
+            focal = requestget(request, CaptureRequest.LENS_FOCAL_LENGTH);
+            data.FOCAL_LENGTH = ((int) (100 * Double.parseDouble(focal))) + "/100";
+        }
         data.APERTURE_VALUE = String.valueOf(result.get(LENS_APERTURE));
-        data.EXPOSURE_TIME = getTime(Long.parseLong(resultget(result, SENSOR_EXPOSURE_TIME)));
+        String exposure = resultget(result, SENSOR_EXPOSURE_TIME);
+        if (!exposure.isEmpty()) {
+            exposure = requestget(request, CaptureRequest.SENSOR_EXPOSURE_TIME);
+            data.EXPOSURE_TIME = getTime(Long.parseLong(exposure));
+        }
         data.DATETIME = sFormatter.format(new Date(System.currentTimeMillis()));
         data.COMPRESSION = "97";
         data.COLOR_SPACE = "sRGB";
