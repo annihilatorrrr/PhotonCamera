@@ -14,7 +14,7 @@ public class ExposureIndex {
     }
 
     public static String sec2string(double in) {
-        if (in > 1.0) return String.format(Locale.US, "%.2f", in);
+        if (in >= 1.0) return String.format(Locale.US, "%.1f", in);
         else {
             in = 1.0 / in;
             return "1/" + String.format(Locale.US, "%.0f", in);
