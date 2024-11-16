@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.BlackLevelPattern;
 import android.hardware.camera2.params.ColorSpaceTransform;
@@ -134,9 +135,16 @@ public class Parameters {
         //hotPixels = PhotonCamera.getCameraFragment().mHotPixelMap;
     }
 
-    public void FillDynamicParameters(CaptureResult result) {
+    public void FillDynamicParameters(CaptureResult result, CaptureRequest request, int ISO) {
         sensorSpecifics = PhotonCamera.getSpecificSensor().selectedSensorSpecifics;
-        noiseModeler = new NoiseModeler(result.get(CaptureResult.SENSOR_NOISE_PROFILE), analogIso, result.get(CaptureResult.SENSOR_SENSITIVITY), cfaPattern, sensorSpecifics);
+        Integer sensivity = result.get(CaptureResult.SENSOR_SENSITIVITY);
+        if (sensivity == null) {
+            sensivity = request.get(CaptureRequest.SENSOR_SENSITIVITY);
+            if (sensivity == null) {
+                sensivity = ISO;
+            }
+        }
+        noiseModeler = new NoiseModeler(result.get(CaptureResult.SENSOR_NOISE_PROFILE), analogIso, sensivity, cfaPattern, sensorSpecifics);
         int[] blarr = new int[4];
         BlackLevelPattern level = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN);
         if (result != null) {
@@ -408,11 +416,18 @@ public class Parameters {
                 "\n hasGainMap=" + hasGainMap +
                 "\n FrameCount=" + FrameNumberSelector.frameCount +
                 "\n CameraID=" + PhotonCamera.getSettings().mCameraID +
-                "\n Sat=" + FltFormat(PreferenceKeys.getSaturationValue()) +
-                "\n Shadows=" + FltFormat(PhotonCamera.getSettings().shadows) +
-                "\n Sharp=" + FltFormat(PreferenceKeys.getSharpnessValue()) +
-                "\n Denoise=" + FltFormat(PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR)) +
                 "\n DenoiseOn=" + PhotonCamera.getSettings().hdrxNR +
+                "\n Sharp=" + FltFormat(PreferenceKeys.getSharpnessValue()) +
+                "\n Sat=" + FltFormat(PreferenceKeys.getSaturationValue()) +
+                "\n Contrast=" + FltFormat(PreferenceKeys.getContrastValue()) +
+                "\n ExpoCorrect=" + FltFormat(PhotonCamera.getSettings().exposureCompensation) +
+                "\n Denoise=" + FltFormat(PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR)) +
+                "\n Noise Merging=" + FltFormat(PhotonCamera.getSettings().mergeStrength) +
+                "\n Shadows=" + FltFormat(PhotonCamera.getSettings().shadows) +
+                "\n Compressor=" + FltFormat(PhotonCamera.getSettings().compressor) +
+                "\n Align=" + PhotonCamera.getSettings().alignAlgorithm +
+                "\n Color=" + PhotonCamera.getSettings().colorMethod +
+                "\n PreviewFormat=" + PhotonCamera.getSettings().previewFormat +
                 "\n FocalL=" + FltFormat(focalLength) +
                 "\n Version=" + PhotonCamera.getVersion();
     }
