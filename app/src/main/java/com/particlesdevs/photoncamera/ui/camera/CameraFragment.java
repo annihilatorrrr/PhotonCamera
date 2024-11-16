@@ -125,11 +125,13 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public static CameraMode mSelectedMode;
     private final Field[] metadataFields = CameraReflectionApi.getAllMetadataFields();
     private final int NOTIFICATION_ID = 1;
+    /*
     private final ExecutorService processExecutorService = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "ProcessingThread");
         t.setPriority(Thread.MIN_PRIORITY);
         return t;
-    });
+    });*/
+    private final ExecutorService processExecutorService = Executors.newFixedThreadPool(2);
     public SurfaceViewOverViewfinder surfaceView;
     public Map<String, CameraLensData> mCameraLensDataMap;
     public Activity activity;
@@ -640,7 +642,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         public void onProcessingStarted(String processName) {
             logD("onProcessingStarted: " + processName + " Processing Started");
             mCameraUIView.setProcessingProgressBarIndeterminate(true);
-            //mCameraUIView.activateShutterButton(true);
+            mCameraUIView.activateShutterButton(true);
             showNotification(processName);
         }
 
