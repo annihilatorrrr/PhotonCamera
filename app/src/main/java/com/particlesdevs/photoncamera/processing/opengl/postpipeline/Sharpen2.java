@@ -19,9 +19,9 @@ public class Sharpen2 extends Node {
     }
     float blurSize = 0.20f;
     float sharpSize = 0.9f;
-    float sharpMin = 0.3f;
-    float sharpMax = 1.f;
-    float denoiseActivity = 1.f;
+    float sharpMin = 0.4f;
+    float sharpMax = 1.0f;
+    float denoiseActivity = 1.0f;
     @Override
     public void Run() {
         denoiseActivity = getTuning("DenoiseActivity",denoiseActivity);
@@ -36,9 +36,10 @@ public class Sharpen2 extends Node {
         glProg.setDefine("SHARPMAX",sharpMax);
         glProg.setDefine("NOISES",basePipeline.noiseS);
         glProg.setDefine("NOISEO",basePipeline.noiseO);
-        glProg.useAssetProgram("lsharpening2");
+        glProg.useAssetProgram("lsharpening3");
         glProg.setVar("size", sharpSize);
-        glProg.setVar("strength", PreferenceKeys.getSharpnessValue());
+        float sharpness = Math.max(PreferenceKeys.getSharpnessValue(), 0.0f);
+        glProg.setVar("strength", sharpness);
         glProg.setTexture("InputBuffer", previousNode.WorkingTexture);
         glProg.setTexture("BlurBuffer",previousNode.WorkingTexture);
         WorkingTexture = basePipeline.getMain();
