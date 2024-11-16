@@ -174,7 +174,7 @@
                 android:summary=""
                 android:defaultValue="@string/pref_sharpness_seekbar_default"
                 app:maxValue="1.0"
-                app:minValue="0"
+                app:minValue="-0.2"
                 app:isFloat="true"
                 app:stepPerUnit="20"
                 android:icon="@drawable/ic_grain_black_24dp"
