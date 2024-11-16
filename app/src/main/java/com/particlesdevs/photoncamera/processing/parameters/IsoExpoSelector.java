@@ -133,10 +133,10 @@ public class IsoExpoSelector {
             //HDR = true;
         }
         if (step%6 == baseFrame) {
-            if (pair.normalizedIso() <= 120.0/mpy1 && pair.exposure > ExposureIndex.sec / 70.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
+            if (pair.normalizedIso() <= 240.0/mpy1 && pair.exposure > ExposureIndex.sec / 70.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
                 pair.ReduceExpo();
             }
-            if (pair.normalizedIso() <= 245.0/mpy1 && pair.exposure > ExposureIndex.sec / 50.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
+            if (pair.normalizedIso() <= 500.0/mpy1 && pair.exposure > ExposureIndex.sec / 50.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
                 pair.ReduceExpo();
             }
             if (pair.exposure < ExposureIndex.sec * 3.00 && pair.exposure > ExposureIndex.sec / 3 && pair.normalizedIso() < 3200.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
