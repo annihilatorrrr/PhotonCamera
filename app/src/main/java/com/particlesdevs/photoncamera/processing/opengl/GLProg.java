@@ -236,6 +236,7 @@ public class GLProg implements AutoCloseable {
                 z/glComputeLayout.z + z0);
         glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
         glMemoryBarrier(GL_ALL_SHADER_BITS);
+        glFinish();
     }
     public void computeManual(int x,int y, int z) {
         if(!isCompute) {
