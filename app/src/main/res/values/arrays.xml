@@ -27,6 +27,12 @@
         <item>Characteristics</item>
         <item>Capture</item>
     </string-array>
+    <string-array name="preview_format_entries">
+        <item>YUV_420_888</item>
+        <item>JPEG</item>
+        <item>HEIC</item>
+        <item>None</item>
+    </string-array>
     <string-array name="location_geotag_entryValues">
         <item>Off</item>
         <item>High Accuracy</item>
@@ -40,6 +46,12 @@
         <item>0</item>
         <item>1</item>
         <item>2</item>
+    </string-array>
+    <string-array name="preview_format_entryValues">
+        <item>35</item>
+        <item>256</item>
+        <item>1212500294</item>
+        <item>0</item>
     </string-array>
     <string-array name="theme_entries">
         <item>@string/theme_follow_system</item>
