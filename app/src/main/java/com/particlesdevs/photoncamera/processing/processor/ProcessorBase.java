@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 
 import com.particlesdevs.photoncamera.api.ParseExif;
@@ -39,6 +40,7 @@ public abstract class ProcessorBase {
     protected Path jpgFile;
     protected CameraCharacteristics characteristics;
     protected CaptureResult captureResult;
+    protected CaptureRequest captureRequest;
     protected ProcessingCallback callback;
     protected ParseExif.ExifData exifData;
     protected int cameraRotation;
