@@ -56,14 +56,14 @@ public class ShutterModel extends ManualModel<Long> {
         // split to negative and positive log list
         ArrayList<String> candidatesPos = new ArrayList<>();
         ArrayList<Long> valuesPos = new ArrayList<>();
-        double secondExp = Math.log10(ExposureIndex.sec) / Math.log10(2);
-        for (double expCnt = secondExp; expCnt < maxcnt; expCnt += 1.0 / 4.0) {
+        double shortExp = Math.log10(ExposureIndex.sec) / Math.log10(2);
+        if (shortExp > maxcnt) shortExp = Math.log10(ExposureIndex.sec/4.0) / Math.log10(2);
+        for (double expCnt = shortExp; expCnt < maxcnt; expCnt += 1.0 / 4.0) {
             long val = (long) (Math.pow(2.0, expCnt));
-            if(val > maxexp) continue;
             // round val to 1000 from both sides
-            if (val % 10000 != 0) {
-                long val1 = val - val % 10000;
-                long val2 = val1 + 10000;
+            if (val % 250000000 != 0) {
+                long val1 = val - val % 250000000;
+                long val2 = val1 + 250000000;
                 if (val - val1 > val2 - val) val = val2;
                 else val = val1;
             }
@@ -76,7 +76,7 @@ public class ShutterModel extends ManualModel<Long> {
 
         ArrayList<String> candidatesNeg = new ArrayList<>();
         ArrayList<Long> valuesNeg = new ArrayList<>();
-        for (double expCnt = secondExp - 1.0 / 4.0; expCnt > mincnt; expCnt -= 1.0 / 4.0) {
+        for (double expCnt = shortExp - 1.0 / 4.0; expCnt > mincnt; expCnt -= 1.0 / 4.0) {
             long val = (long) (Math.pow(2.0, expCnt));
             if(val > maxexp) continue;
             String out = ExposureIndex.sec2string(ExposureIndex.time2sec(val));
@@ -85,16 +85,13 @@ public class ShutterModel extends ManualModel<Long> {
         }
         candidatesNeg.add(ExposureIndex.sec2string(ExposureIndex.time2sec(minexp)));
         valuesNeg.add(minexp);
-
         // invert negative list
         for (int i = candidatesNeg.size() - 1; i >= 0; i--) {
             candidates.add(candidatesNeg.get(i));
             values.add(valuesNeg.get(i));
         }
         // add positive list
-        Log.d("ShutterModel", "Positive size: " + candidatesNeg.size());
         for (int i = 0; i < candidatesPos.size(); i++) {
-            Log.d("ShutterModel", "Positive: " + candidatesPos.get(i) + " " + valuesPos.get(i));
             candidates.add(candidatesPos.get(i));
             values.add(valuesPos.get(i));
         }
