@@ -300,7 +300,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     return pRGB;
 }
 float getGain(vec2 coordsShift){
-    float ingain = textureBicubicHardware(FusionMap, (gl_FragCoord.xy+coordsShift)/vec2(INSIZE)).r;
+    float ingain = texture(FusionMap, (gl_FragCoord.xy+coordsShift)/vec2(INSIZE)).r;
     //float ingain = texelFetch(FusionMap, xy, 0).r;
     /*if(ingain > 0.0){
         ingain = 1.0/ingain;
@@ -332,6 +332,7 @@ void main() {
 
     float tonemapGain = 1.f;
     #if FUSION == 1
+        /*
     float tempV = 0.0;
     float minG,maxG;
     float minImg, maxImg;
@@ -354,6 +355,20 @@ void main() {
     float brightening = blurCorrected/(blurInitial+EPS);
     float corrected = blurCorrected + detail*brightening;
     tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))+EPS);
+    tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);*/
+    // guide filtering for gains
+    float sigma = 1.0;
+    float Z = 0.0;
+    float gain = 0.0;
+    for (int i = -3; i <= 3; i++) {
+        for (int j = -3; j <= 3; j++) {
+            vec3 color = texelFetch(InputBuffer, xy + ivec2(i, j), 0).rgb;
+            float w = exp(-dot(color - sRGB, color - sRGB) / (2.0 * sigma * sigma));
+            Z += w;
+            gain += w * getGain(vec2(i, j));
+        }
+    }
+    tonemapGain = gain / Z;
     tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);
     #endif
     //vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
