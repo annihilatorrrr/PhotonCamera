@@ -40,6 +40,7 @@ public class Settings {
     public int alignAlgorithm;
 
     public int colorMethod;
+    public int previewFormat;
     public String mCameraID;
     public float[] toneMap;
     public float[] gamma;
@@ -81,6 +82,7 @@ public class Settings {
         hdrxNR = PreferenceKeys.isHdrxNrOn();
         alignAlgorithm = PreferenceKeys.getAlignMethodValue();
         colorMethod = PreferenceKeys.getColorMethodValue();
+        previewFormat = PreferenceKeys.getPreviewFormatValue();
         selectedMode = CameraMode.valueOf(PreferenceKeys.getCameraModeOrdinal());
         toneMap = parseToneMapArray();
         gamma = parseGammaArray();
