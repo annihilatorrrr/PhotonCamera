@@ -50,15 +50,16 @@ public class Gyro {
                 z+=anglez;
             }
             if (gyroburst) {
-                burstout +=Math.abs(anglex)+anglex;
-                burstout +=Math.abs(angley)+angley;
-                burstout +=Math.abs(anglez)+anglez;
+                burstout +=Math.abs(anglex);
+                burstout +=Math.abs(angley);
+                burstout +=Math.abs(anglez);
                 if(counter < gyroBurst.movementss[0].length) {
                     gyroBurst.movementss[0][counter] = anglex;
                     gyroBurst.movementss[1][counter] = angley;
                     gyroBurst.movementss[2][counter] = anglez;
+                    counter++;
                 }
-                counter++;
+
 
             } else {
                 circleCount%=gyroCircle;
@@ -109,10 +110,11 @@ public class Gyro {
             for(long time : capturingTimes){
                 if(time > maxTime) maxTime = time;
             }
-            int requiredSamples = 700;
-            delayUs = (int) (maxTime/requiredSamples)/1000;
+            int requiredSamples = 65535;
+            //delayUs = (int) (maxTime/requiredSamples)/1000;
+            delayUs = 0;
             Log.d(TAG,"Gyro DelayUs:"+delayUs);
-            gyroBurst = new GyroBurst(700);
+            gyroBurst = new GyroBurst(requiredSamples);
             System.arraycopy(capturingTimes, 0, this.capturingTimes, 0, capturingTimes.length);
             BurstShakiness = burstShakiness;
             unregister();
@@ -147,11 +149,29 @@ public class Gyro {
         }
     }
     public void CompleteSequence() {
-        CompleteGyroBurst();
         integrate = false;
         delayUs = delayPreview;
         unregister();
         register();
+        int avgSize = 0;
+        for (GyroBurst burst : BurstShakiness) {
+            avgSize += burst.samples;
+        }
+        avgSize/=BurstShakiness.size();
+        for(int i =0; i<BurstShakiness.size();i++) {
+            int shakeInteg = BurstShakiness.get(i).samples;
+            if(BurstShakiness.get(i).samples > avgSize*2){
+                shakeInteg = Math.min(avgSize,shakeInteg);
+            }
+            float shakiness = 0;
+            for (int j = 0; j < shakeInteg; j++) {
+                shakiness += Math.abs(BurstShakiness.get(i).movementss[0][j]);
+                shakiness += Math.abs(BurstShakiness.get(i).movementss[1][j]);
+                shakiness += Math.abs(BurstShakiness.get(i).movementss[2][j]);
+            }
+            BurstShakiness.get(i).shakiness = shakiness;
+            BurstShakiness.get(i).samples = shakeInteg;
+        }
         for(int i =0; i<BurstShakiness.size();i++){
             float shakinessP = 0.f;
             float shakinessA = 0.f;
