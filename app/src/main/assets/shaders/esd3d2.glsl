@@ -60,6 +60,7 @@ void main() {
     final_colour += cin*Z;
     //sigY /= 25.0;
     // Use hybrid SNN filtering to denoise the image
+    //vec3 cc[4];
     for (int i=0; i <= KSIZE; ++i)
     {
         for (int j=0; j <= KSIZE; ++j)
@@ -68,35 +69,18 @@ void main() {
             ivec2 pos2 = ivec2(-i,-j);
             ivec2 pos3 = ivec2(i,-j);
             ivec2 pos4 = ivec2(-i,j);
-            vec3 cc1 = vec3(texelFetch(InputBuffer, xy+pos, 0).rgb);
-            vec3 cc2 = vec3(texelFetch(InputBuffer, xy+pos2, 0).rgb);
-            vec3 cc3 = vec3(texelFetch(InputBuffer, xy+pos3, 0).rgb);
-            vec3 cc4 = vec3(texelFetch(InputBuffer, xy+pos4, 0).rgb);
+            vec3 cc0 = vec3(texelFetch(InputBuffer, xy+pos, 0).rgb);
+            vec3 cc1 = vec3(texelFetch(InputBuffer, xy+pos2, 0).rgb);
+            vec3 cc2 = vec3(texelFetch(InputBuffer, xy+pos3, 0).rgb);
+            vec3 cc3 = vec3(texelFetch(InputBuffer, xy+pos4, 0).rgb);
             // Compute the weights
-            float d1 = length(abs(cc1-cin));
-            float d2 = length(abs(cc2-cin));
-            float d3 = length(abs(cc3-cin));
-            float d4 = length(abs(cc4-cin));
-            float w1 = (1.0-d1*d1/(d1*d1 + sigY));
-            float w2 = (1.0-d2*d2/(d2*d2 + sigY));
-            float w3 = (1.0-d3*d3/(d3*d3 + sigY));
-            float w4 = (1.0-d4*d4/(d4*d4 + sigY));
-            float wm = min(min(min(w1,w2),w3),w4);
-            w1 -= wm;
-            w2 -= wm;
-            w3 -= wm;
-            w4 -= wm;
+            vec4 d = vec4(length(abs(cc0-cin)),length(abs(cc1-cin)),length(abs(cc2-cin)),length(abs(cc3-cin)));
+            vec4 w = (1.0-d*d/(d*d + sigY));
+            float wm = min(min(min(w[0],w[1]),w[2]),w[3])*1.0;
+            w -= wm;
             float f1 = normpdf(float(i),KERNELSIZE)*normpdf(float(j),KERNELSIZE);
-            float factor = 0.0;
-            factor += f1*(w1);
-            factor += f1*(w2);
-            factor += f1*(w3);
-            factor += f1*(w4);
-            final_colour += f1*w1*cc1;
-            final_colour += f1*w2*cc2;
-            final_colour += f1*w3*cc3;
-            final_colour += f1*w4*cc4;
-            Z += factor;
+            final_colour += f1*mat4x3(cc0,cc1,cc2,cc3)*w;
+            Z += dot(vec4(f1),w);
         }
     }
 
