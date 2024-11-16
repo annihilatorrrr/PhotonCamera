@@ -6,9 +6,11 @@ import android.util.Log;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
+import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.util.BufferUtils;
+import java.io.IOException;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
 import static android.opengl.GLES20.GL_LINEAR;
@@ -24,7 +26,16 @@ public class Bayer2Float extends Node {
     @Override
     public void Compile() {
     }
-
+    boolean testPattern = false;
+    @Override
+    public void AfterRun(){
+        if(testPattern) {
+            kodbm.close();
+            kod.close();
+        }
+    }
+    GLImage kodbm;
+    GLTexture kod;
     @Override
     public void Run() {
         PostPipeline postPipeline = (PostPipeline) basePipeline;
@@ -55,6 +66,7 @@ public class Bayer2Float extends Node {
         glProg.setDefine("BLB", BL[2]);
         glProg.setDefine("QUAD", basePipeline.mSettings.cfaPattern == -2);
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
+        glProg.setDefine("TESTPATTERN",testPattern);
         glProg.useAssetProgram("tofloat");
         glProg.setTexture("InputBuffer", in);
         glProg.setVar("CfaPattern", basePipeline.mParameters.cfaPattern);
@@ -64,6 +76,17 @@ public class Bayer2Float extends Node {
         Log.d(Name, "whitelevel:" + basePipeline.mParameters.whiteLevel);
         glProg.setVarU("whitelevel", (basePipeline.mParameters.whiteLevel));
         glProg.setTexture("GainMap", GainMapTex);
+        if(testPattern) {
+            try {
+                kodbm = new GLImage(PhotonCamera.getAssetLoader().getInputStream("kodim19.png"));
+                kod = new GLTexture(kodbm);
+                glProg.setTexture("Kodak", kod);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         for (int i = 0; i < 4; i++) {
             basePipeline.mParameters.blackLevel[i] /= basePipeline.mParameters.whiteLevel * postPipeline.regenerationSense;
         }

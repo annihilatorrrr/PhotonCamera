@@ -4,6 +4,7 @@ precision highp usampler2D;
 precision mediump sampler2D;
 uniform usampler2D InputBuffer;
 uniform sampler2D GainMap;
+uniform sampler2D Kodak;
 uniform ivec2 RawSize;
 uniform vec4 blackLevel;
 uniform vec3 whitePoint;
@@ -74,9 +75,9 @@ void main() {
         ivec2 diag = ivec2(xy.x+xy.y,xy.x-xy.y);
         //Output = balance*float((xy.x+xy.y)%64)/64.0;
         //checkerboard pattern
-        Output = balance*float((diag.x/31+diag.y/31)%2);
+        //Output = balance*float((diag.x/31+diag.y/31)%2);
         //colored checkerboard pattern
-        vec3 col2;
+        /*vec3 col2;
         float main = 0.1;
         float sec = 1.0;
         if (diag.x/31%2 == 0){
@@ -91,12 +92,15 @@ void main() {
             } else {
                 col2 = vec3(main,main,sec);
             }
-        }
+        }*/
         //Output *= length(col*col2);
         // round dots pattern
-        ivec2 center = (xy/31) * 31 + 16;
-        float rad = min(length(vec2(center-xy)),16.0);
+        //ivec2 center = (xy/31) * 31 + 16;
+        //float rad = min(length(vec2(center-xy)),16.0);
         //Output = (col.r+col.b)*balance*float(int(rad) < 16)*0.1;
         //Output += balance*float(int(rad) < 10)*0.8;
+        ivec2 ksize = textureSize(Kodak,0);
+        vec3 col2 = texelFetch(Kodak, xy%ksize, 0).rgb;
+        Output = length(col*col2*col2)*balance;
     #endif
 }
