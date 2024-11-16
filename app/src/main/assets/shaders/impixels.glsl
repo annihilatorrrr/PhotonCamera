@@ -14,27 +14,43 @@ void main() {
     if((xyIn.x) + TILE >= ivec2(OUTSET).x) return;
     if((xyIn.y) + TILE >= ivec2(OUTSET).y) return;
     ivec2 maxcoords = ivec2(0,0);
+    ivec2 mincoords = ivec2(0,0);
     float maxval = 0.0;
+    float minVal = 1.0;
+    float avr = 0.0;
     for(int i =0; i<TILE;i++){
         for(int j =0; j<TILE;j++){
             ivec2 coords = ivec2(i,j);
-            float val = imageLoad(inTexture,xyIn+coords).COLOR;
+            float val = length(imageLoad(inTexture,xyIn+coords).COLOR);
             if(val > maxval){
                 maxval = val;
                 maxcoords = coords;
             }
+            if(val < minVal){
+                minVal = val;
+                mincoords = coords;
+            }
+            avr += val;
         }
     }
-    float avr;
-        avr = (
+    avr /= float(TILE*TILE);
+    float noise = sqrt(length(avr)*NOISES + NOISEO);
+    if(abs(maxval-length(avr)) > noise && maxval/(length(avr)+0.0001) > 2.0){
+        vec4 inp = imageLoad(inTexture, xyIn+maxcoords);
+        inp.COLOR = (
         imageLoad(inTexture, xyIn+maxcoords+ivec2(0,-1)).COLOR+
         imageLoad(inTexture, xyIn+maxcoords+ivec2(-1,0)).COLOR+
         imageLoad(inTexture, xyIn+maxcoords+ivec2(0,1)).COLOR+
         imageLoad(inTexture, xyIn+maxcoords+ivec2(1,0)).COLOR)/4.0;
-    float noise = sqrt(avr*NOISES + NOISEO);
-    if(maxval-avr > noise && maxval/(avr+0.0001) > 7.0){
-        vec4 inp = imageLoad(inTexture, xyIn+maxcoords);
-        inp.COLOR = avr;
         imageStore(outTexture, xyIn+maxcoords, inp);
+    }
+    else if(abs(minVal-length(avr)) > noise && length(avr)/(minVal+0.0001) > 2.0){
+        vec4 inp = imageLoad(inTexture, xyIn+mincoords);
+        inp.COLOR = (
+        imageLoad(inTexture, xyIn+mincoords+ivec2(0,-1)).COLOR+
+        imageLoad(inTexture, xyIn+mincoords+ivec2(-1,0)).COLOR+
+        imageLoad(inTexture, xyIn+mincoords+ivec2(0,1)).COLOR+
+        imageLoad(inTexture, xyIn+mincoords+ivec2(1,0)).COLOR)/4.0;
+        imageStore(outTexture, xyIn+mincoords, inp);
     }
 }

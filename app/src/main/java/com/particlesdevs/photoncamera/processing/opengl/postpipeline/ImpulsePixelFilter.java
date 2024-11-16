@@ -31,9 +31,7 @@ public class ImpulsePixelFilter extends Node {
     int tile = 16;
     @Override
     public void Run() {
-        fixImpulse("r");
-        fixImpulse("g");
-        fixImpulse("b");
+        fixImpulse("rgb");
         glProg.closed = true;
     }
 }
