@@ -1,6 +1,7 @@
 package com.particlesdevs.photoncamera.processing;
 
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
@@ -59,10 +60,10 @@ public class SaverImplementation {
         //reader.close();
     }
 
-    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
+    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
         this.imageFormat = imageFormat;
     }
-    public void unlimitedStart(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, int cameraRotation) {
+    public void unlimitedStart(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, int cameraRotation) {
         this.imageFormat = imageFormat;
     }
     public void unlimitedEnd(){
