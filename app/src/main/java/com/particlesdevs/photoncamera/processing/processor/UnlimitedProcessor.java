@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.processing.processor;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.util.Log;
@@ -16,6 +17,7 @@ import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipelin
 import com.particlesdevs.photoncamera.processing.opengl.scripts.AverageParams;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.AverageRaw;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
+import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -44,6 +46,7 @@ public class UnlimitedProcessor extends ProcessorBase {
     public void unlimitedStart(Path dngFile, Path jpgFile, ParseExif.ExifData exifData,
                                CameraCharacteristics characteristics,
                                CaptureResult captureResult,
+                               CaptureRequest captureRequest,
                                int cameraRotation,
                                ProcessingCallback callback) {
         this.dngFile = dngFile;
@@ -52,6 +55,7 @@ public class UnlimitedProcessor extends ProcessorBase {
         this.characteristics = characteristics;
         this.captureResult = captureResult;
         this.cameraRotation = cameraRotation;
+        this.captureRequest = captureRequest;
         unlimitedEnd = false;
         lock = false;
         this.callback = callback;
@@ -67,7 +71,7 @@ public class UnlimitedProcessor extends ProcessorBase {
         PhotonCamera.getParameters().rawSize = new Point(width, height);
         if(!fillParams){
             PhotonCamera.getParameters().FillConstParameters(characteristics, PhotonCamera.getParameters().rawSize);
-            PhotonCamera.getParameters().FillDynamicParameters(captureResult);
+            PhotonCamera.getParameters().FillDynamicParameters(captureResult, captureRequest, IsoExpoSelector.fullpairs.get(0).iso);
             PhotonCamera.getParameters().cameraRotation = this.cameraRotation;
             exifData.IMAGE_DESCRIPTION = PhotonCamera.getParameters().toString();
             fillParams = true;
