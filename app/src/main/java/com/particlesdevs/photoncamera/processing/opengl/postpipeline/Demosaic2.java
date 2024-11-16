@@ -68,7 +68,7 @@ public class Demosaic2 extends Node {
         glProg.useAssetProgram("demosaicp0ig",true);
         glProg.setTextureCompute("inTexture", glTexture,false);
         glProg.setTextureCompute("outTexture", WorkingTexture,true);
-        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+        glProg.computeAuto(WorkingTexture.mSize,1);
 
         WorkingTexture = basePipeline.main3;
         glProg.setLayout(tile,tile,1);
@@ -77,7 +77,7 @@ public class Demosaic2 extends Node {
         glProg.setTextureCompute("greenTexture", outp,false);
         glProg.setTextureCompute("igTexture", basePipeline.main3,false);
         glProg.setTextureCompute("outTexture", WorkingTexture,true);
-        glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
+        glProg.computeAuto(WorkingTexture.mSize,1);
         //glProg.drawBlocks(WorkingTexture);
         glProg.close();
         endT("Demosaic2");

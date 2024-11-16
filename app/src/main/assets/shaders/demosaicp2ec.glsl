@@ -13,10 +13,12 @@ uniform int yOffset;
 #define EPS 0.0001
 #define EPS2 0.001
 #define alpha 3.75
+#define NOISEO 0.0
+#define NOISES 0.0
 //#define BETA 0.42
 #define BETA 0.0
-#define THRESHOLD 1.7
-//#define THRESHOLD 1.0
+//#define THRESHOLD 1.9
+#define THRESHOLD 1.9
 
 #define L 3
 //#define greenmin (0.04)
@@ -92,11 +94,6 @@ float dl(ivec2 pos){
 }
 
 float estimateD(ivec2 pos){
-    //float igE = IG(pos, ivec2(0,1));
-    //float igS = IG(pos, ivec2(1,0));
-    //float igW = IG(pos + ivec2(2, 0), ivec2(0,1));
-    //float igN = IG(pos + ivec2(0, 2), ivec2(1,0));
-
     float igE = IG(pos + ivec2(0, 0), 0);
     float igW = IG(pos + ivec2(-2, 0), 0);
     float igS = IG(pos + ivec2(0, 0), 1);
@@ -109,16 +106,46 @@ float estimateD(ivec2 pos){
     float dh = igE + igW + EPS2;
     float dv = igN + igS + EPS2;
     float E = max(dh/dv, dv/dh);
+    float res0 = (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)) + wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)))/(wE + wW + wS + wN);
+    //return res;
+    //return dl(pos);
 
-    if (E < THRESHOLD){
+    /*if (dh > dv){
+        //return (wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)) + (wS + wN)*dl(pos))/(2.0*wS + 2.0*wN);
+        return (wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)))/(wS + wN);
+    } else {
+        //return (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)) + (wE + wW)*dl(pos))/(2.0*wE + 2.0*wW);
+        return (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)))/(wE + wW);
+    }*/
+    float c = dl(pos);
+    float v0 = dl(pos + ivec2(2,0));
+    float v1 = dl(pos + ivec2(-2,0));
+    float v2 = dl(pos + ivec2(0,2));
+    float v3 = dl(pos + ivec2(0,-2));
+    float w0 = 1.0-abs(v0 - c);
+    float w1 = 1.0-abs(v1 - c);
+    float w2 = 1.0-abs(v2 - c);
+    float w3 = 1.0-abs(v3 - c);
+    float w4 = 1.0-abs(res0 - c);
+    float wm = min(min(min(min(w0,w1),w2),w3),w4)*0.999;
+    w0 -= wm;
+    w1 -= wm;
+    w2 -= wm;
+    w3 -= wm;
+    w4 -= wm;
+    //float samp = getBayerSample(pos);
+    //float noise = sqrt(samp*NOISES + NOISEO);
+    float res = (w0*v0 + w1*v1 + w2*v2 + w3*v3 + w4*res0)/(w0+w1+w2+w3+w4);
+    if (E > THRESHOLD){
         //return (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)) + wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)))/(wE + wW + wS + wN);
+        //    return mix(dl(pos), res, BETA);
         return dl(pos);
     }
-    if (dh > dv){
-        return (wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)) + (wS + wN)*dl(pos))/(2.0*wS + 2.0*wN);
-    } else {
-        return (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)) + (wE + wW)*dl(pos))/(2.0*wE + 2.0*wW);
-    }
+    //return mix(res,dl(pos), clamp((E-1.0)*1.0,0.0,1.0));
+    return res;
+
+    //return res;
+    //return dl(pos);
     /*float dir = float(gr(pos).y);
     float dte = 0.0;
     if (dir < 0.5){
@@ -195,6 +222,40 @@ float dhtd(ivec2 pos){
     return (wNW*dtcv(pos+ivec2(-1,-1))+wNE*dtcv(pos+ivec2(1,-1))+wSE*dtcv(pos+ivec2(1,1))+wSW*dtcv(pos+ivec2(-1,1)))/(wNW + wNE + wSE + wSW);
 }
 
+float dhtg0(ivec2 pos){
+    float igE = IG(pos, 0);
+    float igW = IG(pos + ivec2(-2, 0), 0);
+    float igS = IG(pos, 1);
+    float igN = IG(pos + ivec2(0, -2), 1);
+
+    float wE = 1.0 / (igE + EPS);
+    float wS = 1.0 / (igS + EPS);
+    float wW = 1.0 / (igW + EPS);
+    float wN = 1.0 / (igN + EPS);
+
+    ivec2 stp = ivec2(1,0);
+    ivec2 invStp = ivec2(0,1);
+
+    return (wE*dhtd(pos+stp)+wW*dhtd(pos-stp)+wS*dtcv(pos+invStp)+wN*dtcv(pos-invStp))/(wE + wW + wS + wN);
+}
+
+float dhtg1(ivec2 pos){
+    float igE = IG(pos, 0);
+    float igW = IG(pos + ivec2(-2, 0), 0);
+    float igS = IG(pos, 1);
+    float igN = IG(pos + ivec2(0, -2), 1);
+
+    float wE = 1.0 / (igE + EPS);
+    float wS = 1.0 / (igS + EPS);
+    float wW = 1.0 / (igW + EPS);
+    float wN = 1.0 / (igN + EPS);
+
+    ivec2 stp = ivec2(1,0);
+    ivec2 invStp = ivec2(0,1);
+
+    return (wE*dtcv(pos+stp)+wW*dtcv(pos-stp)+wS*dhtd(pos+invStp)+wN*dhtd(pos-invStp))/(wE + wW + wS + wN);
+}
+
 void main() {
     //ivec2 pos = ivec2(gl_FragCoord.xy);
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
@@ -224,18 +285,22 @@ void main() {
         outp.g = gr(pos).x;
         //outp.g = max(getBayerSample(pos),EPS2) / dtc;
         float grk = max(outp.g,EPS2);
-        outp.r = grk * (dtcv(pos+ivec2(1,0))+dtcv(pos+ivec2(-1,0)))/2.0;
+        //outp.r = grk * (dtcv(pos+ivec2(1,0))+dtcv(pos+ivec2(-1,0)))/2.0;
+        outp.r = grk *  dhtg1(pos);
         //outp.b = grk * (wE*dhtd(pos+ivec2(1,0))+wW*dhtd(pos+ivec2(-1,0))+wS*dtcv(pos+ivec2(0,1))+wN*dtcv(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
-        outp.b = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
+        //outp.b = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
+        outp.b = grk * dhtg0(pos);
         //outp.r = grk * (wE*dtcv(pos+ivec2(1,0))+wW*dtcv(pos+ivec2(-1,0))+wS*dhtd(pos+ivec2(0,1))+wN*dhtd(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
     } else
     if(fact1 ==0 && fact2 == 1) {//gbrg
         outp.g = gr(pos).x;
         //outp.g = max(getBayerSample(pos),EPS2) / dtc;
         float grk = max(outp.g,EPS2);
-        outp.b = grk * (dtcv(pos+ivec2(1,0))+dtcv(pos+ivec2(-1,0)))/2.0;
+        //outp.b = grk * (dtcv(pos+ivec2(1,0))+dtcv(pos+ivec2(-1,0)))/2.0;
+        outp.b = grk *  dhtg1(pos);
         //outp.r = grk * (wE*dhtd(pos+ivec2(1,0))+wW*dhtd(pos+ivec2(-1,0))+wS*dtcv(pos+ivec2(0,1))+wN*dtcv(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
-        outp.r = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
+        //outp.r = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
+        outp.r = grk *  dhtg0(pos);
         //outp.b = grk * (wE*dtcv(pos+ivec2(1,0))+wW*dtcv(pos+ivec2(-1,0))+wS*dhtd(pos+ivec2(0,1))+wN*dhtd(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
     } else  {//bggr
         //outp.g = gr(pos).x;

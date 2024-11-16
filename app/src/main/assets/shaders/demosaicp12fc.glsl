@@ -10,7 +10,7 @@ layout(rgba16f, binding = 2) uniform highp readonly image2D igTexture;
 layout(rgba16f, binding = 3) uniform highp writeonly image2D outTexture;
 #define alpha 3.75
 #define L 7
-#define THRESHOLD 1.9
+#define THRESHOLD 1.3
 uniform int yOffset;
 
 // Helper function to get Bayer sample
@@ -113,12 +113,12 @@ vec2 enhanceGreen(ivec2 pos) {
     float gv = initialGreen[2];
     float gh = initialGreen[1];
     float gd = initialGreen[0];
-    if (D.x < D.y && D.x < D.z) {
-        initialGreen[0] = gh;
+    if (D.x > D.y && D.x > D.z) {
+        initialGreen[0] = gv;
         dir = 0.0;
         //g = gs[1];
     } else if (D.y < D.x && D.y < D.z) {
-        initialGreen[0] = gv;
+        initialGreen[0] = gh;
         //initialGreen[0] = 1.0;
         dir = 1.0;
         //g = gs[0];
@@ -147,5 +147,5 @@ void main() {
     //Output = vec2(enhancedGreen[0],enhancedGreen[0]);
     //Output = enhancedGreen;
     //imageStore(outTexture, pos, vec4(enhancedGreen[0], enhancedGreen[1], enhancedGreen[0], 1.0));
-    imageStore(outTexture, pos, vec4(initialGreen[0], initialGreen[0], initialGreen[0], 1.0));
+    imageStore(outTexture, pos, vec4(enhancedGreen[0], enhancedGreen[0], enhancedGreen[0], 1.0));
 }
