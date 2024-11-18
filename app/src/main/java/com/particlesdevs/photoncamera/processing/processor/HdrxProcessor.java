@@ -22,6 +22,7 @@ import com.particlesdevs.photoncamera.processing.ImageSaver;
 import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
 import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.InterpolateGainMap;
+import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -252,9 +253,13 @@ public class HdrxProcessor extends ProcessorBase {
         interpolateGainMap.parameters = processingParameters;
         interpolateGainMap.Run();
         interpolateGainMap.close();
-
+        int fx = width/8 + 1;
+        int fy = height/8 + 1;
         if(alignAlgorithm != 2) {
-            output = ByteBuffer.allocateDirect(images.get(0).buffer.capacity());
+            if(alignAlgorithm == 1){
+                output = ByteBuffer.allocateDirect(fx * fy * 4 * 2);
+            } else
+                output = ByteBuffer.allocateDirect(images.get(0).buffer.capacity());
         } else {
             output = ByteBuffer.allocateDirect(images.get(0).buffer.capacity()*3);
         }
@@ -281,6 +286,11 @@ public class HdrxProcessor extends ProcessorBase {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];
                 WrapperAl.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
                         , processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
+                PyramidMerging pyramidMerging = new PyramidMerging(new Point(width, height), images);
+                pyramidMerging.parameters = processingParameters;
+                pyramidMerging.Run();
+                pyramidMerging.close();
+                output = pyramidMerging.Output;
             } else {
                 WrapperAl.processFrameBayerShift(NoiseS,NoiseO,0.f, 0.f, 0.f,
                         processingParameters.whiteLevel, processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2],
