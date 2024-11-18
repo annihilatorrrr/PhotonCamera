@@ -1838,6 +1838,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                                     createCameraPreviewSession(false);
                             });
                             try{
+                            if(mImageSaver.bufferSize() == 0){
+                                return;
+                            }
                             mImageSaver.updateFrameCount(mImageSaver.bufferSize());
                             mImageSaver.runRaw(mCameraCharacteristics, mCaptureResult, mCaptureRequest, new ArrayList<>(BurstShakiness), cameraRotation);
                             } catch (Exception e){
