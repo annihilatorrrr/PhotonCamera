@@ -41,6 +41,8 @@ public class PyramidMerging extends GLOneScript {
         Point rawHalf = new Point(parameters.rawSize.x/2,parameters.rawSize.y/2);
         GLTexture inputBase = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16,1),images.get(0).buffer, GL_NEAREST, GL_MIRRORED_REPEAT);
         GLTexture baseDiff = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_32,4));
+        GLTexture base = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_32,4));
+        GLTexture noiseMap = new GLTexture(new Point(rawHalf.x/4,rawHalf.y/4),new GLFormat(GLFormat.DataType.FLOAT_32,4));
         GLTexture result = new GLTexture(parameters.rawSize,new GLFormat(GLFormat.DataType.UNSIGNED_16,1));
         int levelcount = (int)(Math.log10(rawHalf.x)/Math.log10(downScalePerLevel));
         if(levelcount <= 0) levelcount = 2;
@@ -51,19 +53,23 @@ public class PyramidMerging extends GLOneScript {
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge0",true);
         glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
-
+        glProg.setVar("createDiff", 0);
         glProg.setTexture("inTexture",inputBase);
-        glProg.setTextureCompute("outTexture",baseDiff, true);
+        glProg.setTextureCompute("outTexture",base, true);
         glProg.computeAuto(rawHalf, 1);
+
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("merge01",true);
+        glProg.setTextureCompute("inTexture",base, false);
+        glProg.setTextureCompute("outTexture",noiseMap, true);
+        glProg.computeAuto(noiseMap.mSize, 1);
 
         GLUtils.Pyramid diff = glUtils.createPyramid(levelcount,downScalePerLevel, baseDiff);
 
-        for (int i = diff.laplace.length - 1; i >= 0; i--) {
 
-        }
         glProg.useAssetProgram("merge2o");
         glProg.setVar("whiteLevel",65535.f);
-        glProg.setTexture("inTexture",baseDiff);
+        glProg.setTexture("inTexture",noiseMap);
         //glUtils.convertVec4(outputTex,"in1/2.0");
         //glUtils.SaveProgResult(outputTex.mSize,"gainmap");
         result.BufferLoad();
