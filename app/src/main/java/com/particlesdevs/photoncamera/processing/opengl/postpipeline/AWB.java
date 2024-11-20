@@ -9,7 +9,6 @@ import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
-import com.particlesdevs.photoncamera.processing.rs.HistogramRs;
 import com.particlesdevs.photoncamera.util.FileManager;
 import com.particlesdevs.photoncamera.util.RANSAC;
 import com.particlesdevs.photoncamera.util.Utilities;
@@ -38,10 +37,10 @@ public class AWB extends Node {
 
     private final int SIZE = 256;
 
-    private int[][] ChromaHistogram(GLImage in) {
+    /*private int[][] ChromaHistogram(GLImage in) {
         int[][] histin = HistogramRs.getHistogram(in.mBmp);
         return histin;
-    }
+    }*/
 
     private void GenerateCurveBitm(int[] r, int[] g, int[] b) {
         Bitmap CurveEQ = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888);
@@ -393,7 +392,7 @@ public class AWB extends Node {
         glProg.drawBlocks(basePipeline.main3, r1.mSize);
         GLImage preview = glUtils.GenerateGLImage(r1.mSize);
         //r0.close();
-        int[][] ChromaHist = ChromaHistogram(preview);
+        int[][] ChromaHist = new int[16][16];// = ChromaHistogram(preview);
         r1.close();
         /*int[][] temp = new int[3][];
         temp[0] = ChromaHist[2];

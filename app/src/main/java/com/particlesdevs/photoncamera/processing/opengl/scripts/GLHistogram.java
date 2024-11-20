@@ -1,18 +1,14 @@
 package com.particlesdevs.photoncamera.processing.opengl.scripts;
 
-import android.graphics.Bitmap;
 import android.util.Log;
 
-import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.processing.opengl.GLBuffer;
 import com.particlesdevs.photoncamera.processing.opengl.GLContext;
-import com.particlesdevs.photoncamera.processing.opengl.GLCoreBlockProcessing;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
 import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLProg;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 
-import static android.opengl.GLES31.*;
 
 public class GLHistogram implements AutoCloseable{
     GLContext context;
@@ -32,6 +28,7 @@ public class GLHistogram implements AutoCloseable{
         buffers[0] = new GLBuffer(histSize,histFormat);
         buffers[1] = new GLBuffer(histSize,histFormat);
         buffers[2] = new GLBuffer(histSize,histFormat);
+        buffers[3] = new GLBuffer(histSize,histFormat);
     }
     public GLHistogram(GLContext context) {
         this.context = context;

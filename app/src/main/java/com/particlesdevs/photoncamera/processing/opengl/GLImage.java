@@ -126,7 +126,5 @@ public class GLImage implements AutoCloseable {
     @Override
     public void close() {
         byteBuffer.clear();
-        if(mBmp != null)
-            mBmp.recycle();
     }
 }

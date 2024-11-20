@@ -8,10 +8,15 @@ import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
+import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
-import com.particlesdevs.photoncamera.processing.rs.HistogramRs;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Histogram extends View {
     private final Paint wallPaint;
@@ -19,26 +24,47 @@ public class Histogram extends View {
     private HistogramLoadingListener sHistogramLoadingListener;
     private HistogramModel histogramModel;
     private final Path wallPath = new Path();
-    //GLHistogram glHistogram = new GLHistogram();
+    GLHistogram glHistogram;
+    ExecutorService histogramExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "HistogramThread");
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+
     public Histogram(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
         wallPaint = new Paint();
+        histogramExecutor.execute(() -> {
+            glHistogram = new GLHistogram();
+        });
     }
 
     public HistogramModel analyze(Bitmap bitmap) {
         int size = 256;
-        int[][] colorsMap;
+        int[][][] colorsMap = new int[1][4][256];
         int maxY = 0;
-        colorsMap = HistogramRs.getHistogram(bitmap);
-
-        //colorsMap = glHistogram.Compute(bitmap);
+        //colorsMap = HistogramRs.getHistogram(bitmap);
+        AtomicBoolean compute = new AtomicBoolean(false);
+        histogramExecutor.execute(() -> {
+            GLImage glImage = new GLImage(bitmap);
+            colorsMap[0] = glHistogram.Compute(glImage);
+            glImage.close();
+            compute.set(true);
+        });
+        while (!compute.get()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Log.d("Histogram", "Thread interrupted:"+Log.getStackTraceString(e));
+            }
+        }
         //Find max
         for (int i = 0; i < size; i++) {
-            maxY = Math.max(maxY, colorsMap[0][i]);
-            maxY = Math.max(maxY, colorsMap[1][i]);
-            maxY = Math.max(maxY, colorsMap[2][i]);
+            maxY = Math.max(maxY, colorsMap[0][0][i]);
+            maxY = Math.max(maxY, colorsMap[0][1][i]);
+            maxY = Math.max(maxY, colorsMap[0][2][i]);
         }
-        return new HistogramModel(size, colorsMap, maxY);
+        return new HistogramModel(size, colorsMap[0], maxY);
     }
 
     public void setHistogramLoadingListener(HistogramLoadingListener histogramLoadingListener) {

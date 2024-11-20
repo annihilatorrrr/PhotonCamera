@@ -11,7 +11,6 @@ import android.graphics.drawable.Drawable;
 import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.renderscript.RenderScript;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -36,7 +35,6 @@ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
 import com.particlesdevs.photoncamera.ui.SplashActivity;
 import com.particlesdevs.photoncamera.util.AssetLoader;
-import com.particlesdevs.photoncamera.util.FileManager;
 import com.particlesdevs.photoncamera.util.ObjectLoader;
 import com.particlesdevs.photoncamera.util.log.ActivityLifecycleMonitor;
 import java.util.concurrent.ExecutorService;
@@ -63,7 +61,6 @@ public class PhotonCamera extends Application {
     private SupportedDevice mSupportedDevice;
     private SettingsManager mSettingsManager;
     private AssetLoader mAssetLoader;
-    private RenderScript mRS;
     private ObjectLoader objectLoader;
     private Debugger mDebugger;
 
@@ -117,10 +114,6 @@ public class PhotonCamera extends Application {
         return sPhotonCamera.mSupportedDevice.sensorSpecifics;
     }
 
-
-    public static RenderScript getRenderScript() {
-        return sPhotonCamera.mRS;
-    }
 
     public static CaptureController getCaptureController() {
         return sPhotonCamera.mCaptureController;
@@ -231,7 +224,6 @@ public class PhotonCamera extends Application {
         mParameters = new Parameters();
         mPreviewParameters = new PreviewParameters();
         mAssetLoader = new AssetLoader(this);
-        mRS = RenderScript.create(this);
         mDebugger = new Debugger();
         //test();
     }
