@@ -25,6 +25,10 @@ oneplus:hotdogb
 oneplus:guacamole
 oneplus:guacamoles
 oneplus:guacamoleb
+oneplus:waffle
+oneplus:CPH2581
+oneplus:CPH2583
+oneplus:OP595DL1
 oppo:op528bl1
 poco:vayu
 poco:surya
