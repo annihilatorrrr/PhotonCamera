@@ -309,8 +309,8 @@ public class ExposureFusionBayer2 extends Node {
             GLTexture upsampleWip = binnedFuse;
             Log.d(Name,"upsampleWip:"+upsampleWip.mSize);
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-            glProg.setDefine("GAUSS",gaussSize);
-            glProg.setDefine("TARGET",targetLuma);
+            //glProg.setDefine("GAUSS",gaussSize);
+            //glProg.setDefine("TARGET",targetLuma);
             glProg.useAssetProgram("fusionbayer2",false);
 
             glProg.setTexture("upsampled", upsampleWip);
@@ -318,6 +318,8 @@ public class ExposureFusionBayer2 extends Node {
             glProg.setVar("blendMpy",1.0f+dehazing-dehazing*((float)i)/(normalExpo.laplace.length-1.f));
             glProg.setVar("level",i);
             glProg.setVar("upscaleIn",normalExpo.sizes[i]);
+            glProg.setVar("gauss", gaussSize);
+            glProg.setVar("target", targetLuma);
             // We can discard the previous work in progress merge.
             //binnedFuse.close();
             binnedFuse = new GLTexture(normalExpo.laplace[i]);

@@ -279,8 +279,10 @@ public class HdrxProcessor extends ProcessorBase {
             Log.d(TAG, "Packing");
             WrapperAl.packImages();
             Log.d(TAG, "Packed");
-            for (int i = 1; i < images.size(); i++) {
-                images.get(i).image.close();
+            if(alignAlgorithm != 1) {
+                for (int i = 1; i < images.size(); i++) {
+                    images.get(i).image.close();
+                }
             }
             if(alignAlgorithm == 1) {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];

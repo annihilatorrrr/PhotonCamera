@@ -300,7 +300,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     return pRGB;
 }
 float getGain(vec2 coordsShift){
-    float ingain = texture(FusionMap, (gl_FragCoord.xy+coordsShift)/vec2(INSIZE)).r;
+    float ingain = texture(FusionMap, (gl_FragCoord.xy)/vec2(INSIZE) + coordsShift/vec2(INSIZE)).r;
     //float ingain = texelFetch(FusionMap, xy, 0).r;
     /*if(ingain > 0.0){
         ingain = 1.0/ingain;

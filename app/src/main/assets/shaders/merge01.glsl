@@ -50,6 +50,6 @@ void main() {
     avrg /= Z;
     //avrg /= 9.0;
     vec4 diff = abs(center - avrg);
-    vec4 nl = vec4(dot(avrg, vec4(0.25)), diff.r, (diff.g+diff.b)/2.0, diff.a);
+    vec4 nl = vec4(dot(avrg, vec4(0.0,0.5,0.5,0.0)), diff.r, (diff.g+diff.b)/2.0, diff.a);
     imageStore(outTexture, xy, vec4(nl));
 }

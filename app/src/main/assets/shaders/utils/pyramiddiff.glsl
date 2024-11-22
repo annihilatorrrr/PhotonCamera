@@ -3,10 +3,11 @@ precision highp sampler2D;
 uniform sampler2D target;
 uniform sampler2D base;
 uniform ivec2 size;
+uniform ivec2 size2;
 out vec4 result;
 #import interpolation
 
 void main() {
-    ivec2 xyCenter = ivec2(gl_FragCoord.xy);
-    result = texelFetch(target, xyCenter, 0) - textureBicubicHardware(base, (vec2(gl_FragCoord.xy))/vec2(size+1));
+    vec2 uv = gl_FragCoord.xy / vec2(size);
+    result = textureBicubicHardware(target, uv) - textureBicubicHardware(base, uv);
 }

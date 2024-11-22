@@ -16,6 +16,6 @@ void main() {
     xy += ivec2(0, yOffset);
     int x = xy.x%TILE;
     int y = xy.y%TILE;
-    uvec4 bayer = getBayerVec((xy/TILE)/4);
+    uvec4 bayer = getBayerVec((xy/TILE));
     Output = bayer[x + y*TILE];
 }

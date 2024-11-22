@@ -5,6 +5,7 @@ uniform sampler2D inTexture;
 #define COL_G 1
 #define COL_B 1
 #define COL_A 1
+#define COL_CUSTOM 0
 
 #if COL_R == 1
 layout(std430, binding = 1) buffer histogramRed {
@@ -26,6 +27,7 @@ layout(std430, binding = 4) buffer histogramAlpha {
     uint alphas[];
 };
 #endif
+#define CUSTOM_PROGRAM //
 #define HISTSIZE 255.0
 #define SCALE 1
 #define LAYOUT //
@@ -35,17 +37,21 @@ void main() {
     ivec2 imgsize = textureSize(inTexture,0).xy;
     if (storePos.x < imgsize.x && storePos.y < imgsize.y) {
         vec4 texColor = texture(inTexture,(vec2(storePos) + 0.5)/vec2(imgsize));
-        #if COL_R == 1
-        atomicAdd(reds[uint(texColor.r * HISTSIZE)], 1u);
-        #endif
-        #if COL_G == 1
-        atomicAdd(greens[uint(texColor.g * HISTSIZE)], 1u);
-        #endif
-        #if COL_B == 1
-        atomicAdd(blues[uint(texColor.b * HISTSIZE)], 1u);
-        #endif
-        #if COL_A == 1
-        atomicAdd(alphas[uint(texColor.a * HISTSIZE)], 1u);
+        #if COL_CUSTOM == 1
+            CUSTOM_PROGRAM;
+        #else
+            #if COL_R == 1
+            atomicAdd(reds[uint(texColor.r * HISTSIZE)], 1u);
+            #endif
+            #if COL_G == 1
+            atomicAdd(greens[uint(texColor.g * HISTSIZE)], 1u);
+            #endif
+            #if COL_B == 1
+            atomicAdd(blues[uint(texColor.b * HISTSIZE)], 1u);
+            #endif
+            #if COL_A == 1
+            atomicAdd(alphas[uint(texColor.a * HISTSIZE)], 1u);
+            #endif
         #endif
     }
 }
