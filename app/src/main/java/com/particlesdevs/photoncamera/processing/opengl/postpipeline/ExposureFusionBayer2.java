@@ -287,10 +287,12 @@ public class ExposureFusionBayer2 extends Node {
         GLUtils.Pyramid normalExpo = glUtils.createPyramid(levelcount,downScalePerLevel, expose(in,underexposure,overexposure));
         Log.d(Name,"Pyramid elapsed:"+(System.currentTimeMillis()-time)+" ms");
         //in.close();
+
+        // select base gauss
         glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-        glProg.setDefine("GAUSS",gaussSize);
-        glProg.setDefine("TARGET",targetLuma);
         glProg.useAssetProgram("fusionbayer2",false);
+        glProg.setVar("gauss", gaussSize);
+        glProg.setVar("target", targetLuma);
         glProg.setVar("useUpsampled",0);
         int ind = normalExpo.gauss.length - 1;
         GLTexture binnedFuse = new GLTexture(normalExpo.gauss[ind]);
@@ -309,8 +311,6 @@ public class ExposureFusionBayer2 extends Node {
             GLTexture upsampleWip = binnedFuse;
             Log.d(Name,"upsampleWip:"+upsampleWip.mSize);
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-            //glProg.setDefine("GAUSS",gaussSize);
-            //glProg.setDefine("TARGET",targetLuma);
             glProg.useAssetProgram("fusionbayer2",false);
 
             glProg.setTexture("upsampled", upsampleWip);

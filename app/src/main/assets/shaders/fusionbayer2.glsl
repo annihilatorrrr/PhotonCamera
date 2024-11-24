@@ -68,15 +68,15 @@ void main() {
     float laplaceNormal = laplace(normalExpo, midNormal.r, xyCenter);
     float laplaceHigh = laplace2(normalExpo, midHigh.r, xyCenter);
 
-    normalWeight *= sqrt(laplaceNormal + 0.01);
-    highWeight *= sqrt(laplaceHigh + 0.01);
+    normalWeight *= sqrt(laplaceNormal + 0.001);
+    highWeight *= sqrt(laplaceHigh + 0.001);
 
     // Factor 3: Saturation.
     float normalStddev = midNormal.g;
     float highStddev = midHigh.g;
 
-    normalWeight *= sqrt(normalStddev + 0.01);
-    highWeight *= sqrt(highStddev + 0.01);
+    normalWeight *= normalStddev;
+    highWeight *= highStddev;
 
     float blend = highWeight / (normalWeight + highWeight); // [0, 1]
     //result = base + mix(normal.r, high.r, blend*blend)*(max(1.0, 1.4 - 0.4*(float(level)/float(MAXLEVEL))));
