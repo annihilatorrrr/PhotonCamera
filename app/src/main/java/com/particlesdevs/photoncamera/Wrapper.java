@@ -2,6 +2,7 @@ package com.particlesdevs.photoncamera;
 
 import java.nio.ByteBuffer;
 
+/** @noinspection JavaJniMissingFunction*/
 //PhotonCamera
 //Copyright (C) 2020-2021  Eszdman
 //https://github.com/eszdman/PhotonCamera
@@ -9,8 +10,6 @@ import java.nio.ByteBuffer;
 public class Wrapper {
     static {
         System.loadLibrary("HdrX");
-        System.loadLibrary("AlignVectors");
-        //System.loadLibrary("photon_accel");
     }
 
     /**

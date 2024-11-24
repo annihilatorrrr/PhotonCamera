@@ -1,28 +1,21 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
-import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.util.Log;
 
-import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
-import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.GLUtils;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
-import com.particlesdevs.photoncamera.processing.opengl.postpipeline.dngprocessor.Histogram;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
 import com.particlesdevs.photoncamera.util.BufferUtils;
 import com.particlesdevs.photoncamera.util.Math2;
 import com.particlesdevs.photoncamera.util.SplineInterpolator;
 
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
 import static android.opengl.GLES20.GL_LINEAR;
-import static com.particlesdevs.photoncamera.util.Math2.buildCumulativeHist;
-import static com.particlesdevs.photoncamera.util.Math2.buildCumulativeHistInv;
 import static com.particlesdevs.photoncamera.util.Math2.mix;
 
 public class ExposureFusionBayer2 extends Node {
@@ -294,10 +287,12 @@ public class ExposureFusionBayer2 extends Node {
         GLUtils.Pyramid normalExpo = glUtils.createPyramid(levelcount,downScalePerLevel, expose(in,underexposure,overexposure));
         Log.d(Name,"Pyramid elapsed:"+(System.currentTimeMillis()-time)+" ms");
         //in.close();
+
+        // select base gauss
         glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-        glProg.setDefine("GAUSS",gaussSize);
-        glProg.setDefine("TARGET",targetLuma);
         glProg.useAssetProgram("fusionbayer2",false);
+        glProg.setVar("gauss", gaussSize);
+        glProg.setVar("target", targetLuma);
         glProg.setVar("useUpsampled",0);
         int ind = normalExpo.gauss.length - 1;
         GLTexture binnedFuse = new GLTexture(normalExpo.gauss[ind]);
@@ -316,8 +311,6 @@ public class ExposureFusionBayer2 extends Node {
             GLTexture upsampleWip = binnedFuse;
             Log.d(Name,"upsampleWip:"+upsampleWip.mSize);
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-            glProg.setDefine("GAUSS",gaussSize);
-            glProg.setDefine("TARGET",targetLuma);
             glProg.useAssetProgram("fusionbayer2",false);
 
             glProg.setTexture("upsampled", upsampleWip);
@@ -325,6 +318,8 @@ public class ExposureFusionBayer2 extends Node {
             glProg.setVar("blendMpy",1.0f+dehazing-dehazing*((float)i)/(normalExpo.laplace.length-1.f));
             glProg.setVar("level",i);
             glProg.setVar("upscaleIn",normalExpo.sizes[i]);
+            glProg.setVar("gauss", gaussSize);
+            glProg.setVar("target", targetLuma);
             // We can discard the previous work in progress merge.
             //binnedFuse.close();
             binnedFuse = new GLTexture(normalExpo.laplace[i]);

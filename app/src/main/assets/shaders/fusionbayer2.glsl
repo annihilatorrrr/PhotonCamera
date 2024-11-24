@@ -11,8 +11,10 @@ uniform sampler2D normalExpoDiff;
 
 uniform int level;
 uniform ivec2 upscaleIn;
-#define TARGET 0.5
-#define GAUSS 0.05
+uniform float gauss;
+uniform float target;
+//#define TARGET 0.0
+//#define GAUSS 0.5
 #define MAXLEVEL (1)
 out float result;
 #import gaussian
@@ -41,7 +43,7 @@ void main() {
     //if(useUpsampled == 2) mpy = 2.0;
     float base = (useUpsampled)
     //? texelFetch(upsampled, xyCenter, 0).xyz
-    ? textureBicubicHardware(upsampled, (vec2(xyCenter.xy))/(vec2(upscaleIn))).r
+    ? textureBicubicHardware(upsampled, (vec2(gl_FragCoord.xy))/(vec2(upscaleIn))).r
     : float(0.0);
     // How are we going to blend these two?
     vec2 normal = texelFetch(normalExpoDiff, xyCenter, 0).rg;
@@ -51,13 +53,13 @@ void main() {
     vec2 midNormal = texelFetch(normalExpo, xyCenter, 0).rg;
     vec2 midHigh = texelFetch(normalExpo, xyCenter, 0).ba;
 
-    float normalWeight = 1000.;
-    float highWeight = 1000.;
+    float normalWeight = 1.;
+    float highWeight = 1.;
 
     // Factor 1: Well-exposedness.
 
-    float midNormalToAvg = sqrt(pdf((midNormal.r - TARGET)/GAUSS));
-    float midHighToAvg = sqrt(pdf((midHigh.r - TARGET)/GAUSS));
+    float midNormalToAvg = sqrt(pdf((midNormal.r - target)/gauss));
+    float midHighToAvg = sqrt(pdf((midHigh.r - target)/gauss));
 
     normalWeight *= midNormalToAvg;
     highWeight *= midHighToAvg;
@@ -66,15 +68,15 @@ void main() {
     float laplaceNormal = laplace(normalExpo, midNormal.r, xyCenter);
     float laplaceHigh = laplace2(normalExpo, midHigh.r, xyCenter);
 
-    normalWeight *= sqrt(laplaceNormal + 0.01);
-    highWeight *= sqrt(laplaceHigh + 0.01);
+    normalWeight *= sqrt(laplaceNormal + 0.001);
+    highWeight *= sqrt(laplaceHigh + 0.001);
 
     // Factor 3: Saturation.
     float normalStddev = midNormal.g;
     float highStddev = midHigh.g;
 
-    normalWeight *= sqrt(normalStddev + 0.01);
-    highWeight *= sqrt(highStddev + 0.01);
+    normalWeight *= normalStddev;
+    highWeight *= highStddev;
 
     float blend = highWeight / (normalWeight + highWeight); // [0, 1]
     //result = base + mix(normal.r, high.r, blend*blend)*(max(1.0, 1.4 - 0.4*(float(level)/float(MAXLEVEL))));

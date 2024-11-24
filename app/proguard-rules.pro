@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+-keep class com.particlesdevs.photoncamera.Wrapper.*{
+    public *;
+}
+-keep class com.particlesdevs.photoncamera.WrapperAl.*{
+    public *;
+}
+-keep class org.chickenhook.restrictionbypass.*{
+    public *;
+}

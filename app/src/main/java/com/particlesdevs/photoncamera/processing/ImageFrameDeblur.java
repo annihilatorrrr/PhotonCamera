@@ -5,11 +5,10 @@ import android.graphics.Point;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
-import com.particlesdevs.photoncamera.processing.rs.GyroMap;
 
 public class ImageFrameDeblur {
     public GyroBurst firstFrameGyro;
-    private GyroMap gyroMap;
+    //private GyroMap gyroMap;
     private Point size, kernelSize, kernelCount, nsize;
     private Parameters parameters;
 
@@ -19,7 +18,7 @@ public class ImageFrameDeblur {
         nsize = new Point(size.x / 4, size.y / 4);
         kernelSize = new Point(64, 64);
         kernelCount = new Point(nsize.x / kernelSize.x, nsize.y / kernelSize.y);
-        gyroMap = new GyroMap(kernelSize, kernelCount, nsize);
+        //gyroMap = new GyroMap(kernelSize, kernelCount, nsize);
     }
 
     public void processDeblurPosition(ImageFrame in) {

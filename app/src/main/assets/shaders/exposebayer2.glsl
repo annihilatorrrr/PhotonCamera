@@ -30,8 +30,9 @@ float stddev(vec3 XYZ) {
     float avg = (XYZ.r + XYZ.g + XYZ.b) / 3.;
     vec3 diff = XYZ - avg;
     diff *= diff;
-    return sqrt((diff.r + diff.g + diff.b) / 3.);
+    return sqrt((diff.r + diff.g + diff.b) / 3. + 0.001);
 }
+
 vec3 brIn(vec4 inp, float factor2){
     float br2 = inp.r+inp.g+inp.b+inp.a;
     br2/=4.0;
