@@ -740,7 +740,12 @@ public class GLUtils {
                         "    ivec2 xy = ivec2(gl_FragCoord.xy);\n" +
                         "    xy+=ivec2(0,yOffset);\n" +
                         "    vec2 size = vec2("+in.mSize.x+","+in.mSize.y+");\n" +
-                        "    Output = tvar(texture(InputBuffer, (2.0*vec2(xy)/size)"+in.mFormat.getTemExt()+");\n" +
+                        //"    Output = tvar(texture(InputBuffer, (2.0*vec2(xy)/size))"+in.mFormat.getTemExt()+");\n" +
+                        " Output = tvar(texelFetch(InputBuffer, xy*2, 0)"+in.mFormat.getTemExt()+");\n" +
+                        "   Output += tvar(texelFetch(InputBuffer, xy*2+ivec2(1,0), 0)"+in.mFormat.getTemExt()+");\n" +
+                        "   Output += tvar(texelFetch(InputBuffer, xy*2+ivec2(0,1), 0)"+in.mFormat.getTemExt()+");\n" +
+                        "   Output += tvar(texelFetch(InputBuffer, xy*2+ivec2(1,1), 0)"+in.mFormat.getTemExt()+");\n" +
+                        "    Output /= 4.0;\n" +
                         "}\n");
         glProg.setTexture("InputBuffer",in);
         glProg.drawBlocks(out);
@@ -850,22 +855,22 @@ public class GLUtils {
         pyramid.glUtils = this;
         pyramid.levels = levels;
         pyramid.step = step;
-        GLTexture[] downscaled = new GLTexture[levels];
-        downscaled[0] = input;
+        pyramid.gauss = new GLTexture[levels];
+        pyramid.gauss[0] = input;
 
-        pyramid.sizes = new Point[downscaled.length];
+        pyramid.sizes = new Point[pyramid.gauss.length];
         pyramid.sizes[0] = new Point(input.mSize);
         boolean autostep = step == 0;
-        for (int i = 1; i < downscaled.length; i++) {
+        for (int i = 1; i < pyramid.gauss.length; i++) {
             //if(autostep && i < 2) step = 2; else step = 4;
             //downscaled[i] = gaussdown(downscaled[i - 1],step);
-            Point insize = downscaled[i-1].mSize;
+            Point insize = pyramid.gauss[i-1].mSize;
             if(autostep && (insize.x <= step+2 || insize.y <= step+2)) step = 2;
             int sizex = (int)(insize.x/step);
             int sizey = (int)(insize.y/step);
             sizex = Math.max(1,sizex);
             sizey = Math.max(1,sizey);
-            downscaled[i] = interpolate(downscaled[i - 1],new Point(sizex,sizey));
+            pyramid.gauss[i] = interpolate(pyramid.gauss[i - 1],new Point(sizex,sizey));
             //GLTexture old = downscaled[i];
             //downscaled[i] = blursmall(downscaled[i],3,1.4);
             //old.close();
@@ -875,21 +880,20 @@ public class GLUtils {
         }
 
         glProg.useUtilProgram("pyramiddiff",false);
-        GLTexture[] diff = new GLTexture[downscaled.length - 1];
-        for (int i = 0; i < diff.length; i++) {
-            glProg.setTexture("target", downscaled[i]);
-            glProg.setTexture("base", downscaled[i + 1]);
+        pyramid.laplace = new GLTexture[pyramid.gauss.length - 1];
+        for (int i = 0; i < pyramid.laplace.length; i++) {
+            glProg.setTexture("target", pyramid.gauss[i]);
+            glProg.setTexture("base", pyramid.gauss[i + 1]);
             glProg.setVar("size",pyramid.sizes[i]);
-            glProg.setVar("size2", downscaled[i + 1].mSize);
+            glProg.setVar("size2", pyramid.gauss[i + 1].mSize);
             //glProg.setTexture("base", downscaled[i]);
             //glProg.setTexture("target", upscale[i]);
-            diff[i] = new GLTexture(pyramid.sizes[i],downscaled[i + 1].mFormat);
-            glProg.drawBlocks(diff[i]);
+            pyramid.laplace[i] = new GLTexture(pyramid.sizes[i],pyramid.gauss[i + 1].mFormat);
+            glProg.drawBlocks(pyramid.laplace[i]);
             //upscale[i].close();
-            Log.d("Pyramid","diff:"+diff[i].mSize+" downscaled:"+downscaled[i].mSize);
+            Log.d("Pyramid","diff:"+pyramid.laplace[i].mSize+" downscaled:"+pyramid.gauss[i].mSize);
         }
-        pyramid.gauss = downscaled;
-        pyramid.laplace = diff;
+
         return pyramid;
     }
     public GLImage GenerateGLImage(Point size){

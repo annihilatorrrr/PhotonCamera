@@ -8,6 +8,8 @@ out vec4 result;
 #import interpolation
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / vec2(size);
-    result = textureBicubicHardware(target, uv) - textureBicubicHardware(base, uv);
+    //vec2 uv = gl_FragCoord.xy / vec2(size);
+    vec2 uv = vec2(ivec2(gl_FragCoord.xy)) / vec2(size) + vec2(0.5) / vec2(size);
+    //result = textureBicubicHardware(target, uv) - textureBicubicHardware(base, uv);
+    result = texelFetch(target, ivec2(gl_FragCoord.xy),0) - textureBicubicHardware(base, uv);
 }

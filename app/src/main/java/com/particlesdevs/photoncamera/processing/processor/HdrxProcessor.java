@@ -216,10 +216,12 @@ public class HdrxProcessor extends ProcessorBase {
         NoiseS = (float) Math.max(NoiseS * noisempy, Float.MIN_NORMAL);
         NoiseO = (float) Math.max(NoiseO * noisempy, Float.MIN_NORMAL);
         FrameNumberSelector.frameCount = cnt;
-        Wrapper.init(width, height, cnt);
-        WrapperAl.init(width, height, cnt);
-        //WrapperGPU.InitCL();
-        //WrapperGPU.nativeLib(new File(PhotonCamera.getLibsDirectory(),"libOpenCL.so").getAbsolutePath());
+        if (alignAlgorithm == 0) {
+            Wrapper.init(width, height, cnt);
+        } else {
+            WrapperAl.init(width, height, cnt);
+        }
+
         if (alignAlgorithm != 0){
             WrapperAl.loadFrame(images.get(selected).buffer, 1.f);
         }
@@ -253,13 +255,14 @@ public class HdrxProcessor extends ProcessorBase {
         interpolateGainMap.parameters = processingParameters;
         interpolateGainMap.Run();
         interpolateGainMap.close();
-        int fx = width/8 + 1;
-        int fy = height/8 + 1;
+        int fx = width/16 + 1;
+        int fy = height/16 + 1;
         if(alignAlgorithm != 2) {
             if(alignAlgorithm == 1){
-                output = ByteBuffer.allocateDirect(fx * fy * 4 * 2);
-            } else
+                output = ByteBuffer.allocateDirect(fx * fy * 4 * 2 * (cnt-1));
+            } else {
                 output = ByteBuffer.allocateDirect(images.get(0).buffer.capacity());
+            }
         } else {
             output = ByteBuffer.allocateDirect(images.get(0).buffer.capacity()*3);
         }
@@ -288,18 +291,22 @@ public class HdrxProcessor extends ProcessorBase {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];
                 WrapperAl.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
                         , processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
-                PyramidMerging pyramidMerging = new PyramidMerging(new Point(width, height), images);
+                PyramidMerging pyramidMerging = new PyramidMerging(new Point(width, height), images, output);
                 pyramidMerging.parameters = processingParameters;
                 pyramidMerging.Run();
                 pyramidMerging.close();
+                output.clear();
                 output = pyramidMerging.Output;
+                for (int i = 1; i < images.size(); i++) {
+                    images.get(i).image.close();
+                }
             } else {
                 WrapperAl.processFrameBayerShift(NoiseS,NoiseO,0.f, 0.f, 0.f,
                         processingParameters.whiteLevel, processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2],
                         processingParameters.cfaPattern);
             }
         }
-        interpolateGainMap.Output.clear();
+        //interpolateGainMap.Output.clear();
         float[] oldBL = processingParameters.blackLevel.clone();
 
         Log.d(TAG, "HDRX Alignment elapsed:" + (System.currentTimeMillis() - startTime) + " ms");
@@ -308,6 +315,7 @@ public class HdrxProcessor extends ProcessorBase {
         if(alignAlgorithm != 2) {
             images.get(0).image.getPlanes()[0].getBuffer().position(0);
             images.get(0).image.getPlanes()[0].getBuffer().put(output);
+            output.clear();
             images.get(0).image.getPlanes()[0].getBuffer().position(0);
             result = images.get(0).image.getPlanes()[0].getBuffer();
         } else {

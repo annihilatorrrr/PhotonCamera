@@ -20,9 +20,9 @@ public class NoiseFitting {
 
     // Class to hold the fitted parameters
     public static class NoiseParameters {
-        double S;
-        double O;
-        double error;
+        public double S;
+        public double O;
+        public double error;
 
         NoiseParameters(double S, double O, double error) {
             this.S = S;

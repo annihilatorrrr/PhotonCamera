@@ -146,6 +146,11 @@ public class GLTexture implements AutoCloseable {
         reSetParameters();
         checkEglError("Tex glTexParameter");
     }
+
+    public void loadData(Buffer pixels){
+        glBindTexture(GL_TEXTURE_2D, mTextureID);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mSize.x, mSize.y, mFormat.getGLFormatExternal(), mFormat.getGLType(), pixels);
+    }
     void reSetParameters(){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mFormat.filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mFormat.filter);

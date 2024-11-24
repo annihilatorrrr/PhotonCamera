@@ -1,6 +1,6 @@
 precision highp float;
 precision highp sampler2D;
-uniform sampler2D inTexture;
+uniform highp sampler2D inTexture;
 uniform float whiteLevel;
 uniform int yOffset;
 #define TILE 2
@@ -8,7 +8,7 @@ uniform int yOffset;
 out uint Output;
 
 uvec4 getBayerVec(ivec2 coords){
-    return uvec4(texelFetch(inTexture, coords, 0) * 65535.f);
+    return uvec4(min(texelFetch(inTexture, coords, 0),1.0) * 65535.f);
 }
 
 void main() {
