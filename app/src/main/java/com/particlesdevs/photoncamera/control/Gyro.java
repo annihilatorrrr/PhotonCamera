@@ -7,6 +7,7 @@ import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 
@@ -35,6 +36,7 @@ public class Gyro {
     public static final float NS2S = 1.0f / 1000000000.0f;
     private long prevStamp;
     private int counter = 0;
+    boolean lock = false;
 
     private final SensorEventListener mGravityTracker = new SensorEventListener() {
         @Override
@@ -49,7 +51,7 @@ public class Gyro {
                 y+=angley;
                 z+=anglez;
             }
-            if (gyroburst) {
+            if (gyroburst && !lock) {
                 burstout +=Math.abs(anglex);
                 burstout +=Math.abs(angley);
                 burstout +=Math.abs(anglez);
@@ -100,26 +102,26 @@ public class Gyro {
     float x,y,z;
     private ArrayList<GyroBurst> BurstShakiness;
     public void PrepareGyroBurst(long[] capturingTimes,ArrayList<GyroBurst> burstShakiness) {
-        AsyncTask.execute(() -> {
-            capturingNumber = 0;
-            x = 0.f;
-            y = 0.f;
-            z = 0.f;
-            this.capturingTimes = new long[capturingTimes.length];
-            long maxTime = Long.MIN_VALUE;
-            for(long time : capturingTimes){
-                if(time > maxTime) maxTime = time;
-            }
-            int requiredSamples = 65535;
-            //delayUs = (int) (maxTime/requiredSamples)/1000;
-            delayUs = 0;
-            Log.d(TAG,"Gyro DelayUs:"+delayUs);
-            gyroBurst = new GyroBurst(requiredSamples);
-            System.arraycopy(capturingTimes, 0, this.capturingTimes, 0, capturingTimes.length);
-            BurstShakiness = burstShakiness;
-            unregister();
-            register();
-        });
+        lock = true;
+        capturingNumber = 0;
+        x = 0.f;
+        y = 0.f;
+        z = 0.f;
+        this.capturingTimes = new long[capturingTimes.length];
+        long maxTime = Long.MIN_VALUE;
+        for(long time : capturingTimes){
+            if(time > maxTime) maxTime = time;
+        }
+        int requiredSamples = 65535;
+        //delayUs = (int) (maxTime/requiredSamples)/1000;
+        delayUs = 0;
+        Log.d(TAG,"Gyro DelayUs:"+delayUs);
+        gyroBurst = new GyroBurst(requiredSamples);
+        System.arraycopy(capturingTimes, 0, this.capturingTimes, 0, capturingTimes.length);
+        BurstShakiness = burstShakiness;
+        unregister();
+        register();
+        lock = false;
     }
 
 
@@ -148,8 +150,10 @@ public class Gyro {
             //Log.d(TAG, "GyroBurst counter:" + BurstShakiness.size()+" sampleCount:"+counter+" shakiness:"+gyroBurst.shakiness);
         }
     }
+    @HunterDebug
     public void CompleteSequence() {
         integrate = false;
+        gyroburst = false;
         delayUs = delayPreview;
         unregister();
         register();

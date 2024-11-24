@@ -115,6 +115,17 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             showHideHdrxSettings();
             setFramesSummary();
             setVersionDetails();
+            Toolbar toolbar = activity.findViewById(R.id.settings_toolbar);
+            toolbar.setTitle(getPreferenceScreen().getTitle());
+            setHdrxTitle();
+            checkEszdTheme();
+            setTelegramPref();
+            setGithubPref();
+            setBackupPref();
+            setRestorePref();
+            setSupportedDevices();
+            setProTitle();
+            setThisDevice();
         }
 
         private void showHideHdrxSettings() {
@@ -139,17 +150,6 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         @HunterDebug
         @Override
         public void onResume() {
-            Toolbar toolbar = activity.findViewById(R.id.settings_toolbar);
-                toolbar.setTitle(getPreferenceScreen().getTitle());
-                setHdrxTitle();
-                checkEszdTheme();
-                setTelegramPref();
-                setGithubPref();
-                setBackupPref();
-                setRestorePref();
-                setSupportedDevices();
-                setProTitle();
-                setThisDevice();
             super.onResume();
         }
 
