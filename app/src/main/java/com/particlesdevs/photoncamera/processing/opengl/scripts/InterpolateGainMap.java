@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.processing.opengl.scripts;
 import android.graphics.Point;
 import android.util.Log;
 
+import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.processing.opengl.GLCoreBlockProcessing;
 import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
@@ -33,6 +34,7 @@ public class InterpolateGainMap extends GLOneScript {
     }
 
     @Override
+    @HunterDebug
     public void Run() {
         glOne.glProgram.setDefine("RAWSIZE",parameters.rawSize);
         glOne.glProgram.setDefine("CFAPATTERN",(int)parameters.cfaPattern);
