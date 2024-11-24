@@ -11,6 +11,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 
+import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
 
@@ -31,6 +32,7 @@ public class Histogram extends View {
         return t;
     });
 
+    @HunterDebug
     public Histogram(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
         wallPaint = new Paint();
@@ -38,7 +40,7 @@ public class Histogram extends View {
             glHistogram = new GLHistogram();
         });
     }
-
+    @HunterDebug
     public HistogramModel analyze(Bitmap bitmap) {
         int size = 256;
         int[][][] colorsMap = new int[1][4][256];
