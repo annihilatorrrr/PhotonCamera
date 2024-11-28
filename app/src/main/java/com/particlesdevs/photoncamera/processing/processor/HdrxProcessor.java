@@ -22,6 +22,7 @@ import com.particlesdevs.photoncamera.processing.ImageSaver;
 import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
 import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline;
 import com.particlesdevs.photoncamera.processing.opengl.scripts.InterpolateGainMap;
+import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -254,8 +255,8 @@ public class HdrxProcessor extends ProcessorBase {
         interpolateGainMap.parameters = processingParameters;
         interpolateGainMap.Run();
         interpolateGainMap.close();
-        int fx = width/16 + 1;
-        int fy = height/16 + 1;
+        int fx = width/(2*processingParameters.tile) + 1;
+        int fy = height/(2*processingParameters.tile) + 1;
         if(alignAlgorithm != 2) {
             if(alignAlgorithm == 1){
                 output = ByteBuffer.allocateDirect(fx * fy * 4 * 2 * (cnt-1));

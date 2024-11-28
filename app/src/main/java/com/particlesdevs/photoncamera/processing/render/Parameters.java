@@ -64,6 +64,8 @@ public class Parameters {
     public float gammaCurve = 2.0f;
     public SpecificSettingSensor sensorSpecifics;
 
+    public int tile = 8;
+
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         rawSize = size;

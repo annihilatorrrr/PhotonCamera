@@ -174,7 +174,7 @@ public class PyramidMerging extends GLOneScript {
         double noisempy = Math.pow(2.0, PhotonCamera.getSettings().mergeStrength);
         noiseS = (float)Math.max(noiseS * noisempy,1e-6f);
         noiseO = (float)Math.max(noiseO * noisempy,1e-6f);
-        Point aSize = new Point(parameters.rawSize.x/16 + 1, parameters.rawSize.y/16 + 1);
+        Point aSize = new Point(parameters.rawSize.x/(2*parameters.tile) + 1, parameters.rawSize.y/(2*parameters.tile) + 1);
         Point border = new Point(16,16);
         GLTexture inputAlter = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16, 1), null, GL_NEAREST, GL_MIRRORED_REPEAT);
         GLTexture alignmentTex = new GLTexture(aSize, new GLFormat(GLFormat.DataType.FLOAT_32, 2), alignment, GL_NEAREST, GL_MIRRORED_REPEAT);
@@ -186,7 +186,7 @@ public class PyramidMerging extends GLOneScript {
             //int f = 1;
             inputAlter.loadData(images.get(f).buffer);
             alignmentTex.loadData(alignment.position((f-1)*(aSize.x*aSize.y*4*2)));
-
+            glProg.setDefine("TILE_AL", 2*parameters.tile);
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge0", true);
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
@@ -210,6 +210,7 @@ public class PyramidMerging extends GLOneScript {
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
             glProg.setVar("noiseS", noiseS);
             glProg.setVar("noiseO", noiseO);
+            glProg.setVar("cfaPattern", parameters.cfaPattern);
             glProg.computeAuto(rawHalf, 1);
 
             GLUtils.Pyramid diff = createPyramid(levelcount, diffFlow, pyramid);

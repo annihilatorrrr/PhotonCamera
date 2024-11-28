@@ -9,29 +9,35 @@ layout(rgba16f, binding = 1) uniform highp writeonly image2D outTexture;
 uniform float whiteLevel;
 uniform float noiseS;
 uniform float noiseO;
+uniform int cfaPattern;
 
-shared float s_prev[10][10];    // 8x8 block + 1 pixel border
-shared float s_curr[10][10];    // 8x8 block + 1 pixel border
+shared float s_prev[12][12];    // 8x8 block + 1 pixel border
+shared float s_curr[12][12];    // 8x8 block + 1 pixel border
 
 const float EPSILON = 0.01;
-const int WINDOW_SIZE = 3;
-const int MAX_ITERATIONS = 10;
+const int MAX_ITERATIONS = 5;
 const float EPS = 1e-6;
-
+const int DELTA = 2;
 float getBayer(ivec2 coords, highp usampler2D tex){
-    return float(texelFetch(tex,coords,0).r);
+    return float(texelFetch(tex,coords,0).r)/whiteLevel;
 }
 
 vec4 getBayerVec(ivec2 coords, highp usampler2D tex){
-    return vec4(getBayer(coords,tex),getBayer(coords+ivec2(1,0),tex),getBayer(coords+ivec2(0,1),tex),getBayer(coords+ivec2(1,1),tex))/whiteLevel;
+    return vec4(getBayer(coords,tex),getBayer(coords+ivec2(1,0),tex),getBayer(coords+ivec2(0,1),tex),getBayer(coords+ivec2(1,1),tex));
 }
 
 // Calculate spatial and temporal derivatives
 void calculateDerivatives(ivec2 lid, out vec2 spatial, out float temporal) {
     // Calculate centered derivatives
-    lid = clamp(lid, ivec2(0), ivec2(7));
-    float dx = (s_curr[lid.y + 1][lid.x + 2] - s_curr[lid.y + 1][lid.x]) * 0.5;
-    float dy = (s_curr[lid.y + 2][lid.x + 1] - s_curr[lid.y][lid.x + 1]) * 0.5;
+    lid = clamp(lid, ivec2(0), ivec2(9));
+    float dx_prev = s_prev[lid.y + 1][lid.x + 2] - s_prev[lid.y + 1][lid.x];
+    float dy_prev = s_prev[lid.y + 2][lid.x + 1] - s_prev[lid.y][lid.x + 1];
+    float dx_curr = s_curr[lid.y + 1][lid.x + 2] - s_curr[lid.y + 1][lid.x];
+    float dy_curr = s_curr[lid.y + 2][lid.x + 1] - s_curr[lid.y][lid.x + 1];
+    float dx = (dx_prev + dx_curr) * 0.5;
+    float dy = (dy_prev + dy_curr) * 0.5;
+    //float dx = (s_curr[lid.y + 1][lid.x + 2] - s_curr[lid.y + 1][lid.x]) * 0.5;
+    //float dy = (s_curr[lid.y + 2][lid.x + 1] - s_curr[lid.y][lid.x + 1]) * 0.5;
     float dt = s_curr[lid.y + 1][lid.x + 1] - s_prev[lid.y + 1][lid.x + 1];
 
     spatial = vec2(dx, dy);
@@ -40,10 +46,10 @@ void calculateDerivatives(ivec2 lid, out vec2 spatial, out float temporal) {
 
 void loadSharedMemory(ivec2 gid, ivec2 lid) {
     // Load 16x16 block plus borders
-    for(int dy = -1; dy <= 1; dy++) {
-        for(int dx = -1; dx <= 1; dx++) {
+    for(int dy = -DELTA; dy <= DELTA; dy++) {
+        for(int dx = -DELTA; dx <= DELTA; dx++) {
             ivec2 pos = gid + ivec2(dx, dy);
-            ivec2 shared_pos = lid + ivec2(dx + 1, dy + 1);
+            ivec2 shared_pos = lid + ivec2(dx + DELTA, dy + DELTA);
 
             // Clamp coordinates to image bounds
             pos = clamp(pos, ivec2(0), imageSize(outTexture) - ivec2(1));
@@ -57,13 +63,49 @@ void loadSharedMemory(ivec2 gid, ivec2 lid) {
 }
 
 
+void loadSharedMemoryGreen(ivec2 gid, ivec2 lid) {
+    ivec2 shift = ivec2(0,0);
+    if(cfaPattern == 0 || cfaPattern == 3) {
+        shift = ivec2(0,1);
+    }
+    // Load 16x16 block plus borders
+    for(int dy = -DELTA; dy <= DELTA; dy++) {
+        for(int dx = -DELTA; dx <= DELTA; dx++) {
+            ivec2 pos = gid + ivec2(dx+dy, dx-dy) + shift;
+            ivec2 shared_pos = lid + ivec2(dx + DELTA, dy + DELTA);
+            vec4 bayer = getBayerVec(pos*2,inTexture);
+            // Clamp coordinates to image bounds
+            pos = clamp(pos, ivec2(0), imageSize(outTexture) - ivec2(1));
+
+            // Load luminance values
+            s_prev[shared_pos.y][shared_pos.x] = getBayer(pos,inTexture);
+            s_curr[shared_pos.y][shared_pos.x] = imageLoad(diffTexture, pos/2)[pos.x%2+pos.y%2*2];
+            //s_curr[shared_pos.y][shared_pos.x] = dot(texelFetch(diffTexture, pos,0),vec4(0.25));
+        }
+    }
+}
+
+vec4 interpolateBayer(vec2 coords){
+    vec4 c00 = imageLoad(diffTexture, ivec2(coords));
+    vec4 c10 = imageLoad(diffTexture, ivec2(coords)+ivec2(1,0));
+    vec4 c01 = imageLoad(diffTexture, ivec2(coords)+ivec2(0,1));
+    vec4 c11 = imageLoad(diffTexture, ivec2(coords)+ivec2(1,1));
+    vec2 f = fract(vec2(coords));
+    return mix(mix(c00,c10,f.x),mix(c01,c11,f.x),f.y);
+}
+
+float bayerDiff(ivec2 coords, ivec2 coords2){
+    float p = imageLoad(diffTexture, coords/2)[coords.x%2+coords.y%2*2] - getBayer(coords2,inTexture);
+    return p;
+}
+
 void main() {
     ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
     ivec2 lid = ivec2(gl_LocalInvocationID.xy);
     vec2 uvSize = vec2(1.0)/vec2(imageSize(outTexture));
     vec2 uv = vec2(xy)*uvSize + vec2(0.5)*uvSize;
 
-    loadSharedMemory(xy, lid);
+    loadSharedMemoryGreen(xy*2, lid);
     barrier();
     memoryBarrierShared();
     // Lucas-Kanade iteration variables
@@ -77,9 +119,9 @@ void main() {
         b = vec2(0.0);
 
         // Accumulate over window
-        for(int wy = -WINDOW_SIZE/2; wy <= WINDOW_SIZE/2; wy++) {
-            for(int wx = -WINDOW_SIZE/2; wx <= WINDOW_SIZE/2; wx++) {
-                ivec2 wpos = lid + ivec2(wx + 1, wy + 1);
+        for(int wy = -DELTA; wy <= DELTA; wy++) {
+            for(int wx = -DELTA; wx <= DELTA; wx++) {
+                ivec2 wpos = lid + ivec2(wx + DELTA, wy + DELTA);
 
                 vec2 spatial;
                 float temporal;
@@ -115,38 +157,21 @@ void main() {
             break;
         }
     }
+    flow = vec2((flow.x + flow.y)/2.0, (flow.x - flow.y)/2.0);
     vec4 diff = imageLoad(diffTexture, xy-ivec2(flow))-getBayerVec(xy*2,inTexture);
+    ivec2 flowDiag = ivec2((flow.x + flow.y)*2.0, (flow.x - flow.y)*2.0);
+    ivec2 flowGreen = ivec2(flowDiag.x + flowDiag.y, flowDiag.x - flowDiag.y);
+    if(cfaPattern == 0 || cfaPattern == 3) {
+        diff[1] = bayerDiff(xy * 2 - flowGreen + ivec2(1,0), xy * 2 + ivec2(1,0));
+        diff[2] = bayerDiff(xy * 2 - flowGreen + ivec2(0,1), xy * 2 + ivec2(0,1));
+    } else {
+        diff[0] = bayerDiff(xy * 2 - flowGreen, xy * 2);
+        diff[3] = bayerDiff(xy * 2 - flowGreen + ivec2(1, 1), xy * 2 + ivec2(1, 1));
+    }
+    // Apply linear flow to current frame
+    //vec4 diff = interpolateBayer(vec2(xy)-vec2(flow))-getBayerVec(xy*2,inTexture);
+
     //vec4 diff = imageLoad(diffTexture, xy)-getBayerVec(xy*2,inTexture);
     //vec4 diff = texture(diffTexture, uv+flow*uvSize)-getBayerVec(xy*2,inTexture);
     imageStore(outTexture, xy, diff);
-    /*
-    vec4 base = getBayerVec(xy*2,inTexture);
-    vec4 minDiffCenter = imageLoad(diffTexture, xy-ivec2(flow))-base;
-    vec4 diffBase = minDiffCenter;
-    vec4 noise = sqrt(noiseS*base + noiseO);
-    vec4 Z = vec4(0.0);
-    vec4 diffSum = vec4(0.0);
-    vec4 cc[4];
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            ivec2 pos = ivec2(i,j);
-            ivec2 pos2 = ivec2(-i,-j);
-            ivec2 pos3 = ivec2(i,-j);
-            ivec2 pos4 = ivec2(-i,j);
-            cc[0] = vec4(imageLoad(diffTexture, xy+pos-ivec2(flow))-base);
-            cc[1] = vec4(imageLoad(diffTexture, xy+pos2-ivec2(flow))-base);
-            cc[2] = vec4(imageLoad(diffTexture, xy+pos3-ivec2(flow))-base);
-            cc[3] = vec4(imageLoad(diffTexture, xy+pos4-ivec2(flow))-base);
-            // Compute the weights
-            vec4 d = vec4(length(cc[0]-diffBase),length(cc[1]-diffBase),length(cc[2]-diffBase),length(cc[3]-diffBase));
-            vec4 w = (1.0-d*d/(d*d + noise));
-            float wm = min(min(min(w[0],w[1]),w[2]),w[3]);
-            w -= wm*0.999;
-            vec4 alignedV = mat4(cc[0],cc[1],cc[2],cc[3])*w;
-            vec4 d2 = vec4(1.0)/(abs(alignedV-diffBase)+noise/8.0);
-            diffSum += alignedV*d2;
-            Z += dot(vec4(d2),w);
-        }
-    }
-    imageStore(outTexture, xy, diffSum/Z);*/
 }
