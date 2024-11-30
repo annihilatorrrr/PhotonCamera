@@ -10,6 +10,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -43,7 +44,11 @@ public class GalleryFileOperations {
         FindAllFoldersWithImages(contentResolver);
         SELECTED_FOLDERS_IDS.clear();
         SELECTED_FOLDERS.clear();
-        SELECTED_FOLDERS_IDS.addAll(PreferenceKeys.getStringSet(PreferenceKeys.Key.FOLDERS_LIST));
+        try {
+            SELECTED_FOLDERS_IDS.addAll(PreferenceKeys.getStringSet(PreferenceKeys.Key.FOLDERS_LIST));
+        } catch (Exception e) {
+            Log.d("GalleryFileOperations", "Warning: failed fetching selected folders from shared preferences " + Log.getStackTraceString(e));
+        }
         if (SELECTED_FOLDERS_IDS.isEmpty()) {
             SELECTED_FOLDERS_IDS.add("Camera"); //in case the user has not selected any folder
             SELECTED_FOLDERS_IDS.add("Raw");
