@@ -5,7 +5,13 @@ import android.util.Log;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -75,6 +81,14 @@ public class GLProg implements AutoCloseable {
     }
     public void useAssetProgram(String name,boolean compute){
         useProgram(PhotonCamera.getAssetLoader().getString("shaders/"+name+".glsl"),compute);
+    }
+    public void useFileProgram(String path, boolean compute){
+        // open file by path
+        try {
+            useProgram(new String(Files.readAllBytes(new File(path).toPath())),compute);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
     public void useUtilProgram(String name){
         useUtilProgram(name,false);
@@ -383,6 +397,7 @@ public class GLProg implements AutoCloseable {
             default:
                 throw new RuntimeException("Wrong var size " + name);
         }
+        checkEglError("setVar:" + name);
     }
 
     public void setVar(String name, Point in) {
@@ -410,6 +425,7 @@ public class GLProg implements AutoCloseable {
             default:
                 throw new RuntimeException("Wrong var size " + name);
         }
+        checkEglError("setVar:" + name);
     }
     public void setVar(String name, float... vars) {
         setVar(name,true,vars);
@@ -437,6 +453,7 @@ public class GLProg implements AutoCloseable {
             default:
                 throw new RuntimeException("Wrong var size " + name);
         }
+        checkEglError("setVarU:" + name);
     }
 
     @Override
