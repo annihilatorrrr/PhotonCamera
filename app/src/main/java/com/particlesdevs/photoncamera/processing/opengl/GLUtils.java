@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.util.Log;
 
+import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.ImagePath;
@@ -15,6 +16,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
+import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
+import static android.opengl.GLES20.GL_LINEAR;
+import static android.opengl.GLES20.GL_MIRRORED_REPEAT;
 
 public class GLUtils {
     private final GLProg glProg;
@@ -896,6 +901,56 @@ public class GLUtils {
 
         return pyramid;
     }
+    @HunterDebug
+    public Pyramid createPyramidStore(int levels, GLTexture input, GLUtils.Pyramid pyramid){
+        pyramid.levels = levels;
+        pyramid.step = 2.0;
+        if (pyramid.gauss == null){
+            pyramid.gauss = new GLTexture[levels];
+        }
+        pyramid.gauss[0] = input;
+
+        //GLTexture[] upscale = new GLTexture[downscaled.length - 1];
+        pyramid.sizes = new Point[pyramid.gauss.length];
+        pyramid.sizes[0] = new Point(input.mSize);
+        double step = 2.0;
+        for (int i = 1; i < pyramid.gauss.length; i++) {
+            //if(autostep && i < 2) step = 2; else step = 4;
+            //downscaled[i] = gaussdown(downscaled[i - 1],step);
+            Point insize = pyramid.gauss[i-1].mSize;
+            int sizex = (int)(insize.x/step);
+            int sizey = (int)(insize.y/step);
+            sizex = Math.max(1,sizex);
+            sizey = Math.max(1,sizey);
+            if (pyramid.gauss[i] == null){
+                pyramid.gauss[i] = new GLTexture(new Point(sizex,sizey),pyramid.gauss[i-1].mFormat, null, GL_LINEAR, GL_CLAMP_TO_EDGE);
+            }
+            interpolate(pyramid.gauss[i - 1],pyramid.gauss[i]);
+            //GLTexture old = downscaled[i];
+            //downscaled[i] = glUtils.blursmall(downscaled[i],3,1.4);
+            //old.close();
+            //downscaled[i] = medianDown(downscaled[i-1],new GLTexture(new Point(sizex,sizey),downscaled[i-1].mFormat), (float) step);
+            pyramid.sizes[i] = new Point((int)(pyramid.sizes[i-1].x/step),(int)(pyramid.sizes[i-1].y/step));
+            //Log.d("Pyramid","downscale:"+pyramid.sizes[i]);
+        }
+
+        glProg.useUtilProgram("pyramiddiff",false);
+        if (pyramid.laplace == null) pyramid.laplace = new GLTexture[pyramid.gauss.length - 1];
+        for (int i = 0; i < pyramid.laplace.length; i++) {
+            glProg.setTexture("target", pyramid.gauss[i]);
+            glProg.setTexture("base", pyramid.gauss[i + 1]);
+            glProg.setVar("size",pyramid.sizes[i]);
+            glProg.setVar("size2", pyramid.gauss[i + 1].mSize);
+            //glProg.setTexture("base", downscaled[i]);
+            //glProg.setTexture("target", upscale[i]);
+            if (pyramid.laplace[i] == null)
+                pyramid.laplace[i] = new GLTexture(pyramid.sizes[i],pyramid.gauss[i + 1].mFormat, null, GL_LINEAR, GL_MIRRORED_REPEAT);
+            glProg.drawBlocks(pyramid.laplace[i]);
+            //Log.d("Pyramid","diff:"+pyramid.laplace[i].mSize+" downscaled:"+pyramid.gauss[i].mSize);
+        }
+        return pyramid;
+    }
+
     public GLImage GenerateGLImage(Point size){
         return GenerateGLImage(size,4);
     }
