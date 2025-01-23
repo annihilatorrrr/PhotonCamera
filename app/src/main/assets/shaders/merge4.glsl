@@ -42,7 +42,7 @@ void main() {
     vec4 weightSum = vec4(0.0001);
     float Z = 0.0001;
     vec4 diffCenter = imageLoad(diffTexture, xy);
-    vec4 diffNormCenter = diffCenter*integralNorm;
+    vec4 diffNormCenter = diffCenter*(integralNorm);
     for (int i = -1; i <= 1; i++) {
         float f0 = pdf(float(i)/SIGMA);
         for (int j = -1; j <= 1; j++) {
@@ -58,14 +58,10 @@ void main() {
             Z += f * w2;
         }
     }
-    //vec4 w = weightSum;
-    vec4 w = weightSum;
-    //vec4 w = diffNormCenter * diffNormCenter / (noise * noise + diffNormCenter * diffNormCenter);
+    //vec4 w = weightSum;// / vec4(Z);
+    vec4 w = diffNormCenter * diffNormCenter / (noise * noise + diffNormCenter * diffNormCenter);
     w = ((clamp(w, MINWEIGHT, MAXWEIGHT)-MINWEIGHT)/(MAXWEIGHT-MINWEIGHT));
-    w = vec4(1.0) - w;
-    if(integralNorm < 1.0){
-        w = vec4(0.0);
-    }
+    //w = vec4(1.0) - w;
     //w = vec4(1.0);
     //w = robustWeight(w);
 
@@ -73,11 +69,7 @@ void main() {
     //diffCenter.g *= w.g;
     //diffCenter.b *= w.b;
     //diffCenter.a *= w.a;
-    /*vec4 storing = (base + diffCenter);
-    storing.r *= w.r;
-    storing.g *= w.g;
-    storing.b *= w.b;
-    storing.a *= w.a;*/
+    vec4 storing = (diffCenter);
 
-    imageStore(outTexture, xy, base + diffCenter*robustWeight(w));
+    imageStore(outTexture, xy, base + storing*robustWeight(w));
 }
