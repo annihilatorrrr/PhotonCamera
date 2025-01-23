@@ -64,7 +64,11 @@ public class Parameters {
     public float gammaCurve = 2.0f;
     public SpecificSettingSensor sensorSpecifics;
 
-    public int tile = 8;
+    public int tile = 16;
+    public float[] HSVMap = null;
+    public float[] LookMap = null;
+    public int[] HSVMapSize = new int[2];
+    public int[] LookMapSize = new int[3];
 
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
@@ -232,6 +236,7 @@ public class Parameters {
 
             if (sensorSpecifics.colorTransform1 != null) {
                 colorMat1 = sensorSpecifics.colorTransform1;
+                Log.d(TAG, "Using custom color transform 1:"+ colorMat1.toString());
             }
             if (sensorSpecifics.colorTransform2 != null) {
                 colorMat2 = sensorSpecifics.colorTransform2;
@@ -251,6 +256,7 @@ public class Parameters {
             }
 
         }
+        //Log.d(TAG, "Using custom color transform 1:"+ colorMat1.toString());
 
         float[] calibrationTransform1 = new float[9];
         float[] normalizedForwardTransform1 = new float[9];
@@ -279,6 +285,28 @@ public class Parameters {
         Converter.calculateCameraToXYZD50Transform(normalizedForwardTransform1, normalizedForwardTransform2,
                 calibrationTransform1, calibrationTransform2, whitePoint,
                 interpolationFactor, /*out*/sensorToXYZ);
+        if (sensorSpecifics.profileHueSatMapDims != null && sensorSpecifics.profileHueSatMapData1 != null && sensorSpecifics.profileHueSatMapData2 != null) {
+            HSVMapSize[0] = sensorSpecifics.profileHueSatMapDims[0];
+            HSVMapSize[1] = sensorSpecifics.profileHueSatMapDims[1];
+            HSVMap = new float[HSVMapSize[0] * HSVMapSize[1] * 3];
+            for (int i = 0; i < HSVMap.length; i+=3) {
+                HSVMap[i] = sensorSpecifics.profileHueSatMapData1[i] * (1.f - (float)interpolationFactor) + sensorSpecifics.profileHueSatMapData2[i] * (float)interpolationFactor;
+                HSVMap[i+1] = sensorSpecifics.profileHueSatMapData1[i+1] * (1.f - (float)interpolationFactor) + sensorSpecifics.profileHueSatMapData2[i+1] * (float)interpolationFactor;
+                HSVMap[i+2] = sensorSpecifics.profileHueSatMapData1[i+2] * (1.f - (float)interpolationFactor) + sensorSpecifics.profileHueSatMapData2[i+2] * (float)interpolationFactor;
+                HSVMap[i] /= 360.f;
+            }
+        }
+        if (sensorSpecifics.profileLookTableDims != null && sensorSpecifics.profileLookTableData != null) {
+            LookMapSize[0] = sensorSpecifics.profileLookTableDims[0];
+            LookMapSize[1] = sensorSpecifics.profileLookTableDims[1];
+            LookMapSize[2] = sensorSpecifics.profileLookTableDims[2];
+            LookMap = new float[LookMapSize[0] * LookMapSize[1] * LookMapSize[2] * 3];
+            for (int i = 0; i < LookMap.length; i+=3) {
+                LookMap[i] = sensorSpecifics.profileLookTableData[i] / 360.f;
+                LookMap[i+1] = sensorSpecifics.profileLookTableData[i+1];
+                LookMap[i+2] = sensorSpecifics.profileLookTableData[i+2];
+            }
+        }
         Converter.multiply(Converter.sXYZtoProPhoto, sensorToXYZ, /*out*/sensorToProPhoto);
         File customCCT = new File(Environment.getExternalStorageDirectory() + "//DCIM//PhotonCamera//", "customCCT.txt");
         //ColorSpaceTransform CST = PhotonCamera.getCaptureController().mColorSpaceTransform;//= result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM);
