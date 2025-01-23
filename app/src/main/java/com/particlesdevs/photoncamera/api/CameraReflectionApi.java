@@ -27,6 +27,8 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
+import dalvik.system.ApplicationRuntime;
+
 public class CameraReflectionApi {
     //private static final String TAG = "CameraReflectionApi";
     public static CaptureResult.Key<?> createKeyResult(String name, Class<?> type){
@@ -40,14 +42,40 @@ public class CameraReflectionApi {
         return null;
     }
 
-    public static <T> void set(CameraCharacteristics.Key<T> key, T value) {
+    public static void setPackageName(String packageName){
+        try {
+            Class<?> activityThreadClass = ReflectBypass.findClass("android/app/ActivityThread");
+            Method currentActivityThreadMethod =
+                    RestrictionBypass.getMethod(activityThreadClass,"currentActivityThread");
+            currentActivityThreadMethod.setAccessible(true);
+            Object activityThread = currentActivityThreadMethod.invoke(null);
+            // Grab the 'mBoundApplication' field.
+            Field mBoundApplicationField = RestrictionBypass.getDeclaredField(activityThreadClass,"mBoundApplication");
+            mBoundApplicationField.setAccessible(true);
+            Object mBoundApplication = mBoundApplicationField.get(activityThread);
+
+            // Inside mBoundApplication, get the 'info' field which is a LoadedApk.
+            Field infoField = RestrictionBypass.getDeclaredField(mBoundApplication.getClass(), "info");
+            infoField.setAccessible(true);
+            Object loadedApk = infoField.get(mBoundApplication);
+
+            // Finally, set 'mPackageName' on the LoadedApk object
+            Field mPackageNameField = RestrictionBypass.getDeclaredField(loadedApk.getClass(),"mPackageName");
+            mPackageNameField.setAccessible(true);
+            mPackageNameField.set(loadedApk, packageName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static <T> void set(CameraCharacteristics characteristics, CameraCharacteristics.Key<T> key, T value) {
         try {
             //Class<?> metadataNativeClass = ReflectBypass.findClass("android/hardware/camera2/impl/CameraMetadataNative");
             Field CameraMetadataNativeField = RestrictionBypass.getDeclaredField(CameraCharacteristics.class, "mProperties");
             CameraMetadataNativeField.setAccessible(true);
-            Object CameraMetadataNative = CameraMetadataNativeField.get(CaptureController.mCameraCharacteristics);
+            Object CameraMetadataNative = CameraMetadataNativeField.get(characteristics);
             assert CameraMetadataNative != null;
-            Method set = RestrictionBypass.getDeclaredMethod(CameraMetadataNative.getClass(), "set", CameraCharacteristics.Key.class, Object.class);
+            Method set = RestrictionBypass.getDeclaredMethod(CameraMetadataNative.getClass(), "setBase", CameraCharacteristics.Key.class, Object.class);
             set.setAccessible(true);
             set.invoke(CameraMetadataNative, key, value);
         } catch (Exception e) {
