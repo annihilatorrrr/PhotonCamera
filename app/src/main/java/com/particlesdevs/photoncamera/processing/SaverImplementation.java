@@ -11,6 +11,8 @@ import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.processor.ProcessorBase;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
 
 public class SaverImplementation {
     private static final String TAG = "SaverImplementation";
@@ -60,7 +62,7 @@ public class SaverImplementation {
         //reader.close();
     }
 
-    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
+    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {
         this.imageFormat = imageFormat;
     }
     public void unlimitedStart(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, int cameraRotation) {
