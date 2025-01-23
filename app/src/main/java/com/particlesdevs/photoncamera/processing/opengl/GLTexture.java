@@ -77,7 +77,7 @@ public class GLTexture implements AutoCloseable {
         mFormat.wrap = textureWrapper;
         int[] TexID = new int[1];
         glGenTextures(1,TexID,0);
-        Log.d("GLTexture","TexID:"+TexID[0]);
+        Log.d("GLTexture","TexID:"+TexID[0] + " Size:"+mSize.x+"x"+mSize.y + " Format:"+mFormat.getGLFormatInternal() + " Filter:"+textureFilter + " Wrapper:"+textureWrapper);
         for(int i = 1; i<ids.length;i++){
             if(!ids[i]){
                 Log.d("GLTexture","get:"+i);
@@ -182,7 +182,7 @@ public class GLTexture implements AutoCloseable {
     public void bind(int slot) {
         glActiveTexture(slot);
         glBindTexture(GL_TEXTURE_2D, mTextureID);
-        checkEglError("Tex bind");
+        checkEglError("Tex " + mTextureID + " bind");
     }
 
     public void textureBuffer(GLFormat outputFormat,ByteBuffer output) {
