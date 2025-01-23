@@ -16,7 +16,7 @@ public class IsoExpoSelector {
     private static final String TAG = "IsoExpoSelector";
     public static boolean HDR = false;
     public static boolean useTripod = false;
-    public static final int patternSize = 2;
+    public static final int patternSize = 3;
     public static ArrayList<ExpoPair> pairs = new ArrayList<>();
     public static ArrayList<ExpoPair> fullpairs = new ArrayList<>();
     public static long lastSelectedExposure = 0;
@@ -117,7 +117,7 @@ public class IsoExpoSelector {
             pair.ExpoCompensateLowerExpo(1.0 / pair.layerMpy);
             pair.curlayer = ExpoPair.exposureLayer.Normal;
         }
-        if (step%patternSize == 1 && HDR) {
+        if ((step%patternSize == 1) && HDR) {
             pair.layerMpy = 4.f;
             pair.ExpoCompensateLowerExpo(1.0 / pair.layerMpy);
             pair.curlayer = ExpoPair.exposureLayer.High;
@@ -132,7 +132,7 @@ public class IsoExpoSelector {
         if (pair.exposure < ExposureIndex.sec / 90 && PhotonCamera.getSettings().eisPhoto) {
             //HDR = true;
         }
-        if (step%6 == baseFrame) {
+        if (step%patternSize != 0 && HDR) {
             if (pair.normalizedIso() <= 240.0/mpy1 && pair.exposure > ExposureIndex.sec / 70.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
                 pair.ReduceExpo();
             }
@@ -141,6 +141,7 @@ public class IsoExpoSelector {
             }
             if (pair.exposure < ExposureIndex.sec * 3.00 && pair.exposure > ExposureIndex.sec / 3 && pair.normalizedIso() < 3200.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
                 pair.FixedExpo(1.0 / 8);
+                if (pair.exposure > ExposureIndex.sec / 3) pair.ReduceExpo();
                 if (pair.normalizeCheck())
                     PhotonCamera.showToast("Wrong parameters: iso:" + pair.iso + " exp:" + pair.exposure);
             }
