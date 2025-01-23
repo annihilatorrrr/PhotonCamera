@@ -7,7 +7,7 @@ uniform sampler2D LookupTable;
 uniform sampler2D FusionMap;
 uniform sampler2D IntenseCurve;
 uniform sampler2D GainMap;
-
+uniform sampler2D HSVMap;
 //uniform vec3 neutralPoint;
 //uniform float saturation0;
 //uniform float saturation;
@@ -61,6 +61,7 @@ out vec3 Output;
 #define NOISEO 0.0
 #define LUT 0
 #define CONTRAST 1.0
+#define USE_HSV 0
 #import coords
 #import interpolation
 #import gaussian
@@ -233,6 +234,27 @@ vec3 hsv2rgb(vec3 c) {
     vec3 p = abs(fract(c.xxx + K.xyz) * 6. - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0., 1.), c.y);
 }
+vec3 hsv2rgb_smooth( in vec3 c ) {
+    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+    rgb = rgb*rgb*(3.0-2.0*rgb); // cubic smoothing
+    return c.z * mix( vec3(1.0), rgb, c.y);
+}
+const float eps = 0.0000001;
+
+vec3 hsl2rgb( in vec3 c ) {
+    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+    return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+}
+vec3 rgb2hsl( vec3 col ){
+    float minc = min( col.r, min(col.g, col.b) );
+    float maxc = max( col.r, max(col.g, col.b) );
+    vec3  mask = step(col.grr,col.rgb) * step(col.bbg,col.rgb);
+    vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + eps)) / 6.0;
+    return vec3( fract( 1.0 + h.x + h.y + h.z ),              // H
+    (maxc-minc)/(1.0-abs(minc+maxc-1.0) + eps),  // S
+    (minc+maxc)*0.5 );                           // L
+}
+
 vec3 saturate(vec3 rgb, float sat2, float sat) {
     float r = rgb.r;
     float g = rgb.g;
@@ -267,7 +289,6 @@ return numerator / (vec3(1.0f) + v);
 vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     vec3 neutralPoint = vec3(NEUTRALPOINT);
     //pRGB = clamp(reinhard_extended(pRGB*tonemapGain,max(1.0,tonemapGain)), vec3(0.0), neutralPoint);
-    pRGB *= tonemapGain;
     #if CCT == 0
     mat3 corr = intermediateToSRGB;
     #endif
@@ -285,6 +306,17 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     }
     #endif
     pRGB = corr*sensorToIntermediate*pRGB;
+    #if USE_HSV == 1
+    vec3 pHSV = rgb2hsl(pRGB);
+    vec3 modHSV = texture(HSVMap, vec2(pHSV.y,pHSV.x)).rgb;
+    pHSV.x += modHSV.x/2.0;
+    pHSV.y *= modHSV.y;
+    pRGB.z *= modHSV.z;
+    pHSV.x = mod(pHSV.x,1.0);
+    pRGB = hsl2rgb(pHSV);
+    #endif
+    pRGB *= tonemapGain;
+
     pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*1.0)),vec3(0.0),vec3(1.0));
     pRGB = clamp(reinhard_extended(pRGB*gainsVal,max(1.0,gainsVal*0.8)),vec3(0.0),vec3(1.0));
     pRGB = tonemap(pRGB);
@@ -294,9 +326,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     //pRGB = saturate(pRGB,br);
 
     pRGB = gammaCorrectPixel2(pRGB);
-
     pRGB = mix(pRGB*pRGB*pRGB*TONEMAPX3 + pRGB*pRGB*TONEMAPX2 + pRGB*TONEMAPX1,pRGB,min(pRGB*0.8+0.55,1.0));
-
     return pRGB;
 }
 float getGain(vec2 coordsShift){
