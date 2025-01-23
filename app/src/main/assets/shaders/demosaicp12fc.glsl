@@ -11,6 +11,7 @@ layout(rgba16f, binding = 3) uniform highp writeonly image2D outTexture;
 #define alpha 3.75
 #define L 7
 #define THRESHOLD 1.3
+#define EPS 0.0001
 uniform int yOffset;
 
 // Helper function to get Bayer sample
@@ -67,14 +68,12 @@ float pd(ivec2 pos) {
 
 float gd(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
-    //if ((g[0] > 0.0) && (g[1] > 0.0)) {
-    return g[0];
-    //if(g[0] == g[1] || g[0] == g[2]){
-    //    return g[0];
-    //}
-    //return (g[1]+g[2])/2.0;
+    if ((g[0] > 0.0) && (g[1] > 0.0)) {
+        return g[0];
+    } else {
+        return (g[1]+g[2])/2.0;
+    }
 }
-
 
 // Green plane enhancement
 vec2 enhanceGreen(ivec2 pos) {
@@ -101,6 +100,7 @@ vec2 enhanceGreen(ivec2 pos) {
     float E = max(dh/dv, dv/dh);
     //return vec2(gd(pos), dir);
     if (pattern == 1 || pattern == 2 || (E >= THRESHOLD)) return vec2(gd(pos), dir); // Already green
+    initialGreen[0] = gd(pos);
 
     // Pass 2
     vec3 D = vec3(0.0);
@@ -138,14 +138,5 @@ void main() {
     pos+=ivec2(0,yOffset);
     // Step 2: Green plane enhancement
     vec2 enhancedGreen = enhanceGreen(pos);
-    vec3 initialGreen = interpolateGreen(pos);
-    // Step 3: Red and Blue plane interpolation
-    //Output = vec2(enhancedGreen[0]);
-    //Output.x = IG(pos,1);
-    //Output.y = IG(pos,0);
-    //Output = vec2(gd(pos));
-    //Output = vec2(enhancedGreen[0],enhancedGreen[0]);
-    //Output = enhancedGreen;
-    //imageStore(outTexture, pos, vec4(enhancedGreen[0], enhancedGreen[1], enhancedGreen[0], 1.0));
     imageStore(outTexture, pos, vec4(enhancedGreen[0], enhancedGreen[0], enhancedGreen[0], 1.0));
 }

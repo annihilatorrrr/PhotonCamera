@@ -23,8 +23,8 @@ uniform int yOffset;
 #define THRESHOLD 1.9
 
 #define L 3
-//#define greenmin (0.04)
-#define greenmin (0.01)
+//#define greenmin (0.08)
+#define greenmin (0.002)
 //#define greenmax (0.9)
 #define greenmax (0.999)
 // Helper function to determine Bayer pattern at a given position
@@ -129,7 +129,8 @@ float estimateD(ivec2 pos){
     float w2 = 1.0-abs(v2 - c);
     float w3 = 1.0-abs(v3 - c);
     float w4 = 1.0-abs(res0 - c);
-    float wm = min(min(min(min(w0,w1),w2),w3),w4)*0.999;
+    //float wm = min(min(min(min(w0,w1),w2),w3),w4)*0.999;
+    float wm = min(min(min(w0,w1),w2),w3)*0.999;
     w0 -= wm;
     w1 -= wm;
     w2 -= wm;
@@ -137,12 +138,12 @@ float estimateD(ivec2 pos){
     w4 -= wm;
     //float samp = getBayerSample(pos);
     //float noise = sqrt(samp*NOISES + NOISEO);
-    float res = (w0*v0 + w1*v1 + w2*v2 + w3*v3 + w4*res0)/(w0+w1+w2+w3+w4);
-    if (E > THRESHOLD){
+    float res = (w0*v0 + w1*v1 + w2*v2 + w3*v3)/(w0+w1+w2+w3);
+    //if (E > THRESHOLD){
         //return (wE * dl(pos + ivec2(2, 0)) + wW * dl(pos + ivec2(-2, 0)) + wS * dl(pos + ivec2(0, 2)) + wN * dl(pos + ivec2(0, -2)))/(wE + wW + wS + wN);
         //    return mix(dl(pos), res, BETA);
-        return dl(pos);
-    }
+    //    return dl(pos);
+    //}
     //return mix(res,dl(pos), clamp((E-1.0)*1.0,0.0,1.0));
     return res;
 
@@ -274,9 +275,22 @@ void main() {
     float wS = 1.0 / (igS + EPS);
     float wW = 1.0 / (igW + EPS);
     float wN = 1.0 / (igN + EPS);
+    bool skip = false;
+    float minCol = 1.0;
+    float maxCol = 0.0;
+    for(int i = -1; i <= 1; i++){
+        for(int j = -1; j <= 1; j++){
+            minCol = min(minCol, getBayerSample(pos + ivec2(i,j)));
+            maxCol = max(maxCol, getBayerSample(pos + ivec2(i,j)));
+        }
+    }
+    if(minCol < greenmin || maxCol > greenmax){
+        skip = true;
+    }
+
     if(fact1 ==0 && fact2 == 0) {//rggb
         //outp.g = gr(pos).x;
-        outp.r = float(getBayerSample(pos));
+        outp.r = getBayerSample(pos);
         //outp.g = max(getBayerSample(pos),EPS2) / dtc;
         //outp.g = getBayerSample(pos) / dtc;
         //float grk = max(outp.g,EPS2);
@@ -284,7 +298,7 @@ void main() {
         //outp.b = interpolateColor(pos);
         //outp.b = grk * (wNW*dtcv(pos+ivec2(-1,-1))+wNE*dtcv(pos+ivec2(1,-1))+wSE*dtcv(pos+ivec2(1,1))+wSW*dtcv(pos+ivec2(-1,1)))/(wNW + wNE + wSE + wSW);
         //outp.b = grk * dhtd(pos);
-        if (grk < greenmin || grk > greenmax){
+        if (skip) {
             outp.g = grk;
             outp.b = (getBayerSample(pos+ivec2(1,1)) + getBayerSample(pos+ivec2(-1,-1)) + getBayerSample(pos+ivec2(1,-1)) + getBayerSample(pos+ivec2(-1,1)))/4.0;
         } else {
@@ -299,18 +313,15 @@ void main() {
         float grk = outp.g;
         //outp.r = grk * (dtcv(pos+ivec2(1,0))+dtcv(pos+ivec2(-1,0)))/2.0;
         //outp.r = grk *  dhtg1(pos);
-        if (grk < greenmin || grk > greenmax){
-            outp.r = (getBayerSample(pos+ivec2(1,0)) + getBayerSample(pos+ivec2(-1,0)))/2.0;
-        } else {
-            outp.r = grk * dhtg1(pos);
-        }
         //outp.b = grk * (wE*dhtd(pos+ivec2(1,0))+wW*dhtd(pos+ivec2(-1,0))+wS*dtcv(pos+ivec2(0,1))+wN*dtcv(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
         //outp.b = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
         //outp.b = grk * dhtg0(pos);
-        if (grk < greenmin || grk > greenmax){
+        if (skip){
+            outp.r = (getBayerSample(pos+ivec2(1,0)) + getBayerSample(pos+ivec2(-1,0)))/2.0;
             outp.b = (getBayerSample(pos+ivec2(0,1)) + getBayerSample(pos+ivec2(0,-1)))/2.0;
         } else {
             outp.b = grk * dhtg0(pos);
+            outp.r = grk * dhtg1(pos);
         }
         //outp.r = grk * (wE*dtcv(pos+ivec2(1,0))+wW*dtcv(pos+ivec2(-1,0))+wS*dhtd(pos+ivec2(0,1))+wN*dhtd(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
     } else
@@ -325,29 +336,26 @@ void main() {
         //outp.r = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
         //outp.r = grk *  dhtg0(pos);
         //outp.b = grk * (wE*dtcv(pos+ivec2(1,0))+wW*dtcv(pos+ivec2(-1,0))+wS*dhtd(pos+ivec2(0,1))+wN*dhtd(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
-        if (grk < greenmin || grk > greenmax){
-            outp.b = (getBayerSample(pos+ivec2(1,0)) + getBayerSample(pos+ivec2(-1,0)))/2.0;
-        } else {
-            outp.b = grk * dhtg1(pos);
-        }
         //outp.b = grk * (wE*dhtd(pos+ivec2(1,0))+wW*dhtd(pos+ivec2(-1,0))+wS*dtcv(pos+ivec2(0,1))+wN*dtcv(pos+ivec2(0,-1)))/(wE + wW + wS + wN);
         //outp.b = grk * (dtcv(pos+ivec2(0,1))+dtcv(pos+ivec2(0,-1)))/2.0;
         //outp.b = grk * dhtg0(pos);
-        if (grk < greenmin || grk > greenmax){
+        if (skip){
+            outp.b = (getBayerSample(pos+ivec2(1,0)) + getBayerSample(pos+ivec2(-1,0)))/2.0;
             outp.r = (getBayerSample(pos+ivec2(0,1)) + getBayerSample(pos+ivec2(0,-1)))/2.0;
         } else {
             outp.r = grk * dhtg0(pos);
+            outp.b = grk * dhtg1(pos);
         }
     } else  {//bggr
         //outp.g = gr(pos).x;
-        outp.b = float(getBayerSample(pos));
+        outp.b = getBayerSample(pos);
         //outp.g = max(getBayerSample(pos),EPS2) / dtc;
         //outp.g = getBayerSample(pos) / dtc;
         //float grk = max(outp.g,EPS2);
         float grk = gr(pos).x;
         //outp.r = interpolateColor(pos);
         //outp.r = grk * (wNW*dtcv(pos+ivec2(-1,-1))+wNE*dtcv(pos+ivec2(1,-1))+wSE*dtcv(pos+ivec2(1,1))+wSW*dtcv(pos+ivec2(-1,1)))/(wNW + wNE + wSE + wSW);
-        if (grk < greenmin || grk > greenmax){
+        if (skip){
             outp.g = grk;
             outp.r = (getBayerSample(pos+ivec2(1,1)) + getBayerSample(pos+ivec2(-1,-1)) + getBayerSample(pos+ivec2(1,-1)) + getBayerSample(pos+ivec2(-1,1)))/4.0;
         } else {

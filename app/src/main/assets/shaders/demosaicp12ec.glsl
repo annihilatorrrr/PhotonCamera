@@ -127,7 +127,7 @@ vec3 interpolateGreen(ivec2 pos) {
         }
     }
 
-    return vec3(0.0);
+    return vec3(0.0, gh, gv);
 }
 
 void main() {

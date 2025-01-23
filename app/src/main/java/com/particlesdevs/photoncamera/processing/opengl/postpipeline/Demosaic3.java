@@ -1,7 +1,9 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
+import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
+import com.particlesdevs.photoncamera.util.FileManager;
 
 public class Demosaic3 extends Node {
     public Demosaic3() {
@@ -56,6 +58,7 @@ public class Demosaic3 extends Node {
 
         WorkingTexture = basePipeline.main3;
         glProg.setLayout(tile,tile,1);
+        //glProg.useFileProgram(FileManager.sPHOTON_TUNING_DIR + "demosaicp2ec.glsl",true);
         glProg.useAssetProgram("demosaicp2ec",true);
         glProg.setTextureCompute("inTexture", glTexture,false);
         glProg.setTextureCompute("greenTexture", outp,false);
