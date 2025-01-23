@@ -101,7 +101,7 @@ public class Camera2ApiAutoFix {
     }
 
     public void curve() {
-        CameraReflectionApi.set(TONEMAP_MAX_CURVE_POINTS, 128);
+        CameraReflectionApi.set(CaptureController.mCameraCharacteristics, TONEMAP_MAX_CURVE_POINTS, 128);
     }
 
     boolean checkdouble(double in) {
@@ -114,16 +114,16 @@ public class Camera2ApiAutoFix {
         if ((long) exprange.getUpper() < ExposureIndex.sec / 7) {
             Log.d(TAG, "Applied Fix ExposureTime no CIT");
             Range nrange = new Range(exprange.getLower(), ExposureIndex.sec / 3);
-            CameraReflectionApi.set(SENSOR_INFO_EXPOSURE_TIME_RANGE, nrange);
+            CameraReflectionApi.set(characteristics, SENSOR_INFO_EXPOSURE_TIME_RANGE, nrange);
         } else if ((long) exprange.getUpper() > ExposureIndex.sec * 5 / 6 && (long) exprange.getUpper() < ExposureIndex.sec * 2) {
             Log.d(TAG, "Applied Fix ExposureTime2 CIT SHIFT");
             Range nrange = new Range(exprange.getLower(), (long) (ExposureIndex.sec * 5.2));
-            CameraReflectionApi.set(SENSOR_INFO_EXPOSURE_TIME_RANGE, nrange);
+            CameraReflectionApi.set(characteristics, SENSOR_INFO_EXPOSURE_TIME_RANGE, nrange);
         }
     }
     private void ExposureCompensation(){
         Range nrange = new Range(-24, 24);
-        CameraReflectionApi.set(CONTROL_AE_COMPENSATION_RANGE,nrange);
+        CameraReflectionApi.set(CaptureController.mCameraCharacteristics, CONTROL_AE_COMPENSATION_RANGE,nrange);
     }
 
     public static void patchWL(CameraCharacteristics characteristics,
@@ -149,7 +149,7 @@ public class Camera2ApiAutoFix {
     public static void WhiteLevel(CaptureResult res, int whitelevel) {
         if (res != null)
             CameraReflectionApi.set(CaptureResult.SENSOR_DYNAMIC_WHITE_LEVEL, whitelevel);
-        CameraReflectionApi.set(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL, whitelevel);
+        CameraReflectionApi.set(CaptureController.mCameraCharacteristics, CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL, whitelevel);
     }
 
     public static void BlackLevel(CameraCharacteristics characteristics, CaptureResult res, int[] blacklevel) {
@@ -161,7 +161,7 @@ public class Camera2ApiAutoFix {
                 levelArr[i] = (int) (blacklevel[i]);
             }
             CameraReflectionApi.PatchBL(blackLevel, levelArr);
-            CameraReflectionApi.set(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN, blackLevel);
+            CameraReflectionApi.set(CaptureController.mCameraCharacteristics, CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN, blackLevel);
         }
 
         float[] dynBL = res.get(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
@@ -186,7 +186,7 @@ public class Camera2ApiAutoFix {
                 }
             }
             CameraReflectionApi.PatchBL(blackLevel, levelArr);
-            CameraReflectionApi.set(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN, blackLevel);
+            CameraReflectionApi.set(characteristics,CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN, blackLevel);
         }
         if (res != null) {
             float[] dynBL = res.get(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
