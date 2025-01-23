@@ -1,13 +1,11 @@
 package com.particlesdevs.photoncamera.control;
 
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.util.Log;
 import android.util.Size;
-import android.view.TextureView;
 import android.view.View;
 import android.view.View.OnTouchListener;
 
@@ -16,12 +14,13 @@ import androidx.annotation.Nullable;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.ui.camera.views.FocusCircleView;
+import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.GLPreview;
 
 public class TouchFocus {
     private static final String TAG = "TouchFocus";
     private static final int AUTO_HIDE_DELAY_MS = 3000;
     private final CaptureController captureController;
-    private final TextureView textureView;
+    private final GLPreview textureView;
     private final View focusCircleView;
     private final Runnable hideFocusCircleRunnable = this::hideFocusCircleView;
     private final OnTouchListener focusListener = (v, event) -> {
@@ -32,7 +31,7 @@ public class TouchFocus {
     };
 
 
-    public TouchFocus(CaptureController captureController, View focusCircle, TextureView textureView) {
+    public TouchFocus(CaptureController captureController, View focusCircle, GLPreview textureView) {
         this.captureController = captureController;
         this.focusCircleView = focusCircle;
         this.textureView = textureView;
