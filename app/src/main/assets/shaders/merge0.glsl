@@ -90,7 +90,11 @@ void main() {
         }
         bayer = alignedSum;
         bayer *= vec4(exposure);
-        if(any(greaterThan(bayer, vec4(0.95*exposure)))){
+        float target = 0.95;
+        if(exposure <= 0.9){
+            target = 1.0;
+        }
+        if(any(greaterThan(bayer, vec4(target*exposure))) || any(greaterThan(bayerBase, vec4(target*exposure)))){
             bayer = bayerBase;
         }
         bayer = bayer-bayerBase;
