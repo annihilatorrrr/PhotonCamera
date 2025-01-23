@@ -179,6 +179,48 @@ public class SensorSpecifics {
                                 current.referenceIlluminant2 = Integer.parseInt(valsIn[1]);
                                 break;
                             }
+                            case "profileHueSatMapDims": {
+                                if (istr.length < 3) break;
+                                current.profileHueSatMapDims = new int[3];
+                                for (int i = 0; i < 3; i++) {
+                                    current.profileHueSatMapDims[i] = Integer.parseInt(istr[i]);
+                                }
+                                break;
+                            }
+                            case "profileHueSatMapData1": {
+                                if (current.profileHueSatMapDims == null) break;
+                                if (istr.length < current.profileHueSatMapDims[0] * current.profileHueSatMapDims[1] * current.profileHueSatMapDims[2]) break;
+                                current.profileHueSatMapData1 = new float[current.profileHueSatMapDims[0] * current.profileHueSatMapDims[1] * current.profileHueSatMapDims[2] * 3];
+                                for (int i = 0; i < current.profileHueSatMapData1.length; i++) {
+                                    current.profileHueSatMapData1[i] = Float.parseFloat(istr[i]);
+                                }
+                            }
+                            case "profileHueSatMapData2": {
+                                if (current.profileHueSatMapDims == null) break;
+                                if (istr.length < current.profileHueSatMapDims[0] * current.profileHueSatMapDims[1] * current.profileHueSatMapDims[2]) break;
+                                current.profileHueSatMapData2 = new float[current.profileHueSatMapDims[0] * current.profileHueSatMapDims[1] * current.profileHueSatMapDims[2] * 3];
+                                for (int i = 0; i < current.profileHueSatMapData2.length; i++) {
+                                    current.profileHueSatMapData2[i] = Float.parseFloat(istr[i]);
+                                }
+                                break;
+                            }
+                            case "profileLookTableDims": {
+                                if (istr.length < 3) break;
+                                current.profileLookTableDims = new int[3];
+                                for (int i = 0; i < 3; i++) {
+                                    current.profileLookTableDims[i] = Integer.parseInt(istr[i]);
+                                }
+                                break;
+                            }
+                            case "profileLookTableData": {
+                                if (current.profileLookTableDims == null) break;
+                                if (istr.length < current.profileLookTableDims[0] * current.profileLookTableDims[1] * current.profileLookTableDims[2]) break;
+                                current.profileLookTableData = new float[current.profileLookTableDims[0] * current.profileLookTableDims[1] * current.profileLookTableDims[2] * 3];
+                                for (int i = 0; i < current.profileHueSatMapData1.length; i++) {
+                                    current.profileLookTableData[i] = Float.parseFloat(istr[i]);
+                                }
+                                break;
+                            }
                             case "overrideRawColors": {
                                 current.overrideRawColors = Boolean.parseBoolean(valsIn[1]);
                                 break;

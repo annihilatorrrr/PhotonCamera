@@ -29,6 +29,11 @@ public class SpecificSettingSensor {
 
     public int referenceIlluminant1 = -1;
     public int referenceIlluminant2 = -1;
+    public int[] profileHueSatMapDims;
+    public int[] profileLookTableDims;
+    public float[] profileHueSatMapData1;
+    public float[] profileHueSatMapData2;
+    public float[] profileLookTableData;
     public boolean overrideRawColors = false;
     //Noise model [A,B,C,D][bayer]
     public double[][] NoiseModelerArr;

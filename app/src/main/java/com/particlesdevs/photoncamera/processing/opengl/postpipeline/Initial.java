@@ -39,6 +39,8 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         }
         interpolatedCurve.close();
         GammaTexture.close();
+        if (HSVTexture != null) HSVTexture.close();
+        if (LookupTexture != null) LookupTexture.close();
         if(((PostPipeline)basePipeline).FusionMap != null) ((PostPipeline)basePipeline).FusionMap.close();
         //TonemapCoeffs.close();
     }
@@ -50,6 +52,8 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
     GLTexture TonemapCoeffs;
     GLTexture lut;
     GLTexture GammaTexture;
+    GLTexture HSVTexture;
+    GLTexture LookupTexture;
     GLImage lutbm;
     float highersatmpy = 1.0f;
     float gammaKoefficientGenerator = 2.2f;
@@ -198,6 +202,10 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         //float[] BL = ((PostPipeline)basePipeline).analyzedBL;
         float[] WP = basePipeline.mParameters.whitePoint;
         float minP = (WP[0]+WP[1]+WP[2])/3.f;
+        if (basePipeline.mParameters.HSVMap != null)
+            glProg.setDefine("USE_HSV", 1);
+        if (basePipeline.mParameters.LookMap != null)
+            glProg.setDefine("LOOKUP", 1);
         glProg.setDefine("MINP",minP);
         glProg.setDefine("NEUTRALPOINT",WP);
         glProg.setDefine("INSIZE",basePipeline.workSize);
@@ -247,6 +255,14 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         if(lutLoaded) {
             lut = new GLTexture(lutbm, GL_LINEAR, GL_CLAMP_TO_EDGE, 0);
             glProg.setTexture("LookupTable", lut);
+        }
+        if (basePipeline.mParameters.HSVMap != null) {
+            HSVTexture = new GLTexture(new Point(basePipeline.mParameters.HSVMapSize[1], basePipeline.mParameters.HSVMapSize[0]), new GLFormat(GLFormat.DataType.FLOAT_32, 3), BufferUtils.getFrom(basePipeline.mParameters.HSVMap), GL_LINEAR, GL_CLAMP_TO_EDGE);
+            glProg.setTexture("HSVMap", HSVTexture);
+        }
+        if (basePipeline.mParameters.LookMap != null) {
+            LookupTexture = new GLTexture(new Point(basePipeline.mParameters.LookMapSize[2] * basePipeline.mParameters.LookMapSize[1], basePipeline.mParameters.LookMapSize[0]), new GLFormat(GLFormat.DataType.FLOAT_32, 3), BufferUtils.getFrom(basePipeline.mParameters.LookMap), GL_LINEAR, GL_CLAMP_TO_EDGE);
+            glProg.setTexture("LookMap", LookupTexture);
         }
         //glProg.setTexture("TonemapTex",TonemapCoeffs);
         glProg.setTexture("GammaCurve",GammaTexture);
