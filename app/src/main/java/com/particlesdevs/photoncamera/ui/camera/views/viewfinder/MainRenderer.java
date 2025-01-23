@@ -8,9 +8,14 @@ import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
+import com.particlesdevs.photoncamera.app.PhotonCamera;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Arrays;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -69,27 +74,8 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         mSTexture = new SurfaceTexture(hTex[0]);
         mSTexture.setOnFrameAvailableListener(this);
 
-        String vss_default = "in vec2 vPosition;\n" +
-                "in vec2 vTexCoord;\n" +
-                "out vec2 texCoord;\n" +
-
-                "uniform mat4 uTexRotateMatrix;\n" +
-                "void main() {\n" +
-                "texCoord.yx = vTexCoord.xy;\n" +
-                "texCoord.x = 1.0-texCoord.x;\n" +
-                "gl_Position = uTexRotateMatrix * vec4 ( vPosition.x, vPosition.y, 0.0, 1.0 );\n" +
-                "}";
-        String fss_default = "#extension GL_OES_EGL_image_external_essl3 : require\n" +
-                "precision mediump float;\n" +
-                "uniform samplerExternalOES sTexture;\n" +
-                "out vec4 Output;\n" +
-                "in vec2 texCoord;\n" +
-
-                "void main() {\n" +
-                "vec2 texSize = texCoord.xy;\n" +
-                "vec4 color = texture(sTexture, texSize);\n" +
-                "Output = color;\n" +
-                "}";
+        String vss_default = PhotonCamera.getAssetLoader().getString("shaders/preview/main_vs.glsl");
+        String fss_default = PhotonCamera.getAssetLoader().getString("shaders/preview/main_fs.glsl");
         int hProgram = loadShader(vss_default, fss_default);
         GLES20.glUseProgram(hProgram);
         uTexRotateMatrix = GLES20.glGetUniformLocation(hProgram, "uTexRotateMatrix");
@@ -100,6 +86,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
         GLES20.glEnableVertexAttribArray(vPosition);
         GLES20.glEnableVertexAttribArray(vTexCoord);
+        GLES20.glUniform2f(GLES20.glGetUniformLocation(hProgram, "resolution"), mView.getWidth(), mView.getHeight());
         mGLInit = true;
         mView.fireOnSurfaceTextureAvailable(mSTexture, 0, 0);
     }
@@ -170,6 +157,11 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
 
     public void setOrientation(int or) {
         android.opengl.Matrix.setRotateM(mTexRotateMatrix, 0, or, 0f, 0f, 1f);
+    }
+
+    public void setTransform(@NonNull android.graphics.Matrix matrix) {
+        Log.d("MainRenderer", "setTransform: " + matrix + " " + Arrays.toString(mTexRotateMatrix));
+        matrix.getValues(mTexRotateMatrix);
     }
 
     RectF mLastImageRect = new RectF();

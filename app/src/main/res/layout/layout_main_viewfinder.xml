@@ -31,7 +31,7 @@
             <!--FocusCircleView-->
             <!--        putting focus circle here will make it
              not visible outside viewfinder container-->
-            <com.particlesdevs.photoncamera.ui.camera.views.viewfinder.AutoFitPreviewView
+            <com.particlesdevs.photoncamera.ui.camera.views.viewfinder.GLPreview
                     android:id="@+id/texture"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
