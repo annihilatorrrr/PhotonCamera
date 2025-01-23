@@ -1798,7 +1798,8 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         mImageSaver.unlimitedStart(mCameraCharacteristics, result, request, cameraRotation);
                         unlimitedStarted = true;
                     }
-                    mCaptureResult = result;
+                    if(frameCount == 0)
+                        mCaptureResult = result;
                     if (maxFrameCount[0] != -1) PhotonCamera.getGyro().CaptureGyroBurst();
                 }
 
