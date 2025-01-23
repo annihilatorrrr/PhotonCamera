@@ -108,7 +108,7 @@ final class CameraUIController implements CameraUIEventsListener,
 
             case R.id.flip_camera_button:
                 view.animate().rotationBy(180).setDuration(450).start();
-                cameraFragment.textureView.animate().rotationBy(360).setDuration(450).start();
+                //cameraFragment.textureView.animate().rotationBy(360).setDuration(450).start();
                 //PreferenceKeys.setCameraID(cycler(PreferenceKeys.getCameraID()));
                 setID(cameraFragment.cycler(PreferenceKeys.getCameraID()));
                 this.restartCamera();
