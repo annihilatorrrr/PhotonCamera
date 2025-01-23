@@ -30,10 +30,13 @@ import com.particlesdevs.photoncamera.processing.render.Parameters;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 
 public class HdrxProcessor extends ProcessorBase {
     private static final String TAG = "HdrxProcessor";
     private ArrayList<Image> mImageFramesToProcess;
+    private HashMap<Long, Double> exposures;
     private int imageFormat;
     /* config */
     private int alignAlgorithm;
@@ -56,6 +59,7 @@ public class HdrxProcessor extends ProcessorBase {
                       ParseExif.ExifData exifData,
                       ArrayList<GyroBurst> BurstShakiness,
                       ArrayList<Image> imageBuffer,
+                      HashMap<Long, Double> exposures,
                       int imageFormat,
                       int cameraRotation,
                       CameraCharacteristics characteristics,
@@ -69,6 +73,7 @@ public class HdrxProcessor extends ProcessorBase {
         this.imageFormat = imageFormat;
         this.cameraRotation = cameraRotation;
         this.mImageFramesToProcess = imageBuffer;
+        this.exposures = exposures;
         this.callback = callback;
         this.characteristics = characteristics;
         this.captureResult = captureResult;
@@ -110,13 +115,18 @@ public class HdrxProcessor extends ProcessorBase {
         Log.d(TAG, "Api BlackLevel:" + characteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN));
         Parameters processingParameters = PhotonCamera.getParameters();
         processingParameters.FillConstParameters(characteristics, new Point(width, height));
-
-
+        // sort by timestamp first
+        mImageFramesToProcess.sort(Comparator.comparingLong(Image::getTimestamp));
+        double minExpo = exposures.get(mImageFramesToProcess.get(0).getTimestamp());
+        for (int i = 1; i < mImageFramesToProcess.size(); i++) {
+            minExpo = Math.min(minExpo, exposures.get(mImageFramesToProcess.get(i).getTimestamp()));
+        }
         Log.d(TAG, "Wrapper.init");
         ArrayList<ImageFrame> images = new ArrayList<>();
         ByteBuffer lowexp = null;
         ByteBuffer highexp = null;
         int ISO = 0;
+        int normalFrames = 0;
         for (int i = 0; i < mImageFramesToProcess.size(); i++) {
             ByteBuffer byteBuffer;
             byteBuffer = mImageFramesToProcess.get(i).getPlanes()[0].getBuffer();
@@ -127,10 +137,18 @@ public class HdrxProcessor extends ProcessorBase {
             //frame.pair = IsoExpoSelector.pairs.get(i % IsoExpoSelector.patternSize);
             frame.pair = IsoExpoSelector.fullpairs.get(i);
             frame.number = i;
+            frame.pair.layerMpy = (float) (exposures.get(mImageFramesToProcess.get(i).getTimestamp()) / minExpo);
+            if (frame.pair.layerMpy > 1.0) {
+                frame.pair.curlayer = IsoExpoSelector.ExpoPair.exposureLayer.High;
+            } else {
+                frame.pair.curlayer = IsoExpoSelector.ExpoPair.exposureLayer.Normal;
+                normalFrames++;
+            }
             /*if(i == mImageFramesToProcess.size()-1){
                 int ind = Math.max(0,mImageFramesToProcess.size()-2);
                 frame.frameGyro = BurstShakiness.get(ind);
             }*/
+            Log.d(TAG, "Mpy:" + frame.pair.layerMpy);
             images.add(frame);
             ISO += frame.pair.iso;
         }
@@ -160,8 +178,15 @@ public class HdrxProcessor extends ProcessorBase {
             Log.d(TAG, "Image Count:" + images.size());
             if (size == images.size()) size = (int) (images.size() * 0.75);
             for (int i = images.size(); i > size; i--) {
-                float curunlucky = images.get(images.size() - 1).frameGyro.shakiness;
+                ImageFrame cur = images.get(images.size() - 1);
+                float curunlucky = cur.frameGyro.shakiness;
                 if (curunlucky > unluckyavr * unluckypickiness) {
+                    if(normalFrames == 1 && cur.pair.curlayer == IsoExpoSelector.ExpoPair.exposureLayer.Normal) {
+                        continue;
+                    }
+                    if(cur.pair.curlayer == IsoExpoSelector.ExpoPair.exposureLayer.Normal){
+                        normalFrames--;
+                    }
                     Log.d(TAG, "Removing unlucky:" + curunlucky + " number:" + images.get(images.size() - 1).number);
                     images.get(images.size() - 1).image.close();
                     images.remove(images.size() - 1);
@@ -171,9 +196,9 @@ public class HdrxProcessor extends ProcessorBase {
         }
 
         float minMpy = 1000.f;
-        for (int i = 0; i < IsoExpoSelector.fullpairs.size(); i++) {
-            if (IsoExpoSelector.fullpairs.get(i).layerMpy < minMpy) {
-                minMpy = IsoExpoSelector.fullpairs.get(i).layerMpy;
+        for (int i = 0; i < images.size(); i++) {
+            if (images.get(i).pair.layerMpy < minMpy) {
+                minMpy = images.get(i).pair.layerMpy;
             }
         }
         /*
@@ -195,6 +220,14 @@ public class HdrxProcessor extends ProcessorBase {
                 break;
             }
         }
+
+        // move selected image to 0 index
+        if(selected != 0){
+            ImageFrame frame = images.get(0);
+            images.set(0, images.get(selected));
+            images.set(selected, frame);
+        }
+        selected = 0;
 
         processingParameters.noiseModeler.computeStackingNoiseModel(1);
         float NoiseS = processingParameters.noiseModeler.computeModel[0].first.floatValue() +
@@ -289,8 +322,9 @@ public class HdrxProcessor extends ProcessorBase {
             }
             if(alignAlgorithm == 1) {
                 float bl = processingParameters.blackLevel[0]+processingParameters.blackLevel[1]+processingParameters.blackLevel[2]+processingParameters.blackLevel[3];
-                WrapperAl.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1, 0.f, 0.f, 0.f, processingParameters.whiteLevel
-                        , processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
+                WrapperAl.processFrame(NoiseS, NoiseO, 0.004f + (NoiseS + NoiseO), 1,
+                        processingParameters.blackLevel[0], (processingParameters.blackLevel[1]+processingParameters.blackLevel[2])/2.f, processingParameters.blackLevel[3], processingParameters.whiteLevel,
+                        processingParameters.whitePoint[0], processingParameters.whitePoint[1], processingParameters.whitePoint[2], processingParameters.cfaPattern);
                 PyramidMerging pyramidMerging = new PyramidMerging(new Point(width, height), images, output);
                 pyramidMerging.parameters = processingParameters;
                 pyramidMerging.Run();

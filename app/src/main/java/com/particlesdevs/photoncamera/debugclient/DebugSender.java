@@ -14,6 +14,7 @@ import android.media.Image;
 
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class DebugSender extends SaverImplementation {
     public DebugSender(ProcessingEventsListener processingEventsListener) {
@@ -25,8 +26,8 @@ public class DebugSender extends SaverImplementation {
         IMAGE_BUFFER.add(image);
     }
 
-    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
-        super.runRaw(imageFormat,characteristics,captureResult, captureRequest,burstShakiness,cameraRotation);
+    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {
+        super.runRaw(imageFormat,characteristics,captureResult, captureRequest,burstShakiness,cameraRotation, exposures);
         Log.d("DebugSender","RunDebug sender");
         PhotonCamera.getDebugger().debugClient.sendRaw(IMAGE_BUFFER.get(0));
         processingEventsListener.onProcessingFinished("Saved Unprocessed RAW");

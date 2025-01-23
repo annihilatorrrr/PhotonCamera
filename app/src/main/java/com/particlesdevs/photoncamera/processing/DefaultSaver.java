@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class DefaultSaver extends SaverImplementation {
@@ -35,8 +36,8 @@ public class DefaultSaver extends SaverImplementation {
     }
 
     @HunterDebug
-    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation) {
-        super.runRaw(imageFormat, characteristics, captureResult,captureRequest, burstShakiness, cameraRotation);
+    public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {
+        super.runRaw(imageFormat, characteristics, captureResult,captureRequest, burstShakiness, cameraRotation, exposures);
         //Wait for one frame at least.
         Log.d(TAG, "Acquiring:" + IMAGE_BUFFER.size());
         while (bufferLock){}
@@ -102,6 +103,7 @@ public class DefaultSaver extends SaverImplementation {
                 ParseExif.parse(captureResult, captureRequest),
                 burstShakiness,
                 slicedBuffer,
+                exposures,
                 imageFormat,
                 cameraRotation,
                 characteristics,
