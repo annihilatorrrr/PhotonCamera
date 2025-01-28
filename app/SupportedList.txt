@@ -13,6 +13,7 @@ xiaomi:thor
 xiaomi:ishtar
 xiaomi:earth
 xiaomi:psyche
+xiaomi:star
 oneplus:oneplus7
 oneplus:oneplus7t
 oneplus:oneplus7tpro
