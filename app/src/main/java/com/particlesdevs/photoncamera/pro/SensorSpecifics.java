@@ -194,6 +194,7 @@ public class SensorSpecifics {
                                 for (int i = 0; i < current.profileHueSatMapData1.length; i++) {
                                     current.profileHueSatMapData1[i] = Float.parseFloat(istr[i]);
                                 }
+                                current.profileHueSatMapData2 = current.profileHueSatMapData1.clone();
                             }
                             case "profileHueSatMapData2": {
                                 if (current.profileHueSatMapDims == null) break;
