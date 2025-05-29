@@ -10,11 +10,11 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.BlackLevelPattern;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.media.Image;
 import android.os.Handler;
 import android.util.Log;
 import android.view.Surface;
 
-import com.eszdman.photonbypass.ReflectBypass;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 
 import org.chickenhook.restrictionbypass.RestrictionBypass;
@@ -24,50 +24,11 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
-import dalvik.system.ApplicationRuntime;
-
 public class CameraReflectionApi {
-    //private static final String TAG = "CameraReflectionApi";
-    public static CaptureResult.Key<?> createKeyResult(String name, Class<?> type){
-        Class captureResultKey = ReflectBypass.findClass("android/hardware/camera2/CaptureResult$Key");
-        try {
-            Constructor constructor = captureResultKey.getConstructor(String.class, Class.class);
-            return (CaptureResult.Key<?>) constructor.newInstance(name,type);
-        } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public static void setPackageName(String packageName){
-        try {
-            Class<?> activityThreadClass = ReflectBypass.findClass("android/app/ActivityThread");
-            Method currentActivityThreadMethod =
-                    RestrictionBypass.getMethod(activityThreadClass,"currentActivityThread");
-            currentActivityThreadMethod.setAccessible(true);
-            Object activityThread = currentActivityThreadMethod.invoke(null);
-            // Grab the 'mBoundApplication' field.
-            Field mBoundApplicationField = RestrictionBypass.getDeclaredField(activityThreadClass,"mBoundApplication");
-            mBoundApplicationField.setAccessible(true);
-            Object mBoundApplication = mBoundApplicationField.get(activityThread);
-
-            // Inside mBoundApplication, get the 'info' field which is a LoadedApk.
-            Field infoField = RestrictionBypass.getDeclaredField(mBoundApplication.getClass(), "info");
-            infoField.setAccessible(true);
-            Object loadedApk = infoField.get(mBoundApplication);
-
-            // Finally, set 'mPackageName' on the LoadedApk object
-            Field mPackageNameField = RestrictionBypass.getDeclaredField(loadedApk.getClass(),"mPackageName");
-            mPackageNameField.setAccessible(true);
-            mPackageNameField.set(loadedApk, packageName);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public static <T> void set(CameraCharacteristics characteristics, CameraCharacteristics.Key<T> key, T value) {
         try {
             //Class<?> metadataNativeClass = ReflectBypass.findClass("android/hardware/camera2/impl/CameraMetadataNative");
@@ -124,6 +85,20 @@ public class CameraReflectionApi {
             e.printStackTrace();
         }
     }
+
+    public static ByteBuffer replaceImageBuffer(Image.Plane plane, ByteBuffer buffer) {
+        ByteBuffer oldBuffer = null;
+        try {
+            Field mNativeBufferField = RestrictionBypass.getDeclaredField(plane.getClass(), "mBuffer");
+            mNativeBufferField.setAccessible(true);
+            oldBuffer = (ByteBuffer) mNativeBufferField.get(plane);
+            mNativeBufferField.set(plane, buffer);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return oldBuffer;
+    }
+
     public static void createCustomCaptureSession(CameraDevice cameraDevice,
                                                   InputConfiguration inputConfig,
                                                   List<OutputConfiguration> outputs,
