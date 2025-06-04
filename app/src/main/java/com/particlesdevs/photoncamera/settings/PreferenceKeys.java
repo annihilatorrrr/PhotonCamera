@@ -259,6 +259,11 @@ public class PreferenceKeys {
     public static int getColorMethodValue() {
         return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_COLOR_METHOD);
     }
+
+    public static int getFocusPeakValue() {
+        return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_FOCUS_PEAK);
+    }
+
     public static int getPreviewFormatValue() {
         return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_PREVIEW_FORMAT);
     }
@@ -391,6 +396,7 @@ public class PreferenceKeys {
         KEY_SATURATION_SEEKBAR(R.string.pref_saturation_seekbar_key),
         KEY_ALIGN_METHOD(R.string.pref_align_method_key),
         KEY_COLOR_METHOD(R.string.pref_color_method_key),
+        KEY_FOCUS_PEAK(R.string.pref_peak_method_key),
         KEY_PREVIEW_FORMAT(R.string.pref_preview_format_key),
         KEY_TELEGRAM(R.string.pref_telegram_channel_key),
         KEY_CONTRIBUTORS(R.string.pref_contributors_key),
