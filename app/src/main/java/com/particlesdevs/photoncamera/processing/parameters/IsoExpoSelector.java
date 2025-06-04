@@ -29,7 +29,7 @@ public class IsoExpoSelector {
         ExpoPair pair = GenerateExpoPair(step,captureController);
         fullpairs.add(pair);
         Log.v(TAG, "IsoSelected:" + pair.iso +
-                " ExpoSelected:" + ExposureIndex.sec2string(ExposureIndex.time2sec(pair.exposure)) + " sec step:" + step + " HDR:" + HDR);
+                " ExpoSelected:" + ExposureIndex.sec2string(ExposureIndex.time2sec(pair.exposure)) + " sec step:" + step + " HDR:" + HDR + " total exposure:" + ExposureIndex.time2sec(pair.exposure)*pair.iso);
 
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
         builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, pair.exposure);
@@ -38,7 +38,6 @@ public class IsoExpoSelector {
     }
     private static double mpy1 = 1.0;
     public static ExpoPair GenerateExpoPair(int step, CaptureController captureController) {
-        double mpy = 1.0;
         ExpoPair pair = new ExpoPair(captureController.mPreviewExposureTime, getEXPLOW(), getEXPHIGH(),
                 captureController.mPreviewIso, getISOLOW(), getISOHIGH(),getISOAnalog());
         double compensation = Math.pow(2.0,PhotonCamera.getSettings().exposureCompensation);
@@ -50,10 +49,6 @@ public class IsoExpoSelector {
             //if(step%3 == 2) mpy = 1.1;
             //mpy = mpy*1.5;
         } else {
-            if(PhotonCamera.getSettings().selectedMode == CameraMode.UNLIMITED){
-                if(step%3 == 2) mpy = 1.5;
-                if(step%3 == 1) mpy = 1.0/1.5;
-            }
              /*else if(PhotonCamera.getSettings().alignAlgorithm == 1){
                 if(step%3 == 1) {
                     pair.curlayer = ExpoPair.exposureLayer.High;
@@ -75,7 +70,7 @@ public class IsoExpoSelector {
             pair.denormalizeSystem();
             return pair;
         }
-        if (pair.exposure < ExposureIndex.sec / 40 && pair.normalizedIso() > 90.0/mpy1) {
+        /*if (pair.exposure < ExposureIndex.sec / 40 && pair.normalizedIso() > 90.0/mpy1) {
             pair.ReduceIso();
         }
         if (pair.exposure < ExposureIndex.sec / 13 && pair.normalizedIso() > 750.0/mpy1) {
@@ -86,12 +81,9 @@ public class IsoExpoSelector {
         }
         if (pair.exposure < ExposureIndex.sec / 8 && pair.normalizedIso() > 1500.0/mpy1) {
             if (step != baseFrame || !PhotonCamera.getSettings().eisPhoto) pair.ReduceIso(1.25);
-        }
+        }*/
         if (pair.normalizedIso() >= 12700.0/mpy1) {
             pair.ReduceIso();
-        }
-        if (CaptureController.getTargetFormat() == CaptureController.RAW_FORMAT) {
-            pair.ExpoCompensateLower(mpy);
         }
         if (useTripod) {
             pair.UseIso(Math.max(pair.isoanalog/6.0,101));
@@ -111,22 +103,22 @@ public class IsoExpoSelector {
             pair.ExpoCompensateLower(1.f/2.f);
         }*/
         if (step%patternSize == 0 && HDR) {
-            //pair.layerMpy = 1.5f+(float)Math.abs(Math.random())*1.0f;
-            //pair.layerMpy = 1.f/1.5f;
-            pair.layerMpy = 1.f;
-            pair.ExpoCompensateLowerExpo(1.0 / pair.layerMpy);
-            pair.curlayer = ExpoPair.exposureLayer.Normal;
+            pair.layerMpy = 4.f;
+            pair.curlayer = ExpoPair.exposureLayer.High;
+            if (pair.ExpoCompensateLowerExpo2(1.0 / pair.layerMpy)) {
+                pair.layerMpy = 1.f;
+                pair.curlayer = ExpoPair.exposureLayer.Normal;
+            }
         }
         if ((step%patternSize == 1) && HDR) {
-            pair.layerMpy = 4.f;
-            pair.ExpoCompensateLowerExpo(1.0 / pair.layerMpy);
-            pair.curlayer = ExpoPair.exposureLayer.High;
+            pair.layerMpy = 1.f;
+            pair.ExpoCompensateLowerExpo2(1.0 / pair.layerMpy);
+            pair.curlayer = ExpoPair.exposureLayer.Normal;
         }
         if (step%patternSize == 2 && HDR) {
-            //pair.layerMpy = 1.f/1.5f;
-            pair.layerMpy = 4.f;
-            pair.ExpoCompensateLowerExpo(1.0 / pair.layerMpy);
-            pair.curlayer = ExpoPair.exposureLayer.High;
+            pair.layerMpy = 1.f;
+            pair.ExpoCompensateLowerExpo2(1.0 / pair.layerMpy);
+            pair.curlayer = ExpoPair.exposureLayer.Normal;
         }
 
         if (pair.exposure < ExposureIndex.sec / 90 && PhotonCamera.getSettings().eisPhoto) {
@@ -286,8 +278,18 @@ public class IsoExpoSelector {
             return wrongparams;
         }
 
+        public void normalizeISO(){
+            double div = 100.0 / isolow;
+            if (iso / div > isohigh) {
+                double mpy = (iso / div) / isohigh;
+                exposure = (long) (exposure * mpy);
+                iso = isohigh;
+            }
+        }
+
         public void ExpoCompensateLower(double k) {
             iso /= k;
+            normalizeISO();
             if (normalizeCheck()) {
                 iso *= k;
                 exposure /= k;
@@ -312,6 +314,24 @@ public class IsoExpoSelector {
                     }
                 }
             }
+        }
+
+        public boolean ExpoCompensateLowerExpo2(double k) {
+            exposure /= k;
+            if (normalizeCheck()) {
+                exposure *= k;
+                iso /= k;
+                if(normalizeCheck()){
+                    iso *= k;
+                    iso /= Math.sqrt(k);
+                    exposure /= Math.sqrt(k);
+                    if (normalizeCheck()) {
+                        iso *= Math.sqrt(k);
+                        exposure *= Math.sqrt(k);
+                    }
+                }
+            }
+            return normalizeCheck();
         }
 
         public void MinIso() {
