@@ -40,7 +40,7 @@ public class FocusModel extends ManualModel<Float> {
         auto = getNewAutoItem(ManualParamModel.FOCUS_AUTO, null);
         getKnobInfoList().add(auto);
         currentInfo = auto;
-        float focusStep = (range.getUpper() - range.getLower()) / 20;
+        float focusStep = (range.getUpper() - range.getLower()) / 40;
         ArrayList<Float> values = new ArrayList<>();
         for (float fValue = range.getUpper(); fValue >= range.getLower(); fValue -= focusStep) {
             values.add(fValue);
