@@ -13,7 +13,7 @@ public class YUVSaver extends DefaultSaver{
 
     public void addImage(Image image) {
         Log.d(TAG, "start buffersize:" + IMAGE_BUFFER.size());
-        IMAGE_BUFFER.add(image);
+        IMAGE_BUFFER.add(getFrame(image));
         if (IMAGE_BUFFER.size() == PhotonCamera.getCaptureController().mMeasuredFrameCnt && PhotonCamera.getSettings().frameCount != 1) {
 
 //            hdrxProcessor.start(dngFile, jpgFile, IMAGE_BUFFER, mImage.getFormat(),
