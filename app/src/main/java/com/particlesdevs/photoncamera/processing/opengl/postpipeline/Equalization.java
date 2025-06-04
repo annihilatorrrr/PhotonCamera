@@ -722,7 +722,7 @@ public class Equalization extends Node {
         //        FloatBuffer.wrap(shadowCurve), GL_LINEAR, GL_CLAMP_TO_EDGE);
         //glProg.setDefine("BL2",BLPredictShift);
         glProg.setDefine("BR",(float)(shadowW)*shadowsSensitivity);
-        File customlut = new File(FileManager.sPHOTON_TUNING_DIR,"lut.png");
+        /*File customlut = new File(FileManager.sPHOTON_TUNING_DIR,"lut.png");
         glProg.setDefine("TONEMAP",enableTonemap);
         //glProg.setDefine("DESAT",desaturate);
         if(customlut.exists()){
@@ -733,7 +733,7 @@ public class Equalization extends Node {
             Log.d(Name,"LutBase:"+lutBase);
             glProg.setDefine("LUTSIZETILES", (float) lutBase);
             glProg.setDefine("LUTSIZE", (float) (lutBase*lutBase));
-        }
+        }*/
         endT("Equalization Part 2");
         startT();
         glProg.useAssetProgram("equalize");
