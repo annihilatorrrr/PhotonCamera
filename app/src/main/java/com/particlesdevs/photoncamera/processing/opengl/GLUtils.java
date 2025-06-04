@@ -25,6 +25,10 @@ public class GLUtils {
     private final GLProg glProg;
     private GLCoreBlockProcessing glProcessing;
 
+    public GLUtils(GLProg glProg) {
+        this.glProg = glProg;
+    }
+
     public GLUtils(GLCoreBlockProcessing blockProcessing) {
         glProg = blockProcessing.mProgram;
         glProcessing = blockProcessing;
@@ -901,8 +905,13 @@ public class GLUtils {
 
         return pyramid;
     }
-    @HunterDebug
+    
     public Pyramid createPyramidStore(int levels, GLTexture input, GLUtils.Pyramid pyramid){
+        return createPyramidStore(levels, input, pyramid, true);
+    }
+    
+    @HunterDebug
+    public Pyramid createPyramidStore(int levels, GLTexture input, GLUtils.Pyramid pyramid, boolean useLaplace){
         pyramid.levels = levels;
         pyramid.step = 2.0;
         if (pyramid.gauss == null){
@@ -926,6 +935,7 @@ public class GLUtils {
                 pyramid.gauss[i] = new GLTexture(new Point(sizex,sizey),pyramid.gauss[i-1].mFormat, null, GL_LINEAR, GL_CLAMP_TO_EDGE);
             }
             interpolate(pyramid.gauss[i - 1],pyramid.gauss[i]);
+            //boxdown2(pyramid.gauss[i - 1],pyramid.gauss[i]);
             //GLTexture old = downscaled[i];
             //downscaled[i] = glUtils.blursmall(downscaled[i],3,1.4);
             //old.close();
@@ -933,23 +943,24 @@ public class GLUtils {
             pyramid.sizes[i] = new Point((int)(pyramid.sizes[i-1].x/step),(int)(pyramid.sizes[i-1].y/step));
             //Log.d("Pyramid","downscale:"+pyramid.sizes[i]);
         }
-
-        glProg.useUtilProgram("pyramiddiff",false);
-        if (pyramid.laplace == null) pyramid.laplace = new GLTexture[pyramid.gauss.length - 1];
-        for (int i = 0; i < pyramid.laplace.length; i++) {
-            glProg.setTexture("target", pyramid.gauss[i]);
-            glProg.setTexture("base", pyramid.gauss[i + 1]);
-            glProg.setVar("size",pyramid.sizes[i]);
-            glProg.setVar("size2", pyramid.gauss[i + 1].mSize);
-            //glProg.setTexture("base", downscaled[i]);
-            //glProg.setTexture("target", upscale[i]);
-            if (pyramid.laplace[i] == null)
-                pyramid.laplace[i] = new GLTexture(pyramid.sizes[i],pyramid.gauss[i + 1].mFormat, null, GL_LINEAR, GL_MIRRORED_REPEAT);
-            glProg.drawBlocks(pyramid.laplace[i]);
-            //Log.d("Pyramid","diff:"+pyramid.laplace[i].mSize+" downscaled:"+pyramid.gauss[i].mSize);
+        if (useLaplace){
+            glProg.useUtilProgram("pyramiddiff",false);
+            if (pyramid.laplace == null) pyramid.laplace = new GLTexture[pyramid.gauss.length - 1];
+            for (int i = 0; i < pyramid.laplace.length; i++) {
+                glProg.setTexture("target", pyramid.gauss[i]);
+                glProg.setTexture("base", pyramid.gauss[i + 1]);
+                glProg.setVar("size",pyramid.sizes[i]);
+                glProg.setVar("size2", pyramid.gauss[i + 1].mSize);
+                //glProg.setTexture("base", downscaled[i]);
+                //glProg.setTexture("target", upscale[i]);
+                if (pyramid.laplace[i] == null)
+                    pyramid.laplace[i] = new GLTexture(pyramid.sizes[i],pyramid.gauss[i + 1].mFormat, null, GL_LINEAR, GL_MIRRORED_REPEAT);
+                glProg.drawBlocks(pyramid.laplace[i]);
+                    //Log.d("Pyramid","diff:"+pyramid.laplace[i].mSize+" downscaled:"+pyramid.gauss[i].mSize);
+            }
         }
         return pyramid;
-    }
+    }    
 
     public GLImage GenerateGLImage(Point size){
         return GenerateGLImage(size,4);
