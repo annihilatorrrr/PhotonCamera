@@ -8,14 +8,15 @@ public class FrameNumberSelector {
     public static int frameCount;
     public static int throwCount;
     public static int getFrames() {
-        double lightcycle = (Math.exp(1.3595 + 0.0020 * ExposureIndex.index()*6400.0/IsoExpoSelector.getISOAnalog())) / 9;
-        double target = (Math.exp(1.3595 + 0.0020 * ExposureIndex.index()*6400.0/IsoExpoSelector.getISOAnalog())) / 14;
-        lightcycle *= PhotonCamera.getSettings().frameCount;
-        target *= PhotonCamera.getSettings().frameCount;
-        frameCount = Math.min(Math.max((int) lightcycle, 4), PhotonCamera.getSettings().frameCount);
-        throwCount = Math.min(Math.max((int) target, 4), PhotonCamera.getSettings().frameCount);
+        double lightcycle = (Math.exp(1.3595 + 1.0020 * PhotonCamera.getCaptureController().mPreviewIso/IsoExpoSelector.getISOAnalog())) / 9;
+        double target = (Math.exp(1.3595 + 1.0020 * PhotonCamera.getCaptureController().mPreviewIso/IsoExpoSelector.getISOAnalog())) / 14;
+        int frames = PhotonCamera.getSettings().frameCount;
+        lightcycle *= frames;
+        target *= frames;
+        frameCount = Math.min(Math.max((int) lightcycle, Math.min(8,frames)), frames);
+        throwCount = Math.min(Math.max((int) target, Math.min(8,frames)), frames);
         if (PhotonCamera.getSettings().selectedMode == CameraMode.UNLIMITED) frameCount = -1;
-        if(PhotonCamera.getSettings().DebugData) frameCount = PhotonCamera.getSettings().frameCount;
+        if(PhotonCamera.getSettings().DebugData) frameCount = frames;
         throwCount = (frameCount-throwCount);
         return frameCount;
     }
