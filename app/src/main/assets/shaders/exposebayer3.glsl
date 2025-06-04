@@ -3,6 +3,7 @@ precision mediump sampler2D;
 precision highp float;
 uniform sampler2D InputBuffer;
 uniform sampler2D InterpolatedCurve;
+uniform sampler2D HighExpo;
 uniform sampler2D ShadowMap;
 uniform sampler2D GainMap;
 uniform float factor;
@@ -14,10 +15,11 @@ out vec4 result;
 #define CURVE 0
 #define INVERSE 0
 #define STRLOW 1.0
-#define STRHIGH 1.0
 #define COMPRESSOR 0.0
 #define UPPERLIM 2.5
+#define OVEREXPOSEMPY 1.0
 #define PI (3.1415926535)
+#define EPS 1e-6
 #import interpolation
 
 float gammaEncode(float x) {
@@ -97,24 +99,26 @@ void main() {
 
     vec3 v3 = brIn2(inp,STRLOW);
     float br = luminocity(v3);
+    float highMpy = texture(HighExpo,vec2(luminocity(brIn2(inp,1.0)),0.5)).r;
+    highMpy = mix(1.0, highMpy/(br+EPS), OVEREXPOSEMPY);
     //br = clamp(br-DH,0.0,1.0);
     //br = mix(gammaEncode(br),br,0.1);
     br = gammaEncode(br);
     result.r = clamp(br,0.0,1.0);
-    v3 = brIn(inp,STRHIGH);
-    //float highLim = mix(STRHIGH,1.0,0.25);
+    v3 = brIn(inp,highMpy);
+    //float highLim = mix(highMpy,1.0,0.25);
     float highLim = UPPERLIM;
-    //v3 = vec3(inp.r,(inp.g+inp.b)/2.0,inp.a)*STRHIGH;
+    //v3 = vec3(inp.r,(inp.g+inp.b)/2.0,inp.a)*highMpy;
     br = luminocity(v3);
     br = gammaEncode(br);
     //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));
     result.g = clamp(br,0.0,highLim);
-    v3 = brIn(inp,mix(STRHIGH,1.0,0.5));
+    v3 = brIn(inp,mix(highMpy,1.0,0.5));
     br = luminocity(v3);
     br = gammaEncode(br);
     //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));
     result.b = clamp(br,0.0,highLim);
-    v3 = brIn(inp,mix(STRHIGH,1.0,0.25));
+    v3 = brIn(inp,mix(highMpy,1.0,0.25));
     br = luminocity(v3);
     br = gammaEncode(br);
     //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));

@@ -17,33 +17,40 @@ import java.util.ArrayList;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
 import static android.opengl.GLES20.GL_LINEAR;
-import static android.opengl.GLES20.GL_MIRRORED_REPEAT;
 import static com.particlesdevs.photoncamera.util.Math2.mix;
 
-public class ExposureFusionBayer2 extends Node {
+public class ExposureFusionBayer3 extends Node {
 
-    public ExposureFusionBayer2() {
+    public ExposureFusionBayer3() {
         super("", "FusionBayer");
     }
     @Override
     public void Compile() {}
     private double dehaze = 0.0;
-    GLTexture expose(GLTexture in, float strLow,float strHigh){
+    GLTexture expose(GLTexture in, float strLow,GLTexture strHigh){
         glProg.setDefine("DH","("+dehaze+")");
         glProg.setDefine("NEUTRALPOINT",basePipeline.mParameters.whitePoint);
         glProg.setDefine("STRLOW",strLow);
-        glProg.setDefine("STRHIGH",strHigh);
+        //glProg.setDefine("STRHIGH",strHigh);
         glProg.setDefine("CURVE",true);
+        glProg.setDefine("OVEREXPOSEMPY", 1.0f);
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
         glProg.setDefine("COMPRESSOR", (float) basePipeline.mSettings.compressor);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
+        glProg.setDefine("GAMMAFACTOR", gammaFactor);
         Log.d(Name,"Compressor:"+basePipeline.mSettings.compressor);
-        glProg.useAssetProgram("exposebayer2",false);
+        glProg.useAssetProgram("exposebayer31",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("InterpolatedCurve",interpolatedCurve);
         glProg.setTexture("ShadowMap", shadowMap);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
         glProg.setVar("neutral", basePipeline.mParameters.whitePoint);
+        if (((PostPipeline)basePipeline).FusionMap != null) {
+            glProg.setTexture("FusionMap", ((PostPipeline) basePipeline).FusionMap);
+            glProg.setVar("useFusion", 1);
+        } else
+            glProg.setVar("useFusion", 0);
+        glProg.setTexture("HighExpo", strHigh);
         //glProg.setVar("factor", str);
         GLTexture outp = new GLTexture(WorkSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         glProg.drawBlocks(outp);
@@ -56,8 +63,10 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
         glProg.setDefine("STRLOW",str);
         glProg.setDefine("STRHIGH",str);
+        glProg.setDefine("OVEREXPOSEMPY", 1.0f);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
-        glProg.useAssetProgram("exposebayer2",false);
+        glProg.setDefine("GAMMAFACTOR", gammaFactor);
+        glProg.useAssetProgram("exposebayer31",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
         glProg.setVar("neutral", basePipeline.mParameters.whitePoint);
@@ -67,36 +76,61 @@ public class ExposureFusionBayer2 extends Node {
         return tex;
     }
     void getHistogram(GLTexture lowGauss){
-        GLTexture vectored = glUtils.convertVec4(lowGauss,"in1.r*64.0*in1.r*64.0");
+        GLTexture vectored = glUtils.convertVec4(lowGauss,"in1.r*64.0");
         //GLImage sourceh = glUtils.GenerateGLImage(lowGauss.mSize);
         glHistogram = new GLHistogram(basePipeline.glint.glProcessing);
-        glHistogram.Compute(vectored);
         glHistogram.Bc = false;
         glHistogram.Gc = false;
         glHistogram.Ac = false;
+        glHistogram.resize = 1;
+        glHistogram.Compute(vectored);
+
         //sourceh.close();
         vectored.close();
     }
 
-    float autoExposureHigh(){
-        float avr = 0.f;
-        float w = 0.01f;
+    GLTexture autoExposureHigh(){
+        float integrated = 0.f;
         float full = 0.f;
+        float gaussNorm = 0.0f;
         for(int i = 0; i < 255; i++){
+            float line = i/255.f;
             full += glHistogram.outputArr[0][i];
+            gaussNorm += (float) Math.exp(-line*line*Math2.mix(0.1f,1.0f,overExposeMpy));
+            Log.d(Name,"Histogram:"+glHistogram.outputArr[0][i]);
         }
-        for(int i = 5; i < 255; i++){
-            float line = (i-5)/255.f;
-            float cnt = glHistogram.outputArr[0][i]*Math.max(1.0f-line*1.6f, 0.0f)/full;
-            float ind = (float)(Math.pow(line, 1./ gammaKShadowSearch))*256.f;
-            float mpy = cnt*(ind);
-            avr+=mpy;
-            w+=cnt;
-            Log.d(Name,"Overexp pos:"+ind+" val:"+cnt);
+        float[] overexposed = new float[255];
+        for(int i = 0; i < 255; i++){
+            float line = i/255.f;
+            float gauss = (float) Math.exp(-line*line*Math2.mix(0.1f,1.0f,overExposeMpy))/gaussNorm;
+            float cnt = glHistogram.outputArr[0][i]/full;
+            integrated += Math.min(gauss*Math.max(cnt, fusionExpoHighMinStep), fusionExpoHighLimit/256.f);
+            //integrated += Math.min(cnt, fusionExpoHighLimit/255.f);
+            overexposed[i] = integrated;
         }
-        Log.d(Name,"Overexp pos:"+avr/w);
-        return Math.max(128/(avr/w + 1),1.f);
-        //return mix(avr/w,max, overExposeMaxFusion);
+        for (int i = 0; i < 255; i++){
+            overexposed[i] /= integrated;
+            Log.d(Name,"Overexposure curve:"+overexposed[i]);
+        }
+        // apply gaussian smoothing
+        int size = 255;
+        for (int i = 0; i < 255; i++){
+            float sum = 0.f;
+            float sumw = 0.f;
+            for (int j = 0; j <= size; j++){
+                int ind = i+j;
+                int ind2 = i-j;
+                if (ind < 0 || ind >= 255) continue;
+                if (ind2 < 0 || ind2 >= 255) continue;
+                float w = (float) Math.exp(-j*j/curveSmooth);
+                sum += overexposed[ind]*w;
+                sum += overexposed[ind2]*w;
+                sumw += w * 2;
+            }
+            overexposed[i] = sum/sumw;
+        }
+        // create a curve texture
+        return new GLTexture(new Point(overexposed.length,1),new GLFormat(GLFormat.DataType.FLOAT_32),BufferUtils.getFrom(overexposed),GL_LINEAR,GL_CLAMP_TO_EDGE);
     }
     float autoExposureLow(){
         float avr = 0.f;
@@ -131,26 +165,30 @@ public class ExposureFusionBayer2 extends Node {
     GLHistogram glHistogram;
     Point initialSize;
     Point WorkSize;
+
     float overExposeMpy = 1.0f;
     float overExposeMaxFusion = 1.0f;
-    float underExposeMpy = 0.85f;
+    float underExposeMpy = 1.0f;
     float underExposeMinFusion = 0.0f;
     float gammaKSearch = 1.0f;
     float gammaKShadowSearch = 0.8f;
     float baseExpose = 1.00f;
     float gaussSize = 4.0f;
-    float targetLuma = 0.5f;
+    float targetLuma = 0.6f;
     float downScalePerLevel = 2.2f;
     float dehazing = 0.2f;
 
     float softUpperLevel = 0.1f;
     float softLoverLevel = 0.0f;
     float fusionExpoLowLimit = 1.f/16.f;
-    float fusionExpoHighLimit = 64.f;
+    float fusionExpoHighLimit = 32.f;
+    float fusionExpoHighMinStep = 1.0f/256.f;
     float overexposedUpperLimit = 1.0f;
     float fusionLaplaceFactorMin = 0.01f;
     float fusionExpoFactorMin = 0.01f;
+    float gammaFactor = 0.92f;
     int curvePointsCount = 5;
+    float curveSmooth = 64.f;
     float[] toneCurveX;
     float[] toneCurveY;
 
@@ -159,7 +197,6 @@ public class ExposureFusionBayer2 extends Node {
     GLTexture interpolatedCurve;
     GLTexture shadowMap;
     boolean disableFusion = false;
-    boolean useSymmetricExposureFork = false;
     @Override
     public void Run() {
         disableFusion = getTuning("DisableFusion",disableFusion);
@@ -168,7 +205,6 @@ public class ExposureFusionBayer2 extends Node {
             glProg.closed = true;
             return;
         }
-        useSymmetricExposureFork = getTuning("UseSymmetricExposureFork",useSymmetricExposureFork);
         //overExposeMpy =            getTuning("OverExposeMpy", overExposeMpy);
         overExposeMaxFusion =      getTuning("OverExposeMaxFusion", overExposeMaxFusion);
         underExposeMinFusion =     getTuning("UnderExposeMinFusion", underExposeMinFusion);
@@ -184,6 +220,8 @@ public class ExposureFusionBayer2 extends Node {
         overexposedUpperLimit = getTuning("OverexposedUpperLimit", overexposedUpperLimit);
         fusionExpoFactorMin = getTuning("FusionExpoFactorMin", fusionExpoFactorMin);
         fusionLaplaceFactorMin = getTuning("FusionLaplaceFactorMin", fusionLaplaceFactorMin);
+        fusionExpoHighMinStep = getTuning("FusionExpoHighMinStep", fusionExpoHighMinStep);
+        gammaFactor = getTuning("GammaFactor", gammaFactor);
 
         softUpperLevel = getTuning("HardLevel", softUpperLevel);
         softLoverLevel = getTuning("SoftLevel", softLoverLevel);
@@ -272,39 +310,28 @@ public class ExposureFusionBayer2 extends Node {
 
         GLTexture exposureBase = expose3(in,baseExpose);
         getHistogram(exposureBase);
-        float overexposure = autoExposureHigh();
+        GLTexture highExpoTex = autoExposureHigh();
         float underexposure = autoExposureLow();
-        ((PostPipeline)basePipeline).softLight = Math2.smoothstep(softLoverLevel, softUpperLevel,((1.f/overexposure)+underexposure)/2.f);
-        Log.d(Name,"SoftLightk:"+((PostPipeline)basePipeline).softLight);
-
-
-        overexposure = Math.min(256.f,overexposure);
         underexposure = Math.max(1.f/256.f,underexposure);
 
-
-        if(useSymmetricExposureFork){
-            float mpy = overexposure*underexposure;
-            overexposure/=mpy;
-            underexposure/=mpy;
-        }
-
         //overexposure*=overExposeMpy;
-        overexposure = Math2.mix(1.f,overexposure,overExposeMpy);
         underexposure*=underExposeMpy;
-        overexposure = Math.min(fusionExpoHighLimit,overexposure);
         underexposure = Math.max(fusionExpoLowLimit,underexposure);
 
-        ((PostPipeline)basePipeline).fusionGain = mix(1.f,overexposure,maxC);
-        ((PostPipeline)basePipeline).totalGain *= overexposure;
+        ((PostPipeline)basePipeline).fusionGain = 64.f;
+        ((PostPipeline)basePipeline).totalGain *= 64.f;
 
         Log.d(Name,"TotalGain:"+((PostPipeline)basePipeline).totalGain);
         //overexposure = Math.min(10.f,overexposure);
         //underexposure = Math.max(underexposure,0.0008f);
-        Log.d(Name,"Overexp:"+overexposure+" , Underexp:"+underexposure);
+        Log.d(Name,"Underexp:"+underexposure);
 
         //GLUtils.Pyramid highExpo = glUtils.createPyramid(levelcount,downScalePerLevel, expose(in,overexposure));
         long time = System.currentTimeMillis();
-        GLUtils.Pyramid normalExpo = glUtils.createPyramid(levelcount,downScalePerLevel, expose(in,underexposure,overexposure));
+        GLUtils.Pyramid normalExpo = glUtils.createPyramid(levelcount,downScalePerLevel, expose(in,underexposure, highExpoTex));
+
+        highExpoTex.close();
+
         Log.d(Name,"Pyramid elapsed:"+(System.currentTimeMillis()-time)+" ms");
         //in.close();
 

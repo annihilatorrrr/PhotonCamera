@@ -3,10 +3,13 @@ precision mediump sampler2D;
 precision highp float;
 uniform sampler2D InputBuffer;
 uniform sampler2D InterpolatedCurve;
+uniform sampler2D HighExpo;
 uniform sampler2D ShadowMap;
 uniform sampler2D GainMap;
+uniform sampler2D FusionMap;
 uniform float factor;
 uniform vec3 neutral;
+uniform bool useFusion;
 out vec4 result;
 #define NEUTRALPOINT 1.0,1.0,1.0
 #define DH (0.0)
@@ -14,14 +17,16 @@ out vec4 result;
 #define CURVE 0
 #define INVERSE 0
 #define STRLOW 1.0
-#define STRHIGH 1.0
 #define COMPRESSOR 0.0
 #define UPPERLIM 2.5
+#define OVEREXPOSEMPY 1.0
 #define PI (3.1415926535)
+#define GAMMAFACTOR 0.92
+#define EPS 1e-6
 #import interpolation
 
 float gammaEncode(float x) {
-    return sqrt(x);
+    return mix(x, sqrt(x), GAMMAFACTOR);
 }
 vec4 reinhard_extended(vec4 v, float max_white)
 {
@@ -92,32 +97,36 @@ void main() {
     inp /= neutral.rggb;
     inp = clamp(inp, vec4(0.0), vec4(1.0));
     //inp = clamp(inp,vec4(0.0001),vec3(NEUTRALPOINT).rggb)/vec3(NEUTRALPOINT).rggb;
-
-
-
-    vec3 v3 = brIn2(inp,STRLOW);
+    float fusionVal = 1.0;
+    if (useFusion) {
+        fusionVal = textureBicubicHardware(FusionMap, vec2(xyCenter)/vec2(textureSize(InputBuffer, 0))).r * 64.0;
+    }
+    vec3 v3 = brIn2(inp*fusionVal,1.0);
     float br = luminocity(v3);
+    float initial_br = gammaEncode(br);
+    float highMpy = texture(HighExpo,vec2(initial_br,0.5)).r;
+
+    v3 = brIn2(inp,STRLOW);
+    br = luminocity(v3);
+
     //br = clamp(br-DH,0.0,1.0);
     //br = mix(gammaEncode(br),br,0.1);
     br = gammaEncode(br);
+
+    highMpy = mix(initial_br, highMpy, OVEREXPOSEMPY);
     result.r = clamp(br,0.0,1.0);
-    v3 = brIn(inp,STRHIGH);
-    //float highLim = mix(STRHIGH,1.0,0.25);
+    v3 = brIn(inp,highMpy);
+    //float highLim = mix(highMpy,1.0,0.25);
     float highLim = UPPERLIM;
-    //v3 = vec3(inp.r,(inp.g+inp.b)/2.0,inp.a)*STRHIGH;
-    br = luminocity(v3);
+    //v3 = vec3(inp.r,(inp.g+inp.b)/2.0,inp.a)*highMpy;
+    br = highMpy;
     br = gammaEncode(br);
-    //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));
     result.g = clamp(br,0.0,highLim);
-    v3 = brIn(inp,mix(STRHIGH,1.0,0.5));
-    br = luminocity(v3);
-    br = gammaEncode(br);
-    //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));
+    br = mix(highMpy,initial_br,1.0/6.0);
+    //br = gammaEncode(br);
     result.b = clamp(br,0.0,highLim);
-    v3 = brIn(inp,mix(STRHIGH,1.0,0.25));
-    br = luminocity(v3);
-    br = gammaEncode(br);
-    //br = mix(br,gammaEncode(br),clamp(br-1.0,0.0,0.6));
+    br = mix(highMpy,initial_br,1.0/4.0);
+    //br = gammaEncode(br);
     result.a = clamp(br,0.0,highLim);
     result /= 64.0;
 }

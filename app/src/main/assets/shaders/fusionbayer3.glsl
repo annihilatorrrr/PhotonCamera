@@ -1,77 +1,64 @@
-
-
 precision highp float;
 precision highp sampler2D;
-
 uniform sampler2D upsampled;
 uniform bool useUpsampled;
-
+uniform float blendMpy;
 // Weighting is done using these.
 uniform sampler2D normalExpo;
-uniform sampler2D highExpo;
 
 // Blending is done using these.
 uniform sampler2D normalExpoDiff;
-uniform sampler2D highExpoDiff;
 
+uniform int level;
 uniform ivec2 upscaleIn;
-
+uniform float gauss;
+uniform float target;
+//#define TARGET 0.0
+//#define GAUSS 0.5
+#define MAXLEVEL (1)
+#define NORM 64.0
+#define EPS 1e-6
+#define LAPLACEMIN 0.01
+#define EXPOMIN 0.01
 out float result;
-
 #import gaussian
 #import interpolation
-float laplace(sampler2D tex, float mid, ivec2 xyCenter) {
-    float left = texelFetch(tex, xyCenter - ivec2(1, 0), 0).r,
-    right = texelFetch(tex, xyCenter + ivec2(1, 0), 0).r,
-    top = texelFetch(tex, xyCenter - ivec2(0, 1), 0).r,
-    bottom = texelFetch(tex, xyCenter + ivec2(0, 1), 0).r;
 
-    return distance(4.f * mid, left + right + top + bottom);
+vec4 laplace(sampler2D tex, vec4 mid, ivec2 xyCenter) {
+        vec4 outp = mid*9.0;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                outp -= texelFetch(tex, xyCenter + ivec2(i, j), 0);
+            }
+        }
+        return abs(outp);
 }
 
 void main() {
     ivec2 xyCenter = ivec2(gl_FragCoord.xy);
 
     // If this is the lowest layer, start with zero.
-    //if(useUpsampled == 2) mpy = 2.0;
     float base = (useUpsampled)
-    //? texelFetch(upsampled, xyCenter, 0).xyz
-    ? textureBicubic(upsampled, vec2(gl_FragCoord.xy)/vec2(upscaleIn)).r*10.0
-    : float(1.);
-    // How are we going to blend these two?
-    float normal = 0.3;
-    float high = 3.0;
+    ? textureBicubicHardware(upsampled, (vec2(gl_FragCoord.xy))/(vec2(upscaleIn))).r
+    : float(0.0);
 
     // To know that, look at multiple factors.
-    vec2 midNormal = texelFetch(normalExpo, xyCenter, 0).rg;
-    vec2 midHigh = texelFetch(highExpo, xyCenter, 0).rg;
-
-    float normalWeight = 1000.;
-    float highWeight = 1000.;
-
+    vec4 expoVal = texelFetch(normalExpo, xyCenter, 0)*NORM;
+    vec4 weights = vec4(1.0, 1.0, 1.0, 1.0);
     // Factor 1: Well-exposedness.
+    vec4 normToAvg = (pdf4((expoVal - vec4(target))/gauss));
 
-    float midNormalToAvg = sqrt(unscaledGaussian(midNormal.r - 0.35, 0.50));
-    float midHighToAvg = sqrt(unscaledGaussian(midHigh.r - 0.35, 0.50));
-
-    normalWeight *= midNormalToAvg;
-    highWeight *= midHighToAvg;
+    weights *= normToAvg + EXPOMIN;
 
     // Factor 2: Contrast.
-    float laplaceNormal = laplace(normalExpo, midNormal.r, xyCenter);
-    float laplaceHigh = laplace(highExpo, midHigh.r, xyCenter);
+    vec4 laplaceVal = laplace(normalExpo, expoVal/NORM, xyCenter)*NORM;
 
-    normalWeight *= sqrt(laplaceNormal + 0.01);
-    highWeight *= sqrt(laplaceHigh + 0.01);
-
-    // Factor 3: Saturation.
-    float normalStddev = midNormal.g;
-    float highStddev = midHigh.g;
-
-    normalWeight *= sqrt(normalStddev + 0.01);
-    highWeight *= sqrt(highStddev + 0.01);
-
-    float blend = highWeight / (normalWeight + highWeight); // [0, 1]
-    result = (base + mix(normal, high, blend))/2.0;
-    result/=10.0;
+    weights *= laplaceVal + LAPLACEMIN;
+    // How are we going to blend these two?
+    vec4 expoDiff = texelFetch(normalExpoDiff, xyCenter, 0);
+    result = base + (expoDiff.r*weights.r + expoDiff.g*weights.g + expoDiff.b*weights.b + expoDiff.a*weights.a)/(weights.r + weights.g + weights.b + weights.a);
+    result = clamp(result,0.0,1.0);
+    //if(level == 0){
+    //    result = result*result;
+    //}
 }

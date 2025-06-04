@@ -7,10 +7,17 @@ out float result;
 uniform int yOffset;
 #define DH (0.0)
 #define FUSIONGAIN 1.0
+#define NORM 64.0
 #define luminocity(x) dot(x.rgb, vec3(0.299, 0.587, 0.114))
 float gammaInverse(float x) {
     return x*x;
 }
+
+vec4 reinhard_extended(vec4 v, float max_white) {
+    vec4 numerator = v * (vec4(1.0f) + (v / vec4(max_white * max_white)));
+    return numerator / (vec4(1.0f) + v);
+}
+
 void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
     xy+=ivec2(0,yOffset);
@@ -23,6 +30,7 @@ void main() {
     //br2+=DH;
     //br = gammaInverse(br);
     //br+=DH+0.003;
-    result=(((br2)/((br)+0.00001)));
-    result = clamp(result/FUSIONGAIN,0.0,1.0);
+    result=(((br2+0.00001)/((br)+0.00001)));
+    result = max(result,mix(1.0,result,clamp(br*10.0,0.0,1.0)));
+    result = clamp(result/(FUSIONGAIN),0.0,1.0);
 }

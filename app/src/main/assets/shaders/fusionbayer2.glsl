@@ -16,6 +16,7 @@ uniform float target;
 //#define TARGET 0.0
 //#define GAUSS 0.5
 #define MAXLEVEL (1)
+#define NORM 64.0
 out float result;
 #import gaussian
 #import interpolation
@@ -25,7 +26,7 @@ float laplace(sampler2D tex, float mid, ivec2 xyCenter) {
     top = texelFetch(tex, xyCenter - ivec2(0, 1), 0).r,
     bottom = texelFetch(tex, xyCenter + ivec2(0, 1), 0).r;
 
-    return distance(4. * mid, left + right + top + bottom);
+    return distance(4. * mid, (left + right + top + bottom)*NORM);
 }
 float laplace2(sampler2D tex, float mid, ivec2 xyCenter) {
     float left = texelFetch(tex, xyCenter - ivec2(1, 0), 0).b,
@@ -33,7 +34,7 @@ float laplace2(sampler2D tex, float mid, ivec2 xyCenter) {
     top = texelFetch(tex, xyCenter - ivec2(0, 1), 0).b,
     bottom = texelFetch(tex, xyCenter + ivec2(0, 1), 0).b;
 
-    return distance(4. * mid, left + right + top + bottom);
+    return distance(4. * mid, (left + right + top + bottom)*NORM);
 }
 
 void main() {
@@ -50,16 +51,18 @@ void main() {
     vec2 high = texelFetch(normalExpoDiff, xyCenter, 0).ba;
 
     // To know that, look at multiple factors.
-    vec2 midNormal = texelFetch(normalExpo, xyCenter, 0).rg;
-    vec2 midHigh = texelFetch(normalExpo, xyCenter, 0).ba;
+    vec2 midNormal = texelFetch(normalExpo, xyCenter, 0).rg*NORM;
+    vec2 midHigh = texelFetch(normalExpo, xyCenter, 0).ba*NORM;
 
     float normalWeight = 1.;
     float highWeight = 1.;
 
     // Factor 1: Well-exposedness.
 
-    float midNormalToAvg = sqrt(pdf((midNormal.r - target)/gauss));
-    float midHighToAvg = sqrt(pdf((midHigh.r - target)/gauss));
+    float midNormalToAvg = (pdf((midNormal.r - target)/gauss));
+    float midHighToAvg = (pdf((midHigh.r - target)/gauss));
+    //midNormalToAvg *= midNormalToAvg;
+    //midHighToAvg *= midHighToAvg;
 
     normalWeight *= midNormalToAvg;
     highWeight *= midHighToAvg;
@@ -67,21 +70,23 @@ void main() {
     // Factor 2: Contrast.
     float laplaceNormal = laplace(normalExpo, midNormal.r, xyCenter);
     float laplaceHigh = laplace2(normalExpo, midHigh.r, xyCenter);
+    //laplaceNormal *= laplaceNormal;
+    //laplaceHigh *= laplaceHigh;
 
-    normalWeight *= sqrt(laplaceNormal + 0.001);
-    highWeight *= sqrt(laplaceHigh + 0.001);
+    normalWeight *= (laplaceNormal + 0.001);
+    highWeight *= (laplaceHigh + 0.001);
 
     // Factor 3: Saturation.
-    float normalStddev = midNormal.g;
+    /*float normalStddev = midNormal.g;
     float highStddev = midHigh.g;
 
     normalWeight *= normalStddev;
-    highWeight *= highStddev;
+    highWeight *= highStddev;*/
 
     float blend = highWeight / (normalWeight + highWeight); // [0, 1]
     //result = base + mix(normal.r, high.r, blend*blend)*(max(1.0, 1.4 - 0.4*(float(level)/float(MAXLEVEL))));
     //result = base + mix(normal.r, high.r, blend*blend)*(max(1.0, 1.1 - 0.1*(float(level)/float(MAXLEVEL))));
-    result = base + mix(normal.r, high.r, blend)*blendMpy;
+    result = base + mix(normal.r, high.r, blend);
     result = clamp(result,0.0,1.0);
     //if(level == 0){
     //    result = result*result;
