@@ -37,6 +37,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
             lutbm.close();
             lut.close();
         }
+        if (postLut != null) postLut.close();
         interpolatedCurve.close();
         GammaTexture.close();
         if (HSVTexture != null) HSVTexture.close();
@@ -51,6 +52,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
     GLTexture interpolatedCurve;
     GLTexture TonemapCoeffs;
     GLTexture lut;
+    GLTexture postLut;
     GLTexture GammaTexture;
     GLTexture HSVTexture;
     GLTexture LookupTexture;
@@ -72,6 +74,9 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
     float[] intenseCurveY;
     float[] intenseHardCurveX;
     float[] intenseHardCurveY;
+    float vignetteCorrection = 1.0f;
+    float toneMix = 0.5f;
+    float ltmMix = 0.0f;
     @Override
     public void Run() {
         gammaKoefficientGenerator =getTuning("GammaKoefficientGenerator", gammaKoefficientGenerator);
@@ -86,6 +91,9 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         saturationRed =   getTuning("SaturationRed",  saturationRed);
         eps =             getTuning("Epsilon",        eps      );
         curvePointsCount =         getTuning("CurvePointsCount",curvePointsCount);
+        vignetteCorrection = getTuning("VignetteCorrection",vignetteCorrection);
+        toneMix = getTuning("ToneMix",toneMix);
+        ltmMix = getTuning("ToneMapUsageMix",ltmMix);
         intenseCurveX = new float[curvePointsCount];
         intenseCurveY = new float[curvePointsCount];
 
@@ -175,7 +183,18 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setDefine("SATURATIONGAUSS",saturationGauss);
         glProg.setDefine("SATURATIONRED",  saturationRed);
         glProg.setDefine("NOISEO",  basePipeline.noiseO);
-        glProg.setDefine("EPS",            eps      );
+        glProg.setDefine("EPS", eps);
+
+        File postlut = new File(FileManager.sPHOTON_TUNING_DIR,"lut.png");
+        if(postlut.exists()){
+            lutbm = new GLImage(postlut);
+            postLut = new GLTexture(lutbm,GL_LINEAR,GL_CLAMP_TO_EDGE,0);
+            glProg.setDefine("POSTLUT",true);
+            int lutBase = (int)(0.1f+Math.pow(lutbm.size.x,1.0/3.0));
+            Log.d(Name,"LutBase:"+lutBase);
+            glProg.setDefine("POSTLUTSIZETILES", (float) lutBase);
+            glProg.setDefine("POSTLUTSIZE", (float) (lutBase*lutBase));
+        }
 
         glProg.setDefine("FUSIONGAIN",((PostPipeline)(basePipeline)).fusionGain);
 
@@ -210,6 +229,9 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setDefine("NEUTRALPOINT",WP);
         glProg.setDefine("INSIZE",basePipeline.workSize);
         glProg.setDefine("CONTRAST", (float) basePipeline.mSettings.contrastMpy);
+        glProg.setDefine("SHADOWS", (float) basePipeline.mSettings.shadows);
+        glProg.setDefine("VIGNETTE", vignetteCorrection);
+        glProg.setDefine("LTMMIX", ltmMix);
         float[][] cube = null;
         ColorCorrectionTransform.CorrectionMode mode =  basePipeline.mParameters.CCT.correctionMode;
         if(mode == ColorCorrectionTransform.CorrectionMode.CUBES || mode == ColorCorrectionTransform.CorrectionMode.CUBE){
@@ -256,6 +278,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
             lut = new GLTexture(lutbm, GL_LINEAR, GL_CLAMP_TO_EDGE, 0);
             glProg.setTexture("LookupTable", lut);
         }
+        if(postLut != null) glProg.setTexture("PostLut",postLut);
         if (basePipeline.mParameters.HSVMap != null) {
             HSVTexture = new GLTexture(new Point(basePipeline.mParameters.HSVMapSize[1], basePipeline.mParameters.HSVMapSize[0]), new GLFormat(GLFormat.DataType.FLOAT_32, 3), BufferUtils.getFrom(basePipeline.mParameters.HSVMap), GL_LINEAR, GL_CLAMP_TO_EDGE);
             glProg.setTexture("HSVMap", HSVTexture);
@@ -269,7 +292,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setTexture("InputBuffer",super.previousNode.WorkingTexture);
         glProg.setTexture("IntenseCurve",interpolatedCurve);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
-        glProg.setVar("toneMapCoeffs", Converter.CUSTOM_ACR3_TONEMAP_CURVE_COEFFS);
+        glProg.setVar("toneMapCoeffs", -2.f+2.f*toneMix, 3.f-3.f*toneMix, toneMix, 0.f);
         glProg.setVar("sensorToIntermediate",basePipeline.mParameters.sensorToProPhoto);
         glProg.setVar("intermediateToSRGB",cct);
         if(((PostPipeline)basePipeline).FusionMap != null) glProg.setTexture("FusionMap",((PostPipeline)basePipeline).FusionMap);

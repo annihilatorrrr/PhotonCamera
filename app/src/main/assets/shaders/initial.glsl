@@ -8,6 +8,7 @@ uniform sampler2D FusionMap;
 uniform sampler2D IntenseCurve;
 uniform sampler2D GainMap;
 uniform sampler2D HSVMap;
+uniform sampler2D PostLut;
 //uniform vec3 neutralPoint;
 //uniform float saturation0;
 //uniform float saturation;
@@ -61,10 +62,57 @@ out vec3 Output;
 #define NOISEO 0.0
 #define LUT 0
 #define CONTRAST 1.0
+#define SHADOWS 0.0
 #define USE_HSV 0
+#define POSTLUT 0
+#define POSTLUTSIZE 64.0
+#define POSTLUTSIZETILES 8.0
+#define FUSIONNORM 64.0
+#define VIGNETTE 0.0
+#define LTMMIX 0.0
 #import coords
 #import interpolation
 #import gaussian
+
+
+vec3 postlookup(in vec3 textureColor) {
+    textureColor = clamp(textureColor, 0.0, 1.0);
+
+    //0.0 - 63.0
+    highp float blueColor = textureColor.b * (float(POSTLUTSIZE)-1.0); //63.0;
+
+    highp vec2 quad1;
+    quad1.y = floor(floor(blueColor) / POSTLUTSIZETILES);
+    quad1.x = floor(blueColor) - (quad1.y * POSTLUTSIZETILES);
+
+    highp vec2 quad2;
+    quad2.y = floor(ceil(blueColor) / POSTLUTSIZETILES);
+    quad2.x = ceil(blueColor) - (quad2.y * POSTLUTSIZETILES);
+
+    highp vec2 texPos1;
+    texPos1.x = (quad1.x / POSTLUTSIZETILES) + 0.5/(POSTLUTSIZE*POSTLUTSIZETILES) + ((1.0/(POSTLUTSIZETILES) - 1.0/(POSTLUTSIZE*POSTLUTSIZETILES)) * textureColor.r);
+    texPos1.y = (quad1.y / POSTLUTSIZETILES) + 0.5/(POSTLUTSIZE*POSTLUTSIZETILES) + ((1.0/(POSTLUTSIZETILES) - 1.0/(POSTLUTSIZE*POSTLUTSIZETILES)) * textureColor.g);
+
+    highp vec2 texPos2;
+    texPos2.x = (quad2.x / POSTLUTSIZETILES) + 0.5/(POSTLUTSIZE*POSTLUTSIZETILES) + ((1.0/(POSTLUTSIZETILES) - 1.0/(POSTLUTSIZE*POSTLUTSIZETILES)) * textureColor.r);
+    texPos2.y = (quad2.y / POSTLUTSIZETILES) + 0.5/(POSTLUTSIZE*POSTLUTSIZETILES) + ((1.0/(POSTLUTSIZETILES) - 1.0/(POSTLUTSIZE*POSTLUTSIZETILES)) * textureColor.g);
+
+    //Tile 1
+    highp vec3 newColor1 = texture(PostLut, texPos1).rgb;
+    //Tile 2
+    highp vec3 newColor2 = texture(PostLut, texPos2).rgb;
+
+    highp vec3 newColor = (mix(newColor1, newColor2, fract(blueColor)));
+    return newColor;
+}
+vec3 tricubiclookup(in vec3 xyzIn){
+    float res = float(POSTLUTSIZE)-1.0;
+    xyzIn*=res;
+    vec3 floating = fract(xyzIn);
+    vec3 inv = floor(xyzIn) + floating*floating*(3.-2.*floating);
+    return postlookup((inv-.5) / res);
+}
+
 float gammaEncode(float x) {
     //return 1.055 * sqrt(x+EPS) - 0.055;
     return (GAMMAX1*x+GAMMAX2*x*x+GAMMAX3*x*x*x);
@@ -131,7 +179,7 @@ vec2 tonemapSin(vec2 ch) {
     return vec2(tonemapSin(ch.x), tonemapSin(ch.y));
 }
 
-vec3 tonemap(vec3 rgb) {
+vec3 tonemap(vec3 rgb, float gain) {
     vec3 sorted = rgb;
 
     float tmp;
@@ -167,6 +215,7 @@ vec3 tonemap(vec3 rgb) {
     pow(minmax, vec2(2.f)) * toneMapCoeffs.y +
     minmax * toneMapCoeffs.z +
     toneMapCoeffs.w;
+    minmax *= gain;
     //minmax.r = texture(TonemapTex,vec2(minmax.r,0.5f)).r;
     //minmax.g = texture(TonemapTex,vec2(minmax.g,0.5f)).r;
 
@@ -255,6 +304,11 @@ vec3 rgb2hsl( vec3 col ){
     (minc+maxc)*0.5 );                           // L
 }
 
+float reinhard_mono(float v, float max_white) {
+    float numerator = v * (float(1.0f) + (v / float(max_white * max_white)));
+    return numerator / (float(1.0f) + v);
+}
+
 vec3 saturate(vec3 rgb, float sat2, float sat) {
     float r = rgb.r;
     float g = rgb.g;
@@ -271,7 +325,9 @@ vec3 saturate(vec3 rgb, float sat2, float sat) {
     else
     //hsv.g *= mix(dfsat,1.0,abs(hsv.g-0.5)/0.1);
     hsv.g *= dfsat;*/
-    hsv.g *= SATURATIONC+unscaledGaussian(abs(hsv.g),SATURATIONGAUSS)*(dfsat*1.07-1.0);
+    //hsv.g *= dfsat;
+    hsv.g = reinhard_mono(hsv.g*dfsat, max(1.0,dfsat*0.7));
+    //hsv.g *= SATURATIONC+unscaledGaussian(abs(hsv.g),SATURATIONGAUSS)*(dfsat*1.07-1.0);
     rgb = hsv2rgb(hsv);
     rgb.r = mix((rgb.r+br)/2.0,rgb.r,SATURATIONRED);
     return rgb;
@@ -279,12 +335,19 @@ vec3 saturate(vec3 rgb, float sat2, float sat) {
 #define TONEMAPSWITCH (0.05)
 #define TONEMAPAMP (1.0)
 
-vec3 reinhard_extended(vec3 v, float max_white)
-{
-vec3 numerator = v * (vec3(1.0f) + (v / vec3(max_white * max_white)));
-return numerator / (vec3(1.0f) + v);
+vec3 reinhard_extended(vec3 v, float max_white){
+    vec3 numerator = v * (vec3(1.0f) + (v / vec3(max_white * max_white)));
+    return numerator / (vec3(1.0f) + v);
 }
 
+vec3 reinhard_extended(vec3 v, vec3 max_white){
+    vec3 numerator = v * (vec3(1.0f) + (v / vec3(max_white * max_white)));
+    return numerator / (vec3(1.0f) + v);
+}
+float reinhard_extended(float v, float max_white){
+    float numerator = v * (float(1.0f) + (v / float(max_white * max_white)));
+    return numerator / (float(1.0f) + v);
+}
 
 vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     vec3 neutralPoint = vec3(NEUTRALPOINT);
@@ -306,8 +369,9 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     }
     #endif
     pRGB = corr*sensorToIntermediate*pRGB;
-    #if USE_HSV == 1
     vec3 pHSV = rgb2hsl(pRGB);
+    #if USE_HSV == 1
+
     vec3 modHSV = texture(HSVMap, vec2(pHSV.y,pHSV.x)).rgb;
     pHSV.x += modHSV.x/2.0;
     pHSV.y *= modHSV.y;
@@ -315,20 +379,29 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     pHSV.x = mod(pHSV.x,1.0);
     pRGB = hsl2rgb(pHSV);
     #endif
-    pRGB *= tonemapGain;
+    float br = (pRGB.r+pRGB.g+pRGB.b)/3.0;
+    //pRGB /= br;
+    gainsVal = mix(1.0,gainsVal,VIGNETTE);
+    //br = clamp(reinhard_extended(br*gainsVal,max(1.0,gainsVal)),0.0,1.0);
+    //br = clamp(reinhard_extended(br*tonemapGain,max(1.0,tonemapGain)),0.0,1.0);
+    pRGB = clamp(pRGB*mix(tonemapGain,1.0,LTMMIX), 0.0,1.0);
+    //pRGB = clamp(reinhard_extended(pRGB*tonemapGain,max(1.0,tonemapGain)),vec3(0.0),vec3(1.0));
 
-    pRGB = clamp(reinhard_extended(pRGB,max(1.0,tonemapGain*1.0)),vec3(0.0),vec3(1.0));
-    pRGB = clamp(reinhard_extended(pRGB*gainsVal,max(1.0,gainsVal*0.8)),vec3(0.0),vec3(1.0));
-    pRGB = tonemap(pRGB);
+    pRGB = clamp(reinhard_extended(pRGB*gainsVal,max(1.0,gainsVal)),vec3(0.0),vec3(1.0));
+    //pRGB = clamp(pRGB*tonemapGain*gainsVal,vec3(0.0),vec3(1.0));
+
     //ISO tint correction
     //pRGB = mix(vec3(pRGB.r*0.99*(TINT2),pRGB.g*(TINT),pRGB.b*1.025*(TINT2)),pRGB,clamp(br*10.0,0.0,1.0));
 
     //pRGB = saturate(pRGB,br);
 
     pRGB = gammaCorrectPixel2(pRGB);
+    pRGB = tonemap(pRGB, mix(1.0,tonemapGain,LTMMIX));
     pRGB = mix(pRGB*pRGB*pRGB*TONEMAPX3 + pRGB*pRGB*TONEMAPX2 + pRGB*TONEMAPX1,pRGB,min(pRGB*0.8+0.55,1.0));
+
     return pRGB;
 }
+
 float getGain(vec2 coordsShift){
     float ingain = texture(FusionMap, (gl_FragCoord.xy)/vec2(INSIZE) + coordsShift/vec2(INSIZE)).r;
     //float ingain = texelFetch(FusionMap, xy, 0).r;
@@ -387,6 +460,7 @@ void main() {
     tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))+EPS);
     tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);*/
     // guide filtering for gains
+    /*
     float sigma = 1.0;
     float Z = 0.0;
     float gain = 0.0;
@@ -399,10 +473,29 @@ void main() {
         }
     }
     tonemapGain = gain / Z;
+    */
+    float sumX = 0.0, sumY = 0.0, sumXX = 0.0, sumXY = 0.0;
+    for (int i = -3; i <= 3; i++) {
+        for (int j = -3; j <= 3; j++) {
+            float lightness = dot(texelFetch(InputBuffer, xy + ivec2(i*2, j*2), 0).rgb, vec3(1.0/3.0));
+            float gain = getGain(vec2(i*2, j*2));
+            sumX += lightness;
+            sumY += gain;
+            sumXX += lightness * lightness;
+            sumXY += lightness * gain;
+        }
+    }
+    float invCount = 1.0 / float(49.0);
+    float meanX = sumX * invCount;
+    float meanY = sumY * invCount;
+    float covXY = sumXY * invCount - meanX * meanY;
+    float varX = sumXX * invCount - meanX * meanX;
+    // Handle zero variance case
+    float a = (abs(varX) < 1e-6) ? 0.0 : covXY / varX;
+    float b = meanY - a * meanX;
+    tonemapGain =  a * dot(sRGB.rgb,vec3(1.0/3.0)) + b;
     tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);
     #endif
-    //vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
-    //tonemapGain *= (gains.r+gains.g+gains.b+gains.a)/4.0;
     float br = (sRGB.r+sRGB.g+sRGB.b)/3.0;
     vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
     gains.rgb = vec3(gains.r,(gains.g+gains.b)/2.0,gains.a);
@@ -420,8 +513,11 @@ void main() {
     //float sat2 = SATURATION2;
     //sat2*=br;
     sRGB = saturate(sRGB,SATURATION2,SATURATION);
-    sRGB = contrastSin(sRGB,CONTRAST);
+    sRGB = contrastSin(sRGB,mix(CONTRAST+SHADOWS, CONTRAST, luminocity(sRGB)));
     float noiseO = (NOISEO*NOISEO)*0.25;
     noiseO = min(noiseO,0.25);
     Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
+    #if POSTLUT == 1
+        Output = postlookup(Output);
+    #endif
 }
