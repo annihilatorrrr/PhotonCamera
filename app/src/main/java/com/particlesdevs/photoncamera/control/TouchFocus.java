@@ -23,6 +23,7 @@ public class TouchFocus {
     private final GLPreview textureView;
     private final View focusCircleView;
     private final Runnable hideFocusCircleRunnable = this::hideFocusCircleView;
+    public boolean isTouchFocus = false;
     private final OnTouchListener focusListener = (v, event) -> {
         v.performClick();
         resetFocusCircle();
@@ -139,6 +140,7 @@ public class TouchFocus {
         builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
         captureController.rebuildPreviewBuilderOneShot();
         captureController.rebuildPreviewBuilder();
+        isTouchFocus = true;
     }
     private void resetAutoFocus() {
         if(CaptureController.burst) return;
@@ -147,9 +149,10 @@ public class TouchFocus {
             Log.w(TAG, "triggerAutoFocus(): mPreviewRequestBuilder is null");
             return;
         }
-        //builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
-        //builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
-        //captureController.rebuildPreviewBuilderOneShot();
+        Log.d(TAG, "resetAutoFocus");
+        /*builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+        captureController.rebuildPreviewBuilderOneShot();
         builder.set(CaptureRequest.CONTROL_AF_REGIONS, captureController.mPreviewMeteringAF);
         builder.set(CaptureRequest.CONTROL_AE_REGIONS, captureController.mPreviewMeteringAE);
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
@@ -157,14 +160,23 @@ public class TouchFocus {
         builder.set(CaptureRequest.CONTROL_AE_MODE, captureController.mPreviewAEMode);
         //set focus area repeating,else cam forget after one frame where it should focus
         //trigger af start only once. cam starts focusing till its focused or failed
+        //builder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_IDLE);
+        //builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+        //captureController.rebuildPreviewBuilderOneShot();
+        //set focus trigger back to idle to signal cam after focusing is done to do nothing
         builder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
         builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
         captureController.rebuildPreviewBuilderOneShot();
-        //set focus trigger back to idle to signal cam after focusing is done to do nothing
-        builder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_IDLE);
-        builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+        captureController.rebuildPreviewBuilder();*/
+        builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+        //builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+        builder.set(CaptureRequest.CONTROL_AF_REGIONS, captureController.mPreviewMeteringAF);
+        builder.set(CaptureRequest.CONTROL_AE_REGIONS, captureController.mPreviewMeteringAE);
+        builder.set(CaptureRequest.CONTROL_AF_MODE, captureController.mPreviewAFMode);
+        builder.set(CaptureRequest.CONTROL_AE_MODE, captureController.mPreviewAEMode);
         captureController.rebuildPreviewBuilderOneShot();
         captureController.rebuildPreviewBuilder();
+        isTouchFocus = false;
     }
 
 

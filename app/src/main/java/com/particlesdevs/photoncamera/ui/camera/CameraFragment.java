@@ -309,6 +309,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             View focusCircle = cameraFragmentBinding.layoutViewfinder.touchFocus;
             textureView.post(() -> {
                 mTouchFocus = new TouchFocus(captureController,focusCircle,textureView);
+                captureController.mTouchFocus = mTouchFocus;
             });
         }
     }
