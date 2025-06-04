@@ -2,6 +2,7 @@
 precision mediump float;
 uniform samplerExternalOES sTexture;
 uniform vec2 resolution;
+uniform bool enablePeak;
 out vec4 Output;
 in vec2 texCoord;
 void main() {
@@ -21,6 +22,7 @@ void main() {
     // denoise
     float w = (diff * diff) /(denoiseK + (diff * diff));
     vec4 dc = vec4(1.0,0.0,1.0,0.0);
-    color = color + dc*32.0*diff*w;
+    if(enablePeak)
+        color = color + dc*32.0*diff*w;
     Output = color;
 }
