@@ -7,7 +7,9 @@ import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+import com.particlesdevs.photoncamera.util.FileManager;
 
+import java.io.File;
 import java.io.IOException;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
@@ -38,7 +40,9 @@ public class RotateWatermark extends Node {
 
         glProg.useAssetProgram("addwatermark_rotate");
         try {
-            watermark = new GLImage(PhotonCamera.getAssetLoader().getInputStream("watermark/photoncamera_watermark.png"));
+            File waterExternal = new File(FileManager.sPHOTON_TUNING_DIR,"watermark.png");
+            if (waterExternal.exists()) watermark = new GLImage(waterExternal);
+            else watermark = new GLImage(PhotonCamera.getAssetLoader().getInputStream("watermark/photoncamera_watermark.png"));
             glProg.setTexture("Watermark", new GLTexture(watermark,GL_LINEAR,GL_CLAMP_TO_EDGE,0));
         } catch (IOException e) {
             e.printStackTrace();
