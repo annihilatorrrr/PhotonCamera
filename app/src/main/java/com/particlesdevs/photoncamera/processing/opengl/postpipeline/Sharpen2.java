@@ -21,7 +21,7 @@ public class Sharpen2 extends Node {
     float sharpSize = 0.9f;
     float sharpMin = 0.4f;
     float sharpMax = 1.0f;
-    float denoiseActivity = 1.0f;
+    float denoiseActivity = 0.0f;
     @Override
     public void Run() {
         denoiseActivity = getTuning("DenoiseActivity",denoiseActivity);
