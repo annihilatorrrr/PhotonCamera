@@ -23,7 +23,8 @@ public class DebugSender extends SaverImplementation {
 
     public void addRAW16(Image image) {
         image.getFormat();
-        IMAGE_BUFFER.add(image);
+        IMAGE_BUFFER.add(getFrame(image));
+        image.close();
     }
 
     public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {

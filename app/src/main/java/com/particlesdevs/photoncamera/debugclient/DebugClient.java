@@ -2,10 +2,10 @@ package com.particlesdevs.photoncamera.debugclient;
 
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.media.Image;
 import android.util.Log;
 
 import com.particlesdevs.photoncamera.capture.CaptureController;
+import com.particlesdevs.photoncamera.processing.ImageFrame;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -162,16 +162,13 @@ public class DebugClient {
     }
 
 
-    public void sendRaw(Image input){
-        int width = input.getPlanes()[0].getRowStride() /
-                input.getPlanes()[0].getPixelStride();
-        int height = input.getHeight();
-        mBufferOut.print((short)width);
+    public void sendRaw(ImageFrame input){
+        mBufferOut.print((short)input.width);
         mBufferOut.print(",");
-        mBufferOut.print((short)height);
+        mBufferOut.print((short)input.height);
         mBufferOut.print(",");
-        ShortBuffer buffer = input.getPlanes()[0].getBuffer().asShortBuffer();
-        short[] values = new short[input.getPlanes()[0].getBuffer().remaining()/2];
+        ShortBuffer buffer = input.buffer.asShortBuffer();
+        short[] values = new short[input.buffer.remaining()/2];
         buffer.get(values);
         for (short value : values) {
             mBufferOut.print(value);

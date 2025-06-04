@@ -73,8 +73,8 @@ public class DefaultSaver extends SaverImplementation {
                 PhotonCamera.getSettings().rawSaver,
                 PhotonCamera.getSettings().selectedMode
         );
-        ArrayList<Image> slicedBuffer = new ArrayList<>();
-        ArrayList<Image> imagebuffer = new ArrayList<>();
+        ArrayList<ImageFrame> slicedBuffer = new ArrayList<>();
+        ArrayList<ImageFrame> imagebuffer = new ArrayList<>();
         for(int i =0; i<frameCount;i++){
             slicedBuffer.add(IMAGE_BUFFER.get(i));
         }
@@ -85,13 +85,10 @@ public class DefaultSaver extends SaverImplementation {
         IMAGE_BUFFER = imagebuffer;
         bufferLock = false;
         for(int i =0; i<slicedBuffer.size();i++){
-            try{
-                slicedBuffer.get(i).getFormat();
-            } catch (IllegalStateException e){
+            if (slicedBuffer.get(i) == null) {
                 slicedBuffer.remove(i);
                 i--;
-                Log.d(TAG,"IMGBufferSize:"+slicedBuffer.size());
-                Log.d(TAG,Log.getStackTraceString(e));
+                Log.d(TAG, "IMGBufferSize:" + slicedBuffer.size());
             }
         }
 

@@ -21,7 +21,7 @@ public class JPEGSaver extends DefaultSaver {
     public void addImage(Image image) {
         ByteBuffer buffer = image.getPlanes()[0].getBuffer();
         try {
-            IMAGE_BUFFER.add(image);
+            IMAGE_BUFFER.add(getFrame(image));
             byte[] bytes = new byte[buffer.remaining()];
             if (IMAGE_BUFFER.size() == PhotonCamera.getCaptureController().mMeasuredFrameCnt && PhotonCamera.getSettings().frameCount != 1) {
                 Path jpgPath = ImagePath.newJPGFilePath();

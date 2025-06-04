@@ -9,7 +9,9 @@ import android.media.ImageReader;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.processor.ProcessorBase;
+import com.particlesdevs.photoncamera.util.Allocator;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -18,10 +20,28 @@ public class SaverImplementation {
     private static final String TAG = "SaverImplementation";
     public volatile boolean bufferLock = false;
     public volatile boolean newBurst = false;
-    public static ArrayList<Image> IMAGE_BUFFER = new ArrayList<>();
+    public static ArrayList<ImageFrame> IMAGE_BUFFER = new ArrayList<>();
     public int frameCount = 0;
     private int imageFormat;
     public final ProcessingEventsListener processingEventsListener;
+
+    public ImageFrame getFrame(Image image){
+        try {
+            image.getFormat();
+        } catch (Exception e) {
+            // This image is not valid, skip it
+            return null;
+        }
+        ImageFrame frame = new ImageFrame(image.getPlanes()[0].getBuffer());
+        frame.timestamp = image.getTimestamp();
+        int width = image.getPlanes()[0].getRowStride() /
+                image.getPlanes()[0].getPixelStride();
+        int height = image.getHeight();
+        frame.width = width;
+        frame.height = height;
+
+        return frame;
+    }
 
     final ProcessorBase.ProcessingCallback processingCallback = new ProcessorBase.ProcessingCallback() {
         @Override

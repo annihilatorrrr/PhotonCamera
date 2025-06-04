@@ -2,37 +2,28 @@ package com.particlesdevs.photoncamera.processing;
 
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
+import android.graphics.Point;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.hardware.camera2.DngCreator;
 import android.media.Image;
 import android.media.ImageReader;
-import android.os.AsyncTask;
 import android.util.Log;
 
 import androidx.exifinterface.media.ExifInterface;
 
 import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.api.ParseExif;
-import com.particlesdevs.photoncamera.app.PhotonCamera;
-import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.control.GyroBurst;
-import com.particlesdevs.photoncamera.processing.processor.ProcessorBase;
-import com.particlesdevs.photoncamera.util.FileManager;
+import com.particlesdevs.photoncamera.processing.render.Parameters;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.getImageSaver;
 import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.init;
@@ -148,32 +139,36 @@ public class ImageSaver {
             }
         }
 
-        //Different method name just for clarity of usage
         public static boolean saveStackedRaw(Path dngFilePath,
-                                             Image image,
-                                             CameraCharacteristics characteristics,
-                                             CaptureResult captureResult,
-                                             int cameraRotation) {
-            return saveSingleRaw(dngFilePath, image, characteristics, captureResult, cameraRotation);
+                                             ByteBuffer buffer, Parameters parameters) {
+            return saveSingleRaw(dngFilePath, buffer, parameters);
+        }
+        @HunterDebug
+        public static boolean saveSingleRaw(Path dngFilePath,
+                                            ImageFrame image,
+                                            CameraCharacteristics characteristics,
+                                            CaptureResult captureResult,
+                                            int cameraRotation) {
+            Parameters parameters = new Parameters();
+
+            parameters.FillConstParameters(characteristics, new Point(image.width, image.height));
+            int iso = captureResult.get(CaptureResult.SENSOR_SENSITIVITY);
+            parameters.FillDynamicParameters(captureResult, null, iso);
+            parameters.cameraRotation = cameraRotation;
+            Log.d(TAG, "Camera rotation: " + parameters.cameraRotation);
+            Log.d(TAG, "activearr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+            Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
+            return saveSingleRaw(dngFilePath, image.buffer, parameters);
         }
 
         @HunterDebug
         public static boolean saveSingleRaw(Path dngFilePath,
-                                            Image image,
-                                            CameraCharacteristics characteristics,
-                                            CaptureResult captureResult,
-                                            int cameraRotation) {
-            Log.d(TAG, "activearr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE));
-            Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
-            Log.d(TAG, "image:" + image.getCropRect());
-            DngCreator dngCreator =
-                    new DngCreator(characteristics, captureResult)
-                            .setDescription(PhotonCamera.getParameters().toString())
-                            .setOrientation(ParseExif.getOrientation(cameraRotation));
+                                            ByteBuffer buffer, Parameters parameters) {
+            DngCreator dngCreator = new DngCreator();
+            dngCreator.setParameters(parameters);
             try {
                 OutputStream outputStream = Files.newOutputStream(dngFilePath);
-                dngCreator.writeImage(outputStream, image);
-//                image.close();
+                dngCreator.writeBuffer(outputStream, buffer, parameters.rawSize.x, parameters.rawSize.y);
                 outputStream.close();
                 return true;
             } catch (IOException e) {

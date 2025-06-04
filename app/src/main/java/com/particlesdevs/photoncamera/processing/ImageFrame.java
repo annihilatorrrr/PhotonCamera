@@ -1,15 +1,18 @@
 package com.particlesdevs.photoncamera.processing;
 
 import android.media.Image;
+import android.util.Log;
 
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
+import com.particlesdevs.photoncamera.util.Allocator;
 
 import java.nio.ByteBuffer;
 
 public class ImageFrame {
     public ByteBuffer buffer;
-    public Image image;
+    public long timestamp;
+    public int width, height;
     public GyroBurst frameGyro;
     public float[][][] BlurKernels;
     public double posx, posy;
@@ -19,7 +22,23 @@ public class ImageFrame {
     public int number;
     public IsoExpoSelector.ExpoPair pair;
 
+    public long getTimestamp() {
+        return timestamp;
+    }
+
     public ImageFrame(ByteBuffer in) {
-        buffer = in;
+        ByteBuffer direct = Allocator.allocate(in.capacity());
+        direct.put(in);
+        direct.position(0);
+        buffer = direct;
+    }
+
+    public void close() {
+        if (buffer != null) {
+            Allocator.free(buffer);
+            buffer = null;
+        } else {
+            Log.d("ImageFrame", "Buffer is already null, nothing to close.");
+        }
     }
 }
