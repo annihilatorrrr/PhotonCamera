@@ -17,9 +17,14 @@ public class ESD3D extends Node {
     @Override
     public void Compile() {
     }
+    float moire = 1.0f;
+    float luma = 0.0f;
+    float noiseToKernelSize = 100000.f;
 
     @Override
     public void Run() {
+        moire = getTuning("MoireRemoveMpy",moire);
+        noiseToKernelSize = getTuning("NoiseToKernelSize",noiseToKernelSize);
         //if(basePipeline.main4 == null)
         //    basePipeline.main4 = glUtils.medianDown(previousNode.WorkingTexture,4);
         //GLTexture grad;
@@ -39,10 +44,12 @@ public class ESD3D extends Node {
             Log.d(Name, "NoiseS:" + basePipeline.noiseS + ", NoiseO:" + basePipeline.noiseO);
             glProg.setDefine("NOISES", basePipeline.noiseS);
             glProg.setDefine("NOISEO", basePipeline.noiseO);
+            glProg.setDefine("MOIRE", moire);
+            glProg.setDefine("LUMA", luma);
 
             glProg.setDefine("INSIZE", basePipeline.mParameters.rawSize);
-            float ks = 1.0f + Math.min((basePipeline.noiseS+basePipeline.noiseO) * 3.0f * 100000.f, 34.f);
-            int msize = 5 + (int)ks - (int)ks%2;
+            float ks = 1.0f + Math.min((basePipeline.noiseS+basePipeline.noiseO) * 3.0f * noiseToKernelSize, 34.f);
+            int msize = 7 + (int)ks - (int)ks%2;
             Log.d("ESD3D", "KernelSize: "+ks+" MSIZE: "+msize);
             glProg.setDefine("KERNELSIZE", ks);
             glProg.setDefine("MSIZE", msize);

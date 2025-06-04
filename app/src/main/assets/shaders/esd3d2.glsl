@@ -24,6 +24,8 @@ out vec4 Output;
 #define NOISES 0.0
 #define NOISEO 0.0
 #define INTENSE 1.0
+#define MOIRE 1.0
+#define LUMA 0.0
 #define PI 3.1415926535897932384626433832795
 
 float normpdf(in float x, in float sigma)
@@ -52,12 +54,37 @@ void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
     xy+=ivec2(0,yOffset);
     vec3 cin = vec3(texelFetch(InputBuffer, xy, 0).rgb);
-    float noisefactor = dot(cin,vec3(0.15,0.7,0.15));
+    vec3 cinX = vec3(texelFetch(InputBuffer, xy+ivec2(1,0), 0).rgb);
+    vec3 cinY = vec3(texelFetch(InputBuffer, xy+ivec2(0,1), 0).rgb);
+    vec3 cinXY = vec3(texelFetch(InputBuffer, xy+ivec2(1,1), 0).rgb);
+    vec3 cavg = (cin+cinX+cinY+cinXY)/4.0;
+    float noisefactor = dot(cin,vec3(0.25,0.5,0.25));
+    float xDelta = 0.0;
+    float yDelta = 0.0;
+    for (int i=-1; i <= 1; ++i) {
+        for (int j=-1; j <= 1; ++j) {
+            xDelta += float(i) * length(texelFetch(GradBuffer, xy + ivec2(i, j), 0).rgb);
+            yDelta += float(j) * length(texelFetch(GradBuffer, xy + ivec2(i, j), 0).rgb);
+        }
+    }
+    xDelta /= 3.0;
+    yDelta /= 3.0;
+    // calculate chromatic noise percentage
     vec3 final_colour = vec3(0.0);
+    vec3 final_colour2 = vec3(0.0);
     float sigX = 2.5;
-    float sigY = (noisefactor*noisefactor*NOISES + NOISEO + 0.0000001);
+    //float sigY = (noisefactor*noisefactor*NOISES + NOISEO + 0.0000001);
+    float sigY = max(NOISES*noisefactor + NOISES*NOISES * 3.0/8.0 + noiseO, 0.0000001);
+    vec3 chromaDiff = (abs(cavg-cinX)+abs(cavg-cinY)+abs(cavg-cinXY)+abs(cavg-cin))/4.0;
+    //chromaDiff *= (length(chromaDiff)/(length(chromaDiff)+sigY*64.0));
+    chromaDiff *= max(abs(xDelta),abs(yDelta));
+    float chromaNoise = max(chromaDiff.r,max(chromaDiff.g,chromaDiff.b))-min(chromaDiff.r,min(chromaDiff.g,chromaDiff.b));
+    float sigZ = max(sigY,min(abs(chromaNoise)*MOIRE,0.2));
+    //sigY += min(abs(chromaNoise)/32.0,0.2);
     float Z = 0.01f;
+    float Z2 = 0.01f;
     final_colour += cin*Z;
+    final_colour2 += cin*Z;
     //sigY /= 25.0;
     // Use hybrid SNN filtering to denoise the image
     //vec3 cc[4];
@@ -76,17 +103,27 @@ void main() {
             // Compute the weights
             vec4 d = vec4(length(abs(cc0-cin)),length(abs(cc1-cin)),length(abs(cc2-cin)),length(abs(cc3-cin)));
             vec4 w = (1.0-d*d/(d*d + sigY));
+            vec4 w2 = (1.0-d*d/(d*d + sigZ));
             float wm = min(min(min(w[0],w[1]),w[2]),w[3])*1.0;
             w -= wm;
+            w2 -= wm;
             float f1 = normpdf(float(i),KERNELSIZE)*normpdf(float(j),KERNELSIZE);
             final_colour += f1*mat4x3(cc0,cc1,cc2,cc3)*w;
+            final_colour2 += f1*mat4x3(cc0,cc1,cc2,cc3)*w2;
             Z += dot(vec4(f1),w);
+            Z2 += dot(vec4(f1),w2);
         }
     }
 
     //if (Z <= 0.002f) {
     //    Output = vec4(cin,1.0);
     //} else {
-    Output = vec4(clamp(final_colour/Z,0.0,1.0),1.0);
+    float br = dot(final_colour/Z,vec3(0.25,0.5,0.25));
+    br = mix(dot(cin,vec3(0.25,0.5,0.25)),br,LUMA);
+    vec3 resColour = final_colour2/Z2;
+    resColour /= max(1e-6,dot(resColour,vec3(0.25,0.5,0.25)));
+    resColour = clamp(resColour*br,0.0,1.0);
+    Output = vec4(resColour,1.0);
+    //Output = vec4(final_colour/Z,1.0);
     //}
 }
