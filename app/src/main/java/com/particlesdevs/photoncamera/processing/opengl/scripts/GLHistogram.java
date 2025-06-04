@@ -23,7 +23,7 @@ public class GLHistogram implements AutoCloseable{
     public boolean Bc = true;
     public boolean Ac = true;
     public boolean Custom = false;
-    int resize = 3;
+    public int resize = 3;
     public String CustomProgram = "";
     public GLHistogram() {
         this(new GLContext(1,1),256);
@@ -36,6 +36,15 @@ public class GLHistogram implements AutoCloseable{
         this.context = context;
         externalContext = true;
         glProg = context.mProgram;
+        buffers[0] = new GLBuffer(histSize,histFormat);
+        buffers[1] = new GLBuffer(histSize,histFormat);
+        buffers[2] = new GLBuffer(histSize,histFormat);
+        buffers[3] = new GLBuffer(histSize,histFormat);
+    }
+    public GLHistogram(GLProg glProg, int size) {
+        histSize = size;
+        this.glProg = glProg;
+        externalContext = true;
         buffers[0] = new GLBuffer(histSize,histFormat);
         buffers[1] = new GLBuffer(histSize,histFormat);
         buffers[2] = new GLBuffer(histSize,histFormat);
