@@ -101,9 +101,8 @@ public class PostPipeline extends GLBasePipeline {
             GLDrawParams.TileSize = 256;
         }
         GLFormat format = new GLFormat(GLFormat.DataType.SIMPLE_8, 4);
-        GLImage output = new GLImage(rotatedSize, format);
-
-        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format, GLDrawParams.Allocate.Heap);
+        GLImage output = new GLImage(rotatedSize, format, false);
+        GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format, GLDrawParams.Allocate.Direct);
         glint = new GLInterface(glproc);
         stackFrame = inBuffer;
         glint.parameters = parameters;
@@ -117,7 +116,7 @@ public class PostPipeline extends GLBasePipeline {
     private void BuildDefaultPipeline() {
         boolean nightMode = PhotonCamera.getSettings().selectedMode == CameraMode.NIGHT;
         add(new Bayer2Float());
-        add(new ExposureFusionBayer2());
+        add(new ExposureFusionBayer3());
         switch (PhotonCamera.getSettings().cfaPattern) {
             case -2: {
                 add(new DemosaicQUAD());
@@ -128,8 +127,8 @@ public class PostPipeline extends GLBasePipeline {
                 break;
             }
             default: {
-                if (nightMode)
-                    add(new HotPixelFilter());
+                //if (nightMode)
+                //    add(new HotPixelFilter());
                 //if(PhotonCamera.getSettings().hdrxNR) {
                 //add(new ESD3DBayerCS());
                 //}
@@ -137,16 +136,17 @@ public class PostPipeline extends GLBasePipeline {
                 if (PhotonCamera.getSettings().hdrxNR) {
 
                     //add(new BayerFilter());
-                    if (nightMode) {
+                    /*if (nightMode) {
                         add(new BayerConcat(true));
                         add(new BayerFilter());
                         add(new BayerConcat(false));
-                    }
+                    }*/
                     //add(new BayerMoire());
 
                 }
 
                 if(mSettings.alignAlgorithm != 2) {
+                    //add(new HotPixelFilter());
                     add(new Demosaic3());
                 }
                 if (PhotonCamera.getSettings().hdrxNR) {
@@ -168,7 +168,7 @@ public class PostPipeline extends GLBasePipeline {
         //}
 
         //add(new AWB());
-        add(new Equalization());
+        //add(new Equalization());
 
         add(new Initial());
 

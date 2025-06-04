@@ -36,11 +36,16 @@ public class GLImage implements AutoCloseable {
         glFormat = new GLFormat(GLFormat.DataType.SIMPLE_8,image.getByteCount()/(image.getWidth()*image.getHeight()));
         byteBuffer = getByteBuffer(image);
     }
+    public GLImage(Point size, GLFormat glFormat){
+        this(size,glFormat,true);
+    }
 
-    public GLImage(Point size, GLFormat glFormat) {
+    public GLImage(Point size, GLFormat glFormat, boolean allocate) {
         this.size = new Point(size);
         this.glFormat = new GLFormat(glFormat);
-        byteBuffer = ByteBuffer.allocateDirect(size.x*size.y*glFormat.mChannels*glFormat.mFormat.mSize);
+        if(allocate)
+            byteBuffer = ByteBuffer.allocateDirect(size.x*size.y*glFormat.mChannels*glFormat.mFormat.mSize);
+
     }
 
     public GLImage(Point size, GLFormat glFormat, ByteBuffer byteBuffer) {
