@@ -40,6 +40,7 @@ public class Settings {
     public int alignAlgorithm;
 
     public int colorMethod;
+    public int focusPeak;
     public int previewFormat;
     public String mCameraID;
     public float[] toneMap;
@@ -82,6 +83,7 @@ public class Settings {
         hdrxNR = PreferenceKeys.isHdrxNrOn();
         alignAlgorithm = PreferenceKeys.getAlignMethodValue();
         colorMethod = PreferenceKeys.getColorMethodValue();
+        focusPeak = PreferenceKeys.getFocusPeakValue();
         previewFormat = PreferenceKeys.getPreviewFormatValue();
         selectedMode = CameraMode.valueOf(PreferenceKeys.getCameraModeOrdinal());
         toneMap = parseToneMapArray();

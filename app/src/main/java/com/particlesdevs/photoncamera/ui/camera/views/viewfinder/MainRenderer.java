@@ -59,6 +59,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
             }
         }
         GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
+        GLES20.glUniform1i(enablePeak, PhotonCamera.getSettings().focusPeak);
         GLES20.glVertexAttribPointer(vPosition, 2, GLES20.GL_FLOAT, false, 4 * 2, pVertex);
         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -68,6 +69,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private int uTexRotateMatrix;
     private int vPosition;
     private int vTexCoord;
+    private int enablePeak;
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         initTex();
@@ -82,6 +84,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
         vPosition = GLES20.glGetAttribLocation(hProgram, "vPosition");
         vTexCoord = GLES20.glGetAttribLocation(hProgram, "vTexCoord");
+        enablePeak = GLES20.glGetUniformLocation(hProgram, "enablePeak");
         GLES20.glVertexAttribPointer(vPosition, 2, GLES20.GL_FLOAT, false, 4 * 2, pVertex);
         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
         GLES20.glEnableVertexAttribArray(vPosition);
