@@ -37,6 +37,8 @@ public class Parameters {
     public float[] blackLevel = new float[4];
     public float[] whitePoint = new float[3];
     public int whiteLevel = 1023;
+    public int rawWhiteLevel = 1023;
+    public static int mergeWhiteLevel = 65535;
     public int realWL = -1;
     public boolean hasGainMap;
     public Point mapSize;
@@ -65,14 +67,28 @@ public class Parameters {
     public SpecificSettingSensor sensorSpecifics;
 
     public int tile = 16;
+    public int tilesX = 0;
+    public Point alignmentSize = new Point(0, 0);
     public float[] HSVMap = null;
     public float[] LookMap = null;
     public int[] HSVMapSize = new int[2];
     public int[] LookMapSize = new int[3];
 
+    public int calibrationIlluminant1 = -1;
+    public int calibrationIlluminant2 = -1;
+
+    public float[] calibrationTransform1 = new float[9];
+    public float[] normalizedForwardTransform1 = new float[9];
+    public float[] normalizedColorMatrix1 = new float[9];
+    public float[] normalizedColorMatrix2 = new float[9];
+    public float[] calibrationTransform2 = new float[9];
+    public float[] normalizedForwardTransform2 = new float[9];
+
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         rawSize = size;
+        alignmentSize = new Point((size.x / (tile)) + 1, (size.y / (tile)) + 1);
+        tilesX = (rawSize.x / 800) + 1;
         Integer analogue = characteristics.get(CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY);
         if (analogue != null) {
             analogIso = analogue;
@@ -127,6 +143,7 @@ public class Parameters {
         focalLength = flen[0];
         Object whiteLevel = characteristics.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL);
         if (whiteLevel != null) this.whiteLevel = ((int) whiteLevel);
+        rawWhiteLevel = this.whiteLevel;
         hasGainMap = false;
         mapSize = new Point(1, 1);
         gainMap = new float[4];
@@ -156,11 +173,15 @@ public class Parameters {
         if (result != null) {
             boolean isHuawei = Build.BRAND.equals("Huawei");
 
-            /*float[] dynbl = result.get(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
-            if (dynbl != null) {
+            float[] dynbl = result.get(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
+            /*if (dynbl != null) {
                 System.arraycopy(dynbl, 0, blackLevel, 0, 4);
                 usedDynamic = true;
             }*/
+            Object white = result.get(CaptureResult.SENSOR_DYNAMIC_WHITE_LEVEL);
+            if (white != null) {
+                whiteLevel = (int) white;
+            }
 
             LensShadingMap lensMap = result.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP);
             if (lensMap != null) {
@@ -218,6 +239,9 @@ public class Parameters {
         } else {
             ref2 = ref1;
         }
+        calibrationIlluminant1 = ref1;
+        calibrationIlluminant2 = ref2;
+
         ColorSpaceTransform calibration1 = characteristics.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1);
         ColorSpaceTransform calibration2 = characteristics.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2);
         ColorSpaceTransform colorMat1 = characteristics.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1);
@@ -258,12 +282,6 @@ public class Parameters {
         }
         //Log.d(TAG, "Using custom color transform 1:"+ colorMat1.toString());
 
-        float[] calibrationTransform1 = new float[9];
-        float[] normalizedForwardTransform1 = new float[9];
-        float[] normalizedColorMatrix1 = new float[9];
-        float[] normalizedColorMatrix2 = new float[9];
-        float[] calibrationTransform2 = new float[9];
-        float[] normalizedForwardTransform2 = new float[9];
 
         Converter.convertColorspaceTransform(calibration1, calibrationTransform1);
         Converter.convertColorspaceTransform(calibration2, calibrationTransform2);
