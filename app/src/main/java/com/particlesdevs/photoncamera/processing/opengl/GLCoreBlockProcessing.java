@@ -48,11 +48,11 @@ public class GLCoreBlockProcessing extends GLContext {
         mOut = out;
     }
     public GLCoreBlockProcessing(Point size, GLImage out, GLFormat glFormat) {
-        this(size, glFormat, GLDrawParams.Allocate.Heap);
+        this(size, glFormat, GLDrawParams.Allocate.Direct);
         mOut = out;
     }
     public GLCoreBlockProcessing(Point size, GLFormat glFormat) {
-        this(size,glFormat, GLDrawParams.Allocate.Heap);
+        this(size,glFormat, GLDrawParams.Allocate.Direct);
     }
     public GLCoreBlockProcessing(Point size, GLFormat glFormat, GLDrawParams.Allocate alloc) {
         super(size.x, GLDrawParams.TileSize);
