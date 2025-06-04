@@ -19,6 +19,10 @@ vec3 fastExp3(vec3 x){
     vec3 s = vec3(1.0)+x;
     return s;
 }
+vec4 fastExp4(vec4 x){
+    vec4 s = vec4(1.0)+x;
+    return s;
+}
 
 float unscaledGaussian(float d, float s) {
     float interm = d / s;
@@ -57,4 +61,6 @@ vec2 pdf2(vec2 d) {
 vec3 pdf3(vec3 d) {
     return vec3(1.0)/fastExp3(d * d);
 }
-
+vec4 pdf4(vec4 d) {
+    return vec4(1.0)/fastExp4(d * d);
+}
