@@ -101,15 +101,15 @@ vec3 interpolateGreen(ivec2 pos) {
     //float gN = getBayerSample(pos + ivec2(1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
     //float gS = getBayerSample(pos + ivec2(-1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
 
-    float gE = getBayerSample(pos + ivec2(1,0)) + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
-    float gW = getBayerSample(pos + ivec2(-1,0))+ (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
-    float gN = getBayerSample(pos + ivec2(0,-1))+ (getBayerSample(pos) - getBayerSample(pos + ivec2(0,-2)))/2.0 + (getBayerSample(pos + ivec2(0,-3)) - 2.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,1)))/8.0;
-    float gS = getBayerSample(pos + ivec2(0,1))+ (getBayerSample(pos) - getBayerSample(pos + ivec2(0,2)))/2.0 + (getBayerSample(pos + ivec2(0,-1)) - 2.0 * getBayerSample(pos + ivec2(0,1)) + getBayerSample(pos + ivec2(0,3)))/8.0;
-    float gh = (gE * wE + gW * wW)/(wE + wW);
-    float gv = (gN * wN + gS * wS)/(wN + wS);
+    float gE = getBayerSample(pos + ivec2(1,0));// + (getBayerSample(pos) - getBayerSample(pos + ivec2(2,0)))/2.0 + (getBayerSample(pos + ivec2(-1,0)) - 2.0 * getBayerSample(pos + ivec2(1,0)) + getBayerSample(pos + ivec2(3,0)))/8.0;
+    float gW = getBayerSample(pos + ivec2(-1,0));//+ (getBayerSample(pos) - getBayerSample(pos + ivec2(-2,0)))/2.0 + (getBayerSample(pos + ivec2(-3,0)) - 2.0 * getBayerSample(pos + ivec2(-1,0)) + getBayerSample(pos + ivec2(1,0)))/8.0;
+    float gN = getBayerSample(pos + ivec2(0,-1));//+ (getBayerSample(pos) - getBayerSample(pos + ivec2(0,-2)))/2.0 + (getBayerSample(pos + ivec2(0,-3)) - 2.0 * getBayerSample(pos + ivec2(0,-1)) + getBayerSample(pos + ivec2(0,1)))/8.0;
+    float gS = getBayerSample(pos + ivec2(0,1));//+ (getBayerSample(pos) - getBayerSample(pos + ivec2(0,2)))/2.0 + (getBayerSample(pos + ivec2(0,-1)) - 2.0 * getBayerSample(pos + ivec2(0,1)) + getBayerSample(pos + ivec2(0,3)))/8.0;
+    //float gh = (gE * wE + gW * wW)/(wE + wW);
+    //float gv = (gN * wN + gS * wS)/(wN + wS);
     float gd = (gE * wE + gW * wW + gN * wN + gS * wS)/(wE + wW + wN + wS);
-    //float gh = (gE + gW)/2.0;
-    //float gv = (gN + gS)/2.0;
+    float gh = (gE + gW)/2.0;
+    float gv = (gN + gS)/2.0;
 
 
     float dh = igE + igW + EPS;

@@ -42,33 +42,24 @@ vec3 interpolateGreen(ivec2 pos) {
 float ph(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if (g[0] > 0.0) {
-        return g[0] - c;
-    }
-    return g[1] - c;
+    return mix(g[1],g[0],float(g[0] > EPS)) - c;
 }
 
 float pv(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if ((g[0] > 0.0) && (g[1] > 0.0)) {
-        return g[0] - c;
-    }
-    return g[2] - c;
+    return mix(g[2],g[0],float(g[0] > EPS)) - c;
 }
 
 float pd(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
     float c = getBayerSample(pos);
-    if ((g[0] > 0.0) && (g[1] > 0.0)) {
-        return g[0] - c;
-    }
-    return (g[1]+g[2])/2.0 - c;
+    return mix((g[1]+g[2])/2.0,g[0],float(g[0] > EPS)) - c;
 }
 
 float gd(ivec2 pos) {
     vec3 g = interpolateGreen(pos);
-    if ((g[0] > 0.0) && (g[1] > 0.0)) {
+    if ((g[0] > EPS) && (g[1] > EPS)) {
         return g[0];
     } else {
         return (g[1]+g[2])/2.0;
@@ -76,9 +67,10 @@ float gd(ivec2 pos) {
 }
 
 // Green plane enhancement
-vec2 enhanceGreen(ivec2 pos) {
+float enhanceGreen(ivec2 pos) {
     vec3 initialGreen = interpolateGreen(pos);
     int pattern = getBayerPattern(pos);
+    float outGr = 0.0;
     float igE = IG(pos,0);
     float igS = IG(pos,1);
     float igW = IG(pos + ivec2(-2,0),0);
@@ -91,16 +83,10 @@ vec2 enhanceGreen(ivec2 pos) {
 
     float dh = igE + igW + 0.01;
     float dv = igN + igS + 0.01;
-    float dir = 0.0;
-    if (dh > dv) {
-        dir = 1.0;
-    } else {
-        dir = 0.0;
-    }
     float E = max(dh/dv, dv/dh);
     //return vec2(gd(pos), dir);
-    if (pattern == 1 || pattern == 2 || (E >= THRESHOLD)) return vec2(gd(pos), dir); // Already green
-    initialGreen[0] = gd(pos);
+    if (pattern == 1 || pattern == 2 || (E >= THRESHOLD)) return gd(pos); // Already green
+    //initialGreen[0] = gd(pos);
 
     // Pass 2
     vec3 D = vec3(0.0);
@@ -112,31 +98,16 @@ vec2 enhanceGreen(ivec2 pos) {
     D.z /= 2.0;
     float gv = initialGreen[2];
     float gh = initialGreen[1];
-    float gd = initialGreen[0];
-    if (D.x > D.y && D.x > D.z) {
-        initialGreen[0] = gv;
-        dir = 0.0;
-        //g = gs[1];
-    } else if (D.y < D.x && D.y < D.z) {
-        initialGreen[0] = gh;
-        //initialGreen[0] = 1.0;
-        dir = 1.0;
-        //g = gs[0];
-    } else {
-        initialGreen[0] = (gh+gv)/2.0;
-        //initialGreen[0] = gd;
-        //initialGreen[0] = gd;
-        dir = 0.5;
-        //g = gs[2];
-    }
-
-    return vec2(initialGreen[0], dir);
+    //float gd = initialGreen[0];
+    float maxD = max(D.x, max(D.y, D.z));
+    vec3 mask = vec3(equal(D, vec3(maxD)))+EPS;
+    return (gv * mask.x + gh * mask.y + ((gh+gv)/2.0) * mask.z)/(mask.x + mask.y + mask.z);
 }
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     pos+=ivec2(0,yOffset);
     // Step 2: Green plane enhancement
-    vec2 enhancedGreen = enhanceGreen(pos);
-    imageStore(outTexture, pos, vec4(enhancedGreen[0], enhancedGreen[0], enhancedGreen[0], 1.0));
+    float enhancedGreen = enhanceGreen(pos);
+    imageStore(outTexture, pos, vec4(enhancedGreen));
 }
