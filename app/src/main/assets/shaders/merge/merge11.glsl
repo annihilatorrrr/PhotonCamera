@@ -8,6 +8,8 @@ layout(rgba16f, binding = 2) uniform highp writeonly image2D outTexture;
 #define TILE 2
 #define CONCAT 1
 uniform float weight;
+uniform float weight2;
+uniform float exposure;
 uniform float noiseS;
 uniform float noiseO;
 #define EPS 1e-6
@@ -22,7 +24,13 @@ void main() {
     }
     vec4 diffF = median9(diffM);
     bvec4 mask = lessThan(abs(diffF - base), noise);*/
-    vec4 diff = imageLoad(diffTexture, xy)*weight;
-    imageStore(outTexture, xy, base + diff);
-    //imageStore(outTexture, xy, vec4(0.5));
+    vec4 diff = imageLoad(diffTexture, xy)*16.0;
+    //float cexp = max(base.r, max(base.g, max(base.b, base.a)));
+    /*if(cexp < exposure*0.7){
+        diff*=weight;
+    } else {
+        diff*=weight2;
+    }*/
+    imageStore(outTexture, xy, base + diff*weight);
+    //imageStore(outTexture, xy, diff);
 }

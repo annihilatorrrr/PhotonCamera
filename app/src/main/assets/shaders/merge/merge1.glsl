@@ -9,9 +9,11 @@ layout(rgba16f, binding = 1) uniform highp writeonly image2D outTexture;
 #define TILE 2
 #define CONCAT 1
 #define EPS 1e-6
+uniform float minLevel;
 uniform float noiseS;
 uniform float noiseO;
 uniform float integralNorm;
+uniform bool first;
 #define MAXWEIGHT 1.0
 #define MINWEIGHT 0.0
 #define SIGMA 1.5
@@ -37,7 +39,9 @@ void main() {
     vec4 base = textureBicubicHardware(baseTexture, uv);
 
     vec4 br = texture(brTexture, uv);
-    vec4 noise = sqrt(max(br * noiseS + noiseO,EPS));
+    vec4 noise = max(sqrt(max(br * noiseS + noiseO,EPS)), vec4(minLevel));
+    // use GAT
+    //vec4 noise = sqrt(max(noiseS*br + noiseS*noiseS * 3.0/8.0 + noiseO, EPS));
     // do wiener filtering
     vec4 weightSum = vec4(0.0001);
     float Z = 0.0001;
@@ -47,7 +51,8 @@ void main() {
         float f0 = pdf(float(i)/SIGMA);
         for (int j = -1; j <= 1; j++) {
             vec4 diff = imageLoad(diffTexture, xy+ivec2(i, j));
-            vec4 diffNorm = diff*sqrt(integralNorm);
+            vec4 diffNorm = diff*integralNorm;
+            //vec4 w = vec4(greaterThan(diffNorm, noise));
             vec4 w = diffNorm * diffNorm / (noise * noise + diffNorm * diffNorm);
             //w = vec4(1.0) - sqrt(w+EPS);
             //w = robustWeight(w);
@@ -62,9 +67,10 @@ void main() {
     vec4 w = weightSum;
     //vec4 w = diffNormCenter * diffNormCenter / (noise * noise + diffNormCenter * diffNormCenter);
     w = ((clamp(w, MINWEIGHT, MAXWEIGHT)-MINWEIGHT)/(MAXWEIGHT-MINWEIGHT));
-    w = vec4(1.0) - w;
-    if(integralNorm < 1.0){
-        w = vec4(0.0);
+    w = (vec4(1.0) - w);
+    if(first){
+        //base = vec4(0.0);
+        //base *= robustWeight(w);
     }
     //w = vec4(1.0);
     //w = robustWeight(w);
