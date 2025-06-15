@@ -26,7 +26,7 @@ public class DemosaicQUAD extends Node {
         GLTexture glTexture;
         glTexture = previousNode.WorkingTexture;
         //Gradients
-        glProg.useAssetProgram("demosaicp0quad");
+        glProg.useAssetProgram("demosaic/demosaicp0quad");
         glProg.setTexture("RawBuffer", glTexture);
         glProg.setVar("CfaPattern", basePipeline.mParameters.cfaPattern);
         glProg.drawBlocks(basePipeline.main3);
@@ -43,7 +43,7 @@ public class DemosaicQUAD extends Node {
         glProg.setDefine("FUSEMPY",fuseMpy);
         glProg.setDefine("NOISES",basePipeline.noiseS);
         glProg.setDefine("NOISEO",basePipeline.noiseO);
-        glProg.useAssetProgram("demosaicp12quad");
+        glProg.useAssetProgram("demosaic/demosaicp12quad");
         glProg.setTexture("RawBuffer",previousNode.WorkingTexture);
         glProg.setTexture("GradBuffer",basePipeline.main3);
         glProg.setVar("CfaPattern", basePipeline.mParameters.cfaPattern);
@@ -56,7 +56,7 @@ public class DemosaicQUAD extends Node {
 
         //Colour channels
 
-        glProg.useAssetProgram("demosaicp2quad");
+        glProg.useAssetProgram("demosaic/demosaicp2quad");
         glProg.setTexture("RawBuffer", glTexture);
         glProg.setTexture("GreenBuffer", outp);
         glProg.setVar("whitePoint",basePipeline.mParameters.whitePoint);
