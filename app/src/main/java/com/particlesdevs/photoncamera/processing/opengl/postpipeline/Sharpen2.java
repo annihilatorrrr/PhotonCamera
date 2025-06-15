@@ -36,7 +36,7 @@ public class Sharpen2 extends Node {
         glProg.setDefine("SHARPMAX",sharpMax);
         glProg.setDefine("NOISES",basePipeline.noiseS);
         glProg.setDefine("NOISEO",basePipeline.noiseO);
-        glProg.useAssetProgram("lsharpening3");
+        glProg.useAssetProgram("sharpening/lsharpening3");
         glProg.setVar("size", sharpSize);
         float sharpness = Math.max(PreferenceKeys.getSharpnessValue(), 0.0f);
         glProg.setVar("strength", sharpness);

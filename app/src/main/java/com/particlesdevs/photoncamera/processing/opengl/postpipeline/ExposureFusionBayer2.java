@@ -38,7 +38,7 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("COMPRESSOR", (float) basePipeline.mSettings.compressor);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
         Log.d(Name,"Compressor:"+basePipeline.mSettings.compressor);
-        glProg.useAssetProgram("exposebayer2",false);
+        glProg.useAssetProgram("ltm/exposebayer2",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("InterpolatedCurve",interpolatedCurve);
         glProg.setTexture("ShadowMap", shadowMap);
@@ -57,7 +57,7 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("STRLOW",str);
         glProg.setDefine("STRHIGH",str);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
-        glProg.useAssetProgram("exposebayer2",false);
+        glProg.useAssetProgram("ltm/exposebayer2",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
         glProg.setVar("neutral", basePipeline.mParameters.whitePoint);
@@ -117,7 +117,7 @@ public class ExposureFusionBayer2 extends Node {
     GLTexture fusionMap(GLTexture in,GLTexture br,float str){
         glProg.setDefine("DH","("+dehaze+")");
         glProg.setDefine("FUSIONGAIN",((PostPipeline)(basePipeline)).fusionGain);
-        glProg.useAssetProgram("fusionmap",false);
+        glProg.useAssetProgram("ltm/fusionmap",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("BrBuffer",br);
         glProg.setVar("factor", str);
@@ -312,7 +312,7 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
         glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
         glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
-        glProg.useAssetProgram("fusionbayer3",false);
+        glProg.useAssetProgram("ltm/fusionbayer3",false);
         glProg.setVar("gauss", gaussSize);
         glProg.setVar("target", targetLuma);
         glProg.setVar("useUpsampled",0);
@@ -335,7 +335,7 @@ public class ExposureFusionBayer2 extends Node {
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
             glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
             glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
-            glProg.useAssetProgram("fusionbayer3",false);
+            glProg.useAssetProgram("ltm/fusionbayer3",false);
 
             glProg.setTexture("upsampled", upsampleWip);
             glProg.setVar("useUpsampled", 1);

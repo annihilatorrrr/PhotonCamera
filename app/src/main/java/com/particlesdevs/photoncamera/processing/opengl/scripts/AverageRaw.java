@@ -24,7 +24,7 @@ public class AverageRaw extends GLOneScript {
 
     private boolean stacked = false;
     public AverageRaw(Point size, String name) {
-        super(size, new GLCoreBlockProcessing(size,new GLFormat(GLFormat.DataType.UNSIGNED_16)), "average", name);
+        super(size, new GLCoreBlockProcessing(size,new GLFormat(GLFormat.DataType.UNSIGNED_16)), "merge/average", name);
     }
     float[] wpoints;
     public void Init(){
@@ -112,7 +112,7 @@ public class AverageRaw extends GLOneScript {
         }
     }
     private void AverageStack(){
-        glProg.useAssetProgram("averageff");
+        glProg.useAssetProgram("merge/averageff");
         GLTexture alIn = GetAlterIn();
         glProg.setTexture("InputBuffer",alIn);
         if (stacked) {
@@ -130,7 +130,7 @@ public class AverageRaw extends GLOneScript {
     public void FinalScript(){
         //AverageStack();
         glProg = glOne.glProgram;
-        glProg.useAssetProgram("medianfilterhotpixeltoraw");
+        glProg.useAssetProgram("merge/medianfilterhotpixeltoraw");
         glProg.setVar("CfaPattern",PhotonCamera.getParameters().cfaPattern);
         Log.d(Name,"CFAPattern:"+PhotonCamera.getParameters().cfaPattern);
         if(stacked) {

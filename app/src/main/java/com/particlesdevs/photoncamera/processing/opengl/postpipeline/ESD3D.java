@@ -53,7 +53,7 @@ public class ESD3D extends Node {
             Log.d("ESD3D", "KernelSize: "+ks+" MSIZE: "+msize);
             glProg.setDefine("KERNELSIZE", ks);
             glProg.setDefine("MSIZE", msize);
-            glProg.useAssetProgram("esd3d2");
+            glProg.useAssetProgram("denoise/esd3d2");
             //glProg.setTexture("NoiseMap", basePipeline.main4);
             glProg.setTexture("InputBuffer", previousNode.WorkingTexture);
             //glProg.setTexture("GradBuffer", grad);
