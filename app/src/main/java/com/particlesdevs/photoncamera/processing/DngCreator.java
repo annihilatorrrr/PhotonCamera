@@ -1,11 +1,18 @@
 package com.particlesdevs.photoncamera.processing;
 
 import android.media.Image;
+import android.os.Build;
+import android.util.Log;
 
 import com.particlesdevs.photoncamera.processing.render.Parameters;
 
+import org.chickenhook.restrictionbypass.BuildConfig;
+
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class DngCreator {
     private long nativePtr;
@@ -35,7 +42,20 @@ public class DngCreator {
     private native void setCalibrationIlluminant1(long nativePtr, short illuminant);
     private native void setCalibrationIlluminant2(long nativePtr, short illuminant);
     private native void setUniqueCameraModel(long nativePtr, String model);
+    private native void setDescription(long nativePtr, String desc);
+    private native void setSoftware(long nativePtr, String soft);
+    private native void setIso(long nativePtr, short iso);
+    private native void setExposureTime(long nativePtr, double exposureTime);
     private native void setCFAPattern(long nativePtr, int pattern);
+    private native void setGainMap(long nativePtr, float[] gainMap, int xmin, int ymin, int xmax, int ymax, int width, int height);
+    private native void setAperture(long nativePtr, double aperture);
+    private native void setFocalLength(long nativePtr, double focalLength);
+    private native void setMake(long nativePtr, String make);
+    private native void setModel(long nativePtr, String model);
+    private native void setTimeCode(long nativePtr, byte[] timecode);
+    private native void setDateTime(long nativePtr, String datetime);
+    private native void setNoiseProfile(long nativePtr, double[] noiseProfile);
+    private native void setCompression(long nativePtr, boolean useCompression);
     private native void destroy(long nativePtr);
 
     public DngCreator() {
@@ -212,6 +232,124 @@ public class DngCreator {
     }
 
     /**
+     * Set the unique camera model name
+     * @param desc Camera description string
+     */
+    public void setDescription(String desc) {
+        setDescription(nativePtr, desc);
+    }
+
+    /**
+     * Set the unique camera model name
+     * @param software Camera software string
+     */
+    public void setSoftware(String software) {
+        setSoftware(nativePtr, software);
+    }
+
+    /**
+     * Set the ISO sensitivity value
+     * @param iso ISO value (e.g., 100, 200, 400, 800, etc.)
+     */
+    public void setIso(short iso) {
+        setIso(nativePtr, iso);
+    }
+
+    /**
+     * Set the exposure time in seconds
+     * @param exposureTime Exposure time in seconds (e.g., 0.033 for 1/30s)
+     */
+    public void setExposureTime(double exposureTime) {
+        setExposureTime(nativePtr, exposureTime);
+    }
+
+    /**
+     * Set the aperture f-number
+     * @param aperture Aperture f-number (e.g., 1.8, 2.8, 5.6, etc.)
+     */
+    public void setAperture(double aperture) {
+        setAperture(nativePtr, aperture);
+    }
+
+    /**
+     * Set the focal length in millimeters
+     * @param focalLength Focal length in millimeters (e.g., 24.0, 50.0, 85.0, etc.)
+     */
+    public void setFocalLength(double focalLength) {
+        setFocalLength(nativePtr, focalLength);
+    }
+
+    /**
+     * Set the camera manufacturer name
+     * @param make Camera manufacturer name (e.g., "Canon", "Nikon", "Sony", etc.)
+     */
+    public void setMake(String make) {
+        setMake(nativePtr, make);
+    }
+
+    /**
+     * Set the camera model name
+     * @param model Camera model name (e.g., "EOS R5", "D850", "A7R IV", etc.)
+     */
+    public void setModel(String model) {
+        setModel(nativePtr, model);
+    }
+
+    /**
+     * Set the timecode information (8 bytes)
+     * @param timecode Timecode as 8-byte array (typically for video/cinema DNG)
+     */
+    public void setTimeCode(byte[] timecode) {
+        if (timecode.length != 8) {
+            throw new IllegalArgumentException("Timecode array must have exactly 8 elements");
+        }
+        setTimeCode(nativePtr, timecode);
+    }
+
+    /**
+     * Set the date and time when the image was captured
+     * @param datetime Date and time in format "YYYY:MM:DD HH:MM:SS" (e.g., "2023:12:25 14:30:45")
+     */
+    public void setDateTime(String datetime) {
+        if (datetime == null || datetime.length() != 19) {
+            throw new IllegalArgumentException("DateTime must be in format \"YYYY:MM:DD HH:MM:SS\" (19 characters)");
+        }
+        // Basic format validation
+        if (datetime.charAt(4) != ':' || datetime.charAt(7) != ':' || datetime.charAt(10) != ' ' ||
+            datetime.charAt(13) != ':' || datetime.charAt(16) != ':') {
+            throw new IllegalArgumentException("DateTime format invalid. Expected \"YYYY:MM:DD HH:MM:SS\"");
+        }
+        setDateTime(nativePtr, datetime);
+    }
+
+    /**
+     * Set the noise profile for the image
+     * @param noiseProfile Array containing noise profile data as pairs of (scale, offset) values for each color plane.
+     *                     For RGB: [R_scale, R_offset, G_scale, G_offset, B_scale, B_offset]
+     *                     For Bayer CFA: [R_scale, R_offset, G_scale, G_offset, B_scale, B_offset] (6 values total)
+     */
+    public void setNoiseProfile(double[] noiseProfile) {
+        if (noiseProfile == null || noiseProfile.length == 0) {
+            throw new IllegalArgumentException("Noise profile array cannot be null or empty");
+        }
+        if (noiseProfile.length % 2 != 0) {
+            throw new IllegalArgumentException("Noise profile array must contain pairs of (scale, offset) values");
+        }
+        if (noiseProfile.length > 8) {
+            throw new IllegalArgumentException("Noise profile array cannot exceed 8 elements (4 color planes max)");
+        }
+        setNoiseProfile(nativePtr, noiseProfile);
+    }
+
+    /**
+     * Set the compression type for the DNG image
+     * @param useCompression true to use compression, false to store uncompressed
+     */
+    public void setCompression(boolean useCompression) {
+        setCompression(nativePtr, useCompression);
+    }
+
+    /**
      * Set the CFA (Color Filter Array) pattern
      * @param pattern CFA pattern type (use CFA_PATTERN_* constants)
      */
@@ -220,6 +358,13 @@ public class DngCreator {
             throw new IllegalArgumentException("Invalid CFA pattern. Use CFA_PATTERN_* constants.");
         }
         setCFAPattern(nativePtr, pattern);
+    }
+
+    public void setGainMap(float[] gainMap, int xmin, int ymin, int xmax, int ymax, int width, int height) {
+        if (gainMap.length < 4) {
+            throw new IllegalArgumentException("Gain map must have 4 elements");
+        }
+        setGainMap(nativePtr, gainMap, xmin, ymin, xmax, ymax, width, height);
     }
 
     public void writeImage(OutputStream outputStream, Image image) {
@@ -259,19 +404,57 @@ public class DngCreator {
         for (int i = 0; i < 4; i++) {
             blackLevel[i] = (short) parameters.blackLevel[i];
         }
+        setDescription(parameters.toString());
+        setSoftware("PhotonCamera v" + BuildConfig.VERSION_NAME+BuildConfig.VERSION_CODE);
+        
+        // Set current date and time
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
+        setDateTime(dateFormat.format(new Date()));
+        
+        // Set noise profile from noise modeler
+        if (parameters.noiseModeler != null && parameters.noiseModeler.baseModel != null) {
+            double[] noiseProfile = new double[6]; // RGB: scale, offset pairs
+            // R channel
+            noiseProfile[0] = parameters.noiseModeler.computeModel[0].first;  // R scale
+            noiseProfile[1] = parameters.noiseModeler.computeModel[0].second; // R offset
+            // G0 channel
+            noiseProfile[2] = parameters.noiseModeler.computeModel[1].first;  // G scale
+            noiseProfile[3] = parameters.noiseModeler.computeModel[1].second; // G offset
+
+            // B channel
+            noiseProfile[4] = parameters.noiseModeler.computeModel[2].first;  // B scale
+            noiseProfile[5] = parameters.noiseModeler.computeModel[2].second; // B offset
+
+            setNoiseProfile(noiseProfile);
+        }
+        
+        setMake(Build.BRAND != null ? Build.BRAND : Build.MANUFACTURER);
+        setModel(Build.MODEL);
+        setUniqueCameraModel(Build.MODEL + "-" + Build.BRAND + "-" + Build.MANUFACTURER);
+        setIso((short) parameters.iso);
+        setExposureTime(parameters.exposureTime);
+        setFocalLength(parameters.focalLength);
+        setAperture(parameters.aperture);
         setBlackLevel(blackLevel);
         setWhiteLevel(parameters.whiteLevel);
         setCalibrationIlluminant1((short) parameters.calibrationIlluminant1);
         setCalibrationIlluminant2((short) parameters.calibrationIlluminant2);
-        setColorMatrix1(toDouble(parameters.normalizedColorMatrix1));
-        setColorMatrix2(toDouble(parameters.normalizedColorMatrix2));
-        setForwardMatrix1(toDouble(parameters.normalizedForwardTransform1));
-        setForwardMatrix2(toDouble(parameters.normalizedForwardTransform2));
+        setColorMatrix1(toDouble(parameters.ColorMatrix1));
+        setColorMatrix2(toDouble(parameters.ColorMatrix2));
+        setForwardMatrix1(toDouble(parameters.ForwardTransform1));
+        setForwardMatrix2(toDouble(parameters.ForwardTransform2));
         setCameraCalibration1(toDouble(parameters.calibrationTransform1));
         setCameraCalibration2(toDouble(parameters.calibrationTransform2));
         setAsShotNeutral(toDouble(parameters.whitePoint));
         setCFAPattern(parameters.cfaPattern);
         setOrientation(parameters.cameraRotation/90);
+        setGainMap(parameters.gainMap,
+                   parameters.sensorPix.top,
+                   parameters.sensorPix.left,
+                   parameters.sensorPix.bottom,
+                   parameters.sensorPix.right,
+                   parameters.mapSize.x,
+                   parameters.mapSize.y);
     }
 
     /**

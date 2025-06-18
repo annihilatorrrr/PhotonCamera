@@ -10,6 +10,7 @@
 
 struct DngMetadata {
     int orientation = 0; // Default orientation
+    bool compression = false;
     // White/Black levels
     double white_level = 1023.0;
     unsigned short black_level[4] = {0, 0, 0, 0};
@@ -31,10 +32,8 @@ struct DngMetadata {
     unsigned short calibration_illuminant1 = 0;
     unsigned short calibration_illuminant2 = 0;
     
-    // Camera info
-    std::string unique_camera_model;
-    
     // CFA pattern
+    int cfa = 0;
     unsigned char cfa_pattern[4] = {1, 0, 2, 1}; // Default RGGB
     unsigned short cfa_repeat_pattern_dim[2] = {2, 2};
     
@@ -48,7 +47,6 @@ struct DngMetadata {
     bool has_as_shot_neutral = false;
     bool has_as_shot_white_xy = false;
     bool has_analog_balance = false;
-    bool has_unique_camera_model = false;
 };
 
 #ifdef __cplusplus
@@ -109,8 +107,45 @@ JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator
 JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setCFAPattern(
     JNIEnv *env, jobject obj, jlong creatorPtr, jint pattern);
 
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setGainMap(JNIEnv *env, jobject obj, jlong creatorPtr, jfloatArray gainMap, jint xmin, jint ymin, jint xmax, jint ymax, jint width, jint height);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setDescription(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jstring model);
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setSoftware(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jstring model);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setIso(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jshort iso);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setExposureTime(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jdouble exposureTime);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setAperture(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jdouble aperture);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setFocalLength(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jdouble focalLength);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setMake(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jstring make);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setModel(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jstring model);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setTimeCode(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jbyteArray timecode);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setDateTime(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jstring datetime);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setNoiseProfile(
+        JNIEnv *env, jobject obj, jlong creatorPtr, jdoubleArray noiseProfile);
+
+JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setCompression(
+    JNIEnv *env, jobject obj, jlong creatorPtr, jboolean compression);
+
 JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_destroy(
-    JNIEnv *env, jobject obj, jlong creatorPtr);
+JNIEnv *env, jobject obj, jlong creatorPtr);
 
 #ifdef __cplusplus
 }

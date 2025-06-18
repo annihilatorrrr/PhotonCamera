@@ -18,6 +18,7 @@ import android.util.SizeF;
 import androidx.annotation.NonNull;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
+import com.particlesdevs.photoncamera.processing.parameters.ExposureIndex;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.capture.CaptureController;
@@ -31,6 +32,8 @@ import java.util.Scanner;
 public class Parameters {
     private static final String TAG = "Parameters";
     private int analogIso;
+    public int iso;
+    public double exposureTime = 1.0/30.0; // Default to 1/30s if not available
     public byte cfaPattern;
     public Point rawSize;
     public boolean usedDynamic = false;
@@ -50,6 +53,7 @@ public class Parameters {
     public float[] customTonemap;
     public Point[] hotPixels;
     public float focalLength;
+    public float aperture;
     public int cameraRotation;
     public NoiseModeler noiseModeler;
     public ColorCorrectionTransform CCT;
@@ -78,11 +82,11 @@ public class Parameters {
     public int calibrationIlluminant2 = -1;
 
     public float[] calibrationTransform1 = new float[9];
-    public float[] normalizedForwardTransform1 = new float[9];
-    public float[] normalizedColorMatrix1 = new float[9];
-    public float[] normalizedColorMatrix2 = new float[9];
+    public float[] ForwardTransform1 = new float[9];
+    public float[] ColorMatrix1 = new float[9];
+    public float[] ColorMatrix2 = new float[9];
     public float[] calibrationTransform2 = new float[9];
-    public float[] normalizedForwardTransform2 = new float[9];
+    public float[] ForwardTransform2 = new float[9];
 
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
@@ -141,6 +145,15 @@ public class Parameters {
         perYAngle = rawSize.y / angleY;
         Log.d(TAG, "Focal Length:" + flen[0]);
         focalLength = flen[0];
+
+        float[] aperture = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES);
+        if (aperture == null || aperture.length <= 0) {
+            aperture = new float[1];
+            aperture[0] = 1.8f;
+        }
+        Log.d(TAG, "Aperture:" + aperture[0]);
+        this.aperture = aperture[0];
+
         Object whiteLevel = characteristics.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL);
         if (whiteLevel != null) this.whiteLevel = ((int) whiteLevel);
         rawWhiteLevel = this.whiteLevel;
@@ -167,7 +180,17 @@ public class Parameters {
                 sensivity = ISO;
             }
         }
+        iso = sensivity;
         noiseModeler = new NoiseModeler(result.get(CaptureResult.SENSOR_NOISE_PROFILE), analogIso, sensivity, cfaPattern, sensorSpecifics);
+        Long exposure = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+        if (exposure == null) {
+            exposure = request.get(CaptureRequest.SENSOR_EXPOSURE_TIME);
+            if (exposure == null) {
+                exposure = 1000000000L / 30; // Default to 1/30s if not available
+            }
+        }
+        exposureTime = ExposureIndex.time2sec(exposure);
+
         int[] blarr = new int[4];
         BlackLevelPattern level = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN);
         if (result != null) {
@@ -216,6 +239,24 @@ public class Parameters {
                 level.copyTo(blarr, 0);
                 for (int i = 0; i < 4; i++) blackLevel[i] = blarr[i];
             }
+        Float aperture = result.get(CaptureResult.LENS_APERTURE);
+        if (aperture == null) {
+            aperture = request.get(CaptureRequest.LENS_APERTURE);
+            if (aperture == null) {
+                aperture = 1.8f; // Default to f/1.8 if not available
+            }
+        }
+        this.aperture = aperture;
+
+        Float focalLength = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+        if (focalLength == null) {
+            focalLength = request.get(CaptureRequest.LENS_FOCAL_LENGTH);
+            if (focalLength == null) {
+                focalLength = 4.75f; // Default to 4.75mm if not available
+            }
+        }
+        this.focalLength = focalLength;
+
     }
 
 
@@ -285,10 +326,15 @@ public class Parameters {
 
         Converter.convertColorspaceTransform(calibration1, calibrationTransform1);
         Converter.convertColorspaceTransform(calibration2, calibrationTransform2);
-        Converter.convertColorspaceTransform(forwardt1, normalizedForwardTransform1);
-        Converter.convertColorspaceTransform(forwardt2, normalizedForwardTransform2);
-        Converter.convertColorspaceTransform(colorMat1, normalizedColorMatrix1);
-        Converter.convertColorspaceTransform(colorMat2, normalizedColorMatrix2);
+        Converter.convertColorspaceTransform(forwardt1, ForwardTransform1);
+        Converter.convertColorspaceTransform(forwardt2, ForwardTransform2);
+        Converter.convertColorspaceTransform(colorMat1, ColorMatrix1);
+        Converter.convertColorspaceTransform(colorMat2, ColorMatrix2);
+
+        float[] normalizedForwardTransform1 = ForwardTransform1.clone();
+        float[] normalizedColorMatrix1 = ColorMatrix1.clone();
+        float[] normalizedColorMatrix2 = ColorMatrix2.clone();
+        float[] normalizedForwardTransform2 = ForwardTransform2.clone();
 
         Converter.normalizeFM(normalizedForwardTransform1);
         Converter.normalizeFM(normalizedForwardTransform2);
