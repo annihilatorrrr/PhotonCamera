@@ -49,7 +49,7 @@ public class PyramidAlignment implements AutoCloseable {
     GLTexture inputBase;
     GLTexture base;
     GLTexture alter;
-    GLTexture avrFrames;
+    GLTexture temp;
     GLTexture gainMap;
     public GLTexture Result;
     GLTexture inputAlter;
@@ -63,6 +63,7 @@ public class PyramidAlignment implements AutoCloseable {
         Result = new GLTexture(size,new GLFormat(GLFormat.DataType.FLOAT_16,4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
         inputBase = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16,1),images.get(0).buffer, GL_NEAREST, GL_CLAMP_TO_EDGE);
         // Temporal result
+        temp = new GLTexture(rawHalf, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_LINEAR, GL_CLAMP_TO_EDGE);
         base = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         alter = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         gainMap = new GLTexture(parameters.mapSize, new GLFormat(GLFormat.DataType.FLOAT_32, 4),
@@ -76,28 +77,42 @@ public class PyramidAlignment implements AutoCloseable {
         glProg.setTexture("inTexture", inputBase);
         glProg.setTexture("gainMap", gainMap);
         glProg.setVar("exposure", 1.0f);
-        glProg.setTextureCompute("outTexture", base, true);
-        glProg.computeAuto(base.mSize, 1);
+        glProg.setTextureCompute("outTexture", temp, true);
+        glProg.computeAuto(temp.mSize, 1);
 
-        /*GLHistogram hist = new GLHistogram(glProg, 1024);
+        GLHistogram hist = new GLHistogram(glProg, 256);
         hist.Rc = true;
         hist.Gc = true;
         hist.Bc = true;
         hist.Ac = true;
-        hist.resize = 8;
-        int[][] histDataBase = hist.Compute(base).clone();
-        float[] histCurve = new float[1024];
-        float[] alterCurve = new float[1024];
-        float histSum = 0;
-        for (int i = 0; i < (histDataBase[0].length); i++) {
-            histSum += (histDataBase[0][i] + histDataBase[1][i] + histDataBase[2][i] + histDataBase[3][i]);
+        float overexposure = 64.f;
+        hist.exposure = new float[]{overexposure, overexposure, overexposure, overexposure};
+        int[][] histDataBase = hist.Compute(temp).clone();
+        float[] blackLevel = new float[4];
+        for (int i = 0; i < 4; i++) {
+            long histSum = 0;
+            for (int j = 0; j < histDataBase[i].length; j++) {
+                histSum += histDataBase[i][j];
+            }
+            Log.d("PyramidAlignment", "histSum[" + i + "] = " + histSum);
+            long integration = 0;
+            for (int j = 0; j < histDataBase[i].length; j++) {
+                integration += histDataBase[i][j];
+                if (integration > histSum * 0.3) {
+                    blackLevel[i] = (j / (histDataBase[i].length - 1.f)) / overexposure;
+                    Log.d("PyramidAlignment", "blackLevel[" + i + "] = " + blackLevel[i]);
+                    break;
+                }
+            }
         }
-        float integration = 0;
-        for (int i = 0; i < histDataBase[0].length; i++) {
-            integration += histDataBase[0][i] + histDataBase[1][i] + histDataBase[2][i] + histDataBase[3][i];
-            histCurve[i] = Math.min(integration / histSum, 1.0f);
-            //Log.d("PyramidAlignment", "histCurve: " + histCurve[i]);
-        }*/
+
+        glProg.setLayout(8, 8, 1);
+        glProg.useAssetProgram("alignment/normalizebl", true);
+        glProg.setVar("blackLevel", blackLevel);
+        glProg.setTexture("baseTexture", temp);
+        glProg.setTextureCompute("outTexture", base, true);
+        glProg.computeAuto(base.mSize, 1);
+
         //GLTexture histTexture = new GLTexture(new Point(1024,1), new GLFormat(GLFormat.DataType.FLOAT_32), BufferUtils.getFrom(histCurve), GL_LINEAR, GL_CLAMP_TO_EDGE);
         GLTexture histTexture = new GLTexture(new Point(1024,1), new GLFormat(GLFormat.DataType.FLOAT_32), null, GL_LINEAR, GL_CLAMP_TO_EDGE);
         GLTexture alterTexture = new GLTexture(new Point(1024,1), new GLFormat(GLFormat.DataType.FLOAT_32), null, GL_LINEAR, GL_CLAMP_TO_EDGE);
@@ -138,23 +153,40 @@ public class PyramidAlignment implements AutoCloseable {
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
             glProg.setVar("blackLevel", parameters.blackLevel);
             glProg.setVar("exposure", exposure);
+            glProg.setVar("noiseS", noiseS);
+            glProg.setVar("noiseO", noiseO);
             glProg.setTexture("inTexture", inputAlter);
             glProg.setTexture("gainMap", gainMap);
+            glProg.setTextureCompute("outTexture", temp, true);
+            glProg.computeAuto(temp.mSize, 1);
+
+
+            int[][] histData = hist.Compute(temp);
+
+
+            for (int i = 0; i < 4; i++) {
+                long histSum = 0;
+                for (int j = 0; j < histData[i].length; j++) {
+                    histSum += histData[i][j];
+                }
+                Log.d("PyramidAlignment", "histSum[" + i + "] = " + histSum);
+                long integration = 0;
+                for (int j = 0; j < histData[i].length; j++) {
+                    integration += histData[i][j];
+                    if (integration > histSum * 0.3) {
+                        blackLevel[i] = (j / (histData[i].length - 1.f))/ overexposure;
+                        Log.d("PyramidAlignment", "blackLevel[" + i + "] = " + blackLevel[i]);
+                        break;
+                    }
+                }
+            }
+
+            glProg.setLayout(8, 8, 1);
+            glProg.useAssetProgram("alignment/normalizebl", true);
+            glProg.setVar("blackLevel", blackLevel);
+            glProg.setTexture("baseTexture", temp);
             glProg.setTextureCompute("outTexture", alter, true);
             glProg.computeAuto(alter.mSize, 1);
-
-
-            /*int[][] histData = hist.Compute(alter);
-            histSum = 0;
-            for (int i = 0; i < histData[0].length; i++) {
-                histSum += (histData[0][i] + histData[1][i] + histData[2][i] + histData[3][i]);
-            }
-            integration = 0;
-            for (int i = 0; i < histData[0].length; i++) {
-                integration += histData[0][i] + histData[1][i] + histData[2][i] + histData[3][i];
-                alterCurve[i] = integration / histSum;
-            }
-            alterTexture.loadData(BufferUtils.getFrom(alterCurve));*/
 
             Log.d("PyramidAlignment", "create alter");
             glUtils.createPyramidStore(levelcount, alter, pyramidAlter, false);
@@ -208,6 +240,7 @@ public class PyramidAlignment implements AutoCloseable {
         inputBase.close();
         base.close();
         alter.close();
+        temp.close();
         for (int i = 0; i < pyramid.gauss.length; i++) {
             pyramid.gauss[i].close();
             pyramidAlter.gauss[i].close();
