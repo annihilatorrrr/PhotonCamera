@@ -166,15 +166,16 @@ public class ImageSaver {
                                             ByteBuffer buffer, Parameters parameters) {
             DngCreator dngCreator = new DngCreator();
             dngCreator.setParameters(parameters);
+            dngCreator.setCompression(false);
             try {
                 OutputStream outputStream = Files.newOutputStream(dngFilePath);
                 dngCreator.writeBuffer(outputStream, buffer, parameters.rawSize.x, parameters.rawSize.y);
                 outputStream.close();
-                return true;
             } catch (IOException e) {
                 e.printStackTrace();
                 return false;
             }
+            return true;
         }
     }
 }
