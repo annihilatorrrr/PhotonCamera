@@ -24,6 +24,7 @@ public class GLHistogram implements AutoCloseable{
     public boolean Ac = true;
     public boolean Custom = false;
     public int resize = 3;
+    public float[] exposure = new float[4];
     public String CustomProgram = "";
     public GLHistogram() {
         this(new GLContext(1,1),256);
@@ -36,6 +37,10 @@ public class GLHistogram implements AutoCloseable{
         this.context = context;
         externalContext = true;
         glProg = context.mProgram;
+        for (int i = 0; i < 4; i++) {
+            exposure[i] = 1.0f;
+        }
+
         buffers[0] = new GLBuffer(histSize,histFormat);
         buffers[1] = new GLBuffer(histSize,histFormat);
         buffers[2] = new GLBuffer(histSize,histFormat);
@@ -45,6 +50,9 @@ public class GLHistogram implements AutoCloseable{
         histSize = size;
         this.glProg = glProg;
         externalContext = true;
+        for (int i = 0; i < 4; i++) {
+            exposure[i] = 1.0f;
+        }
         buffers[0] = new GLBuffer(histSize,histFormat);
         buffers[1] = new GLBuffer(histSize,histFormat);
         buffers[2] = new GLBuffer(histSize,histFormat);
@@ -61,7 +69,8 @@ public class GLHistogram implements AutoCloseable{
         input.Bufferize();
         int tile = 8;
         glProg.setDefine("SCALE",resize);
-        glProg.setDefine("HISTSIZE", (float)(histSize));
+        glProg.setDefine("HISTSIZE", histSize);
+        glProg.setDefine("HISTMPY", (float)(histSize-1));
         glProg.setDefine("COL_R", Rc);
         glProg.setDefine("COL_G", Gc);
         glProg.setDefine("COL_B", Bc);
@@ -72,16 +81,17 @@ public class GLHistogram implements AutoCloseable{
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("histogram",true);
         glProg.setTexture("inTexture",input);
+        glProg.setVar("exposure", exposure);
         glProg.setBufferCompute("histogramRed",buffers[0]);
         glProg.setBufferCompute("histogramGreen",buffers[1]);
         glProg.setBufferCompute("histogramBlue",buffers[2]);
         glProg.setBufferCompute("histogramAlpha",buffers[3]);
         glProg.computeManual(input.mSize.x/(resize*tile)+1,input.mSize.y/(resize*tile)+1,1);
 
-        outputArr[0] = buffers[0].readBufferIntegers();
-        outputArr[1] = buffers[1].readBufferIntegers();
-        outputArr[2] = buffers[2].readBufferIntegers();
-        outputArr[3] = buffers[3].readBufferIntegers();
+        outputArr[0] = buffers[0].readBufferIntegers(true);
+        outputArr[1] = buffers[1].readBufferIntegers(true);
+        outputArr[2] = buffers[2].readBufferIntegers(true);
+        outputArr[3] = buffers[3].readBufferIntegers(true);
         Log.d("GLHistogram"," elapsed:"+(System.currentTimeMillis()-time)+" ms");
         return outputArr;
     }
@@ -91,6 +101,11 @@ public class GLHistogram implements AutoCloseable{
         if(!externalContext) {
             glProg.close();
             context.close();
+        }
+        for (GLBuffer buffer : buffers) {
+            if (buffer != null) {
+                buffer.close();
+            }
         }
     }
 }
