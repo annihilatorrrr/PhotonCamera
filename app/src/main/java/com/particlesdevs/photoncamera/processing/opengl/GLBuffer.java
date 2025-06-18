@@ -56,7 +56,7 @@ public class GLBuffer implements AutoCloseable {
         glBufferData(GL_SHADER_STORAGE_BUFFER, byteSize, byteBuffer.asIntBuffer(), mode);
         checkEglError("clear buffer:"+mBufferID);
     }
-    public int[] readBufferIntegers()
+    public int[] readBufferIntegers(boolean clear)
     {
         int[] value = null;
         Bind();
@@ -70,6 +70,10 @@ public class GLBuffer implements AutoCloseable {
             value = toArray(intbuf);
         }
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        checkEglError("unmap buffer:"+mBufferID);
+        if (clear) {
+            Buffering();
+        }
         UnBind();
         return value;
     }
