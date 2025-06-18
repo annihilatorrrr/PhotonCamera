@@ -62,7 +62,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.api.Camera2ApiAutoFix;
 import com.particlesdevs.photoncamera.api.CameraEventsListener;
@@ -570,7 +569,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         }
 
     };
-    @HunterDebug
     public CaptureController(Activity activity, ExecutorService processExecutor, CameraEventsListener cameraEventsListener) {
         if(PhotonCamera.getSettings().previewFormat != 0) {
             mPreviewTargetFormat = PhotonCamera.getSettings().previewFormat;
@@ -906,7 +904,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * @param viewWidth  The width of `mTextureView`
      * @param viewHeight The height of `mTextureView`
      */
-    @HunterDebug
     private void configureTransform(int viewWidth, int viewHeight) {
         if (null == mTextureView || null == mPreviewSize) {
             return;
@@ -932,7 +929,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         //mTextureView.setTransform(matrix);
         mTextureView.setOrientation(mSensorOrientation+90);
     }
-    @HunterDebug
     @SuppressLint("MissingPermission")
     public void restartCamera() {
         CameraFragment.mSelectedMode = PhotonCamera.getSettings().selectedMode;
@@ -1125,7 +1121,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     /**
      * Opens the camera specified by {@link Settings#mCameraID}.
      */
-    @HunterDebug
     public void openCamera(int width, int height) {
         //Open camera in non ui thread
         processExecutor.execute(()->{
@@ -1153,7 +1148,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             }
     });
     }
-    @HunterDebug
     public void UpdateCameraCharacteristics(String cameraId) {
         PhotonCamera.getSpecificSensor().selectSpecifics(Integer.parseInt(cameraId));
         CameraCharacteristics characteristics = this.mCameraCharacteristicsMap.get(cameraId);
@@ -1301,7 +1295,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         //activity.runOnUiThread(() -> cameraEventsListener.onCharacteristicsUpdated(characteristics));
     }
     Surface surface;
-    @HunterDebug
     public void createCameraPreviewSession(boolean isBurstSession) {
         try {
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
@@ -2105,7 +2098,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         mTextureView = null;
         super.finalize();
     }
-    @HunterDebug
     public void resumeCamera() {
         if(PhotonCamera.getSettings().previewFormat != 0) {
             mPreviewTargetFormat = PhotonCamera.getSettings().previewFormat;

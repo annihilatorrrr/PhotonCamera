@@ -3,18 +3,12 @@ package com.particlesdevs.photoncamera.processing.opengl.scripts;
 import android.graphics.Point;
 import android.util.Log;
 
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.ImageFrame;
-import com.particlesdevs.photoncamera.processing.opengl.GLContext;
-import com.particlesdevs.photoncamera.processing.opengl.GLCoreBlockProcessing;
-import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
-import com.particlesdevs.photoncamera.processing.opengl.GLOneScript;
 import com.particlesdevs.photoncamera.processing.opengl.GLProg;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.GLUtils;
-import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
 import com.particlesdevs.photoncamera.util.BufferUtils;
@@ -57,7 +51,6 @@ public class PyramidAlignment implements AutoCloseable {
     GLUtils.Pyramid pyramid;
     GLUtils.Pyramid pyramidAlter;
 
-    @HunterDebug
     public void Run() {
         Point rawHalf = new Point(parameters.rawSize.x/2,parameters.rawSize.y/2);
         Result = new GLTexture(size,new GLFormat(GLFormat.DataType.FLOAT_16,4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);

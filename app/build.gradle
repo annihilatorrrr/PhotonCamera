@@ -1,8 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
-apply plugin: 'hunter-debug'
-apply plugin: "io.github.wurensen.android-aspectjx"
+//apply plugin: "io.github.wurensen.android-aspectjx"
+Properties versionProps = new Properties()
 android {
     signingConfigs {
         debug {
@@ -21,7 +20,6 @@ android {
     }
 
     if (versionPropsFile.canRead()) {
-        Properties versionProps = new Properties()
         versionProps.load(new FileInputStream(versionPropsFile))
         versionBuild = versionProps['VERSION_BUILD'].toInteger()
     } else {
@@ -30,7 +28,6 @@ android {
 
     ext.autoIncrementBuildNumber = {
         if (versionPropsFile.canRead()) {
-            Properties versionProps = new Properties()
             versionProps.load(new FileInputStream(versionPropsFile))
             versionBuild = versionProps['VERSION_BUILD'].toInteger() + 1
             versionProps['VERSION_BUILD'] = versionBuild.toString()
@@ -41,12 +38,10 @@ android {
     }
 
     defaultConfig {
-        compileSdk 34
+        compileSdk 35
         applicationId 'com.particlesdevs.photoncamera'
         minSdkVersion 26
-        //Waiting for api 32 sources
-        //noinspection OldTargetApi
-        targetSdkVersion 33
+        targetSdkVersion 35
         versionCode versionBuild
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
@@ -54,6 +49,7 @@ android {
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
         versionName '0.93'
+        versionProps['VERSION_NAME'] = versionName
         proguardFiles
     }
 
@@ -91,8 +87,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = 1.8
-        targetCompatibility = 1.8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     lint {
         abortOnError false
@@ -108,17 +104,6 @@ android {
     }
 }
 
-aspectjx {
-    // if you use kotlin in your project make sure to exclude `kotlin`,
-    // otherwise a build error `zip file is empty` will be thrown
-    exclude 'kotlin'
-
-    // add 'exclude' packages/classes that you don't want to intercept the logs from
-    exclude 'androidx.appcompat'
-    exclude 'android.support'
-
-    // or add 'include' packages/classes that you want to intercept the logs from
-}
 
 
 
@@ -126,31 +111,30 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(path: ':circularbarlib')
     implementation 'de.hdodenhof:circleimageview:3.1.0'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'org.jetbrains:annotations:23.0.0'
     implementation 'androidx.exifinterface:exifinterface:1.4.1'
-    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
     implementation 'com.github.mohammadatif:Animatoo:master'
     implementation 'com.github.ChickenHook:RestrictionBypass:2.2'
     implementation 'com.github.bumptech.glide:glide:4.14.2'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.14.2'
     implementation group: 'commons-io', name: 'commons-io', version: '20030203.000550'
-    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.google.code.gson:gson:2.11.0'
     // Navigation Component
-    implementation "androidx.navigation:navigation-fragment-ktx:2.8.4"
-    implementation "androidx.navigation:navigation-ui-ktx:2.8.4"
+    implementation "androidx.navigation:navigation-fragment-ktx:2.9.0"
+    implementation "androidx.navigation:navigation-ui-ktx:2.9.0"
     //Subsampling image view
     implementation 'com.davemorrissey.labs:subsampling-scale-image-view-androidx:3.10.0'
     //Google Material
     implementation 'com.google.android.material:material:1.12.0'
-    implementation "androidx.core:core-ktx:1.9.0"
+    implementation "androidx.core:core-ktx:1.16.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     //Leak Canary
     //Use this lib to detect memory leaks when debugging
     //debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.6'
-    implementation 'cn.quinnchen.hunter:hunter-debug-library:1.2.3'
     //For Testing
     testImplementation 'org.mockito:mockito-core:3.12.4'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
@@ -163,7 +147,4 @@ dependencies {
 }
 repositories {
     mavenCentral()
-}
-debugHunterExt {
-    runVariant = 'ALWAYS'  //'DEBUG', 'RELEASE', 'ALWAYS', 'NEVER', The 'ALWAYS' is default value
 }

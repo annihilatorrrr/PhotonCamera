@@ -12,7 +12,6 @@ import android.util.Log;
 
 import androidx.exifinterface.media.ExifInterface;
 
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.api.ParseExif;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -143,7 +142,6 @@ public class ImageSaver {
                                              ByteBuffer buffer, Parameters parameters) {
             return saveSingleRaw(dngFilePath, buffer, parameters);
         }
-        @HunterDebug
         public static boolean saveSingleRaw(Path dngFilePath,
                                             ImageFrame image,
                                             CameraCharacteristics characteristics,
@@ -161,7 +159,6 @@ public class ImageSaver {
             return saveSingleRaw(dngFilePath, image.buffer, parameters);
         }
 
-        @HunterDebug
         public static boolean saveSingleRaw(Path dngFilePath,
                                             ByteBuffer buffer, Parameters parameters) {
             DngCreator dngCreator = new DngCreator();

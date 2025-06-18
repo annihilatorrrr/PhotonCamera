@@ -3,26 +3,15 @@ package com.particlesdevs.photoncamera.processing;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.media.Image;
-import android.media.ImageReader;
-import android.os.AsyncTask;
 import android.util.Log;
-
-import com.hunter.library.debug.HunterDebug;
-import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.api.ParseExif;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.processor.HdrxProcessor;
 import com.particlesdevs.photoncamera.processing.processor.UnlimitedProcessor;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 public class DefaultSaver extends SaverImplementation {
     private static final String TAG = "DefaultSaver";
@@ -35,7 +24,6 @@ public class DefaultSaver extends SaverImplementation {
         this.mUnlimitedProcessor = new UnlimitedProcessor(processingEventsListener);
     }
 
-    @HunterDebug
     public void runRaw(int imageFormat, CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {
         super.runRaw(imageFormat, characteristics, captureResult,captureRequest, burstShakiness, cameraRotation, exposures);
         //Wait for one frame at least.

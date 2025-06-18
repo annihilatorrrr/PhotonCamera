@@ -3,7 +3,6 @@ package com.particlesdevs.photoncamera.processing.opengl.scripts;
 import android.graphics.Point;
 import android.util.Log;
 
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.ImageFrame;
 import com.particlesdevs.photoncamera.processing.opengl.GLCoreBlockProcessing;
@@ -13,13 +12,10 @@ import com.particlesdevs.photoncamera.processing.opengl.GLOneScript;
 import com.particlesdevs.photoncamera.processing.opengl.GLProg;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.GLUtils;
-import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
 import static android.opengl.GLES20.GL_LINEAR;
@@ -58,7 +54,6 @@ public class PyramidMerging extends GLOneScript {
     GLUtils.Pyramid pyramid;
 
     @Override
-    @HunterDebug
     public void Run() {
         glUtils = new GLUtils(glOne.glProcessing);
         Point alignmentOutputSize = new Point(parameters.alignmentSize.x * parameters.tilesX,

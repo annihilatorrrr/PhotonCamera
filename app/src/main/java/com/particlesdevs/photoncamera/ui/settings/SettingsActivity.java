@@ -25,7 +25,6 @@ import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
 
 import com.google.android.material.snackbar.Snackbar;
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.app.base.BaseActivity;
@@ -48,7 +47,6 @@ import static com.particlesdevs.photoncamera.settings.PreferenceKeys.SCOPE_GLOBA
 
 public class SettingsActivity extends BaseActivity implements PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
     public static boolean toRestartApp;
-    @HunterDebug
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         getDelegate().setLocalNightMode(PreferenceKeys.getThemeValue());
@@ -65,7 +63,6 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
     public void back(View view) {
         onBackPressed();
     }
-    @HunterDebug
     @Override
     public boolean onPreferenceStartScreen(@NonNull PreferenceFragmentCompat preferenceFragmentCompat,
                                            PreferenceScreen preferenceScreen) {
@@ -147,7 +144,6 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             super.onViewCreated(view, savedInstanceState);
             mRootView = view;
         }
-        @HunterDebug
         @Override
         public void onResume() {
             super.onResume();
@@ -208,7 +204,6 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
                 }
            });
         }
-        @HunterDebug
         private void setSupportedDevices() {
             AsyncTask.execute(()-> {
                 Preference preference = findPreference(PreferenceKeys.Key.ALL_DEVICES_NAMES_KEY.mValue);

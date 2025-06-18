@@ -9,7 +9,6 @@ import androidx.annotation.StringRes;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 
@@ -56,7 +55,6 @@ public class PreferenceKeys {
     public static void initialise(SettingsManager settingsManager) {
         preferenceKeys = new PreferenceKeys(settingsManager);
     }
-    @HunterDebug
     public static void setDefaults(Context context) {
         SettingsManager settingsManager = preferenceKeys.settingsManager;
         Resources resources = context.getResources();

@@ -4,10 +4,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.AsyncTask;
 import android.util.Log;
-
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 
@@ -150,7 +147,6 @@ public class Gyro {
             //Log.d(TAG, "GyroBurst counter:" + BurstShakiness.size()+" sampleCount:"+counter+" shakiness:"+gyroBurst.shakiness);
         }
     }
-    @HunterDebug
     public void CompleteSequence() {
         integrate = false;
         gyroburst = false;

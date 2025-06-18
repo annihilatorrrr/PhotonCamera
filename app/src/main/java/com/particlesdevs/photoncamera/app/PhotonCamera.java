@@ -18,7 +18,6 @@ import androidx.annotation.StringRes;
 import androidx.core.content.ContextCompat;
 import androidx.core.os.HandlerCompat;
 
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.api.Settings;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.control.Gravity;
@@ -194,7 +193,6 @@ public class PhotonCamera extends Application {
         return mSettingsManager;
     }
 
-    @HunterDebug
     @Override
     public void onCreate() {
         registerActivityLifecycleCallbacks(new ActivityLifecycleMonitor());

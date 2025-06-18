@@ -29,7 +29,6 @@ import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.RectF;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
@@ -60,7 +59,6 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.snackbar.Snackbar;
-import com.hunter.library.debug.HunterDebug;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.api.CameraEventsListener;
 import com.particlesdevs.photoncamera.api.CameraManager2;
@@ -82,13 +80,7 @@ import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
 import com.particlesdevs.photoncamera.ui.camera.data.CameraLensData;
-import com.particlesdevs.photoncamera.ui.camera.model.TopBarSettingsData;
 import com.particlesdevs.photoncamera.ui.camera.viewmodel.*;
-import com.particlesdevs.photoncamera.ui.camera.views.AuxButtonsLayout;
-import com.particlesdevs.photoncamera.ui.camera.views.FlashButton;
-import com.particlesdevs.photoncamera.ui.camera.views.TimerButton;
-import com.particlesdevs.photoncamera.ui.camera.views.modeswitcher.wefika.horizontalpicker.HorizontalPicker;
-import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.AutoFitPreviewView;
 import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.GLPreview;
 import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.SurfaceViewOverViewfinder;
 import com.particlesdevs.photoncamera.ui.settings.SettingsActivity;
@@ -178,7 +170,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public CameraFragmentViewModel getCameraFragmentViewModel() {
         return cameraFragmentViewModel;
     }
-    @HunterDebug
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -189,7 +180,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         settingsManager = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSettingsManager();
         supportedDevice = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSupportedDevice();
     }
-    @HunterDebug
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -227,7 +217,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         // associating AuxButtonsModel with layout
         cameraFragmentBinding.setAuxmodel(auxButtonsViewModel.getAuxButtonsModel());
     }
-    @HunterDebug
     @Override
     public void onViewCreated(@NonNull final View view, Bundle savedInstanceState) {
         this.mCameraUIView = new CameraUIViewImpl(this);
@@ -282,7 +271,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
-    @HunterDebug
     @Override
     public void onResume() {
         super.onResume();

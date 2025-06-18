@@ -1,19 +1,10 @@
 package com.particlesdevs.photoncamera.processing.opengl;
 
-import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.util.Log;
-
-import com.hunter.library.debug.HunterDebug;
-import com.particlesdevs.photoncamera.R;
-import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.ImagePath;
-import com.particlesdevs.photoncamera.processing.ImageSaver;
-import com.particlesdevs.photoncamera.util.AssetLoader;
 import com.particlesdevs.photoncamera.util.Utilities;
-
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -910,7 +901,6 @@ public class GLUtils {
         return createPyramidStore(levels, input, pyramid, true);
     }
     
-    @HunterDebug
     public Pyramid createPyramidStore(int levels, GLTexture input, GLUtils.Pyramid pyramid, boolean useLaplace){
         pyramid.levels = levels;
         pyramid.step = 2.0;
