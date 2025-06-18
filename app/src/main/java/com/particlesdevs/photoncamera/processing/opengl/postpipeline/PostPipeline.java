@@ -156,6 +156,7 @@ public class PostPipeline extends GLBasePipeline {
                 break;
             }
         }
+        add(new ABLC());
         /*
          * * * All filters after demosaicing * * *
          */
