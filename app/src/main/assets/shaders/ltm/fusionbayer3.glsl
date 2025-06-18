@@ -15,7 +15,7 @@ uniform float gauss;
 uniform float target;
 //#define TARGET 0.0
 //#define GAUSS 0.5
-#define MAXLEVEL (1)
+#define MAXLEVEL 4
 #define NORM 64.0
 #define EPS 1e-6
 #define LAPLACEMIN 0.01
@@ -36,7 +36,6 @@ vec4 laplace(sampler2D tex, vec4 mid, ivec2 xyCenter) {
 
 void main() {
     ivec2 xyCenter = ivec2(gl_FragCoord.xy);
-
     // If this is the lowest layer, start with zero.
     float base = (useUpsampled)
     ? textureBicubicHardware(upsampled, (vec2(gl_FragCoord.xy))/(vec2(upscaleIn))).r

@@ -39,7 +39,7 @@ public class ExposureFusionBayer3 extends Node {
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
         glProg.setDefine("GAMMAFACTOR", gammaFactor);
         Log.d(Name,"Compressor:"+basePipeline.mSettings.compressor);
-        glProg.useAssetProgram("exposebayer31",false);
+        glProg.useAssetProgram("ltm/exposebayer31",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("InterpolatedCurve",interpolatedCurve);
         glProg.setTexture("ShadowMap", shadowMap);
@@ -66,7 +66,7 @@ public class ExposureFusionBayer3 extends Node {
         glProg.setDefine("OVEREXPOSEMPY", 1.0f);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
         glProg.setDefine("GAMMAFACTOR", gammaFactor);
-        glProg.useAssetProgram("exposebayer31",false);
+        glProg.useAssetProgram("ltm/exposebayer31",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("GainMap", ((PostPipeline)basePipeline).GainMap);
         glProg.setVar("neutral", basePipeline.mParameters.whitePoint);
@@ -97,7 +97,7 @@ public class ExposureFusionBayer3 extends Node {
             float line = i/255.f;
             full += glHistogram.outputArr[0][i];
             gaussNorm += (float) Math.exp(-line*line*Math2.mix(0.1f,1.0f,overExposeMpy));
-            Log.d(Name,"Histogram:"+glHistogram.outputArr[0][i]);
+            //Log.d(Name,"Histogram:"+glHistogram.outputArr[0][i]);
         }
         float[] overexposed = new float[255];
         for(int i = 0; i < 255; i++){
@@ -151,7 +151,7 @@ public class ExposureFusionBayer3 extends Node {
     GLTexture fusionMap(GLTexture in,GLTexture br,float str){
         glProg.setDefine("DH","("+dehaze+")");
         glProg.setDefine("FUSIONGAIN",((PostPipeline)(basePipeline)).fusionGain);
-        glProg.useAssetProgram("fusionmap",false);
+        glProg.useAssetProgram("ltm/fusionmap",false);
         glProg.setTexture("InputBuffer",in);
         glProg.setTexture("BrBuffer",br);
         glProg.setVar("factor", str);
@@ -339,7 +339,7 @@ public class ExposureFusionBayer3 extends Node {
         glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
         glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
         glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
-        glProg.useAssetProgram("fusionbayer3",false);
+        glProg.useAssetProgram("ltm/fusionbayer3",false);
         glProg.setVar("gauss", gaussSize);
         glProg.setVar("target", targetLuma);
         glProg.setVar("useUpsampled",0);
@@ -355,16 +355,15 @@ public class ExposureFusionBayer3 extends Node {
         glProg.drawBlocks(binnedFuse,normalExpo.sizes[ind]);
 
         for (int i = normalExpo.laplace.length - 1; i >= 0; i--) {
-            //GLTexture upsampleWip = (glUtils.interpolate(binnedFuse,normalExpo.sizes[i]));
-            //Log.d("ExposureFusion","Before:"+upsampleWip.mSize+" point:"+normalExpo.sizes[i]);
-            GLTexture upsampleWip = binnedFuse;
-            Log.d(Name,"upsampleWip:"+upsampleWip.mSize);
+            //Log.d("ExposureFusion","Before:"+upsample.mSize+" point:"+normalExpo.sizes[i]);
+            GLTexture upsample = binnedFuse;
+            Log.d(Name,"upsample:"+upsample.mSize);
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
             glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
             glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
-            glProg.useAssetProgram("fusionbayer3",false);
+            glProg.useAssetProgram("ltm/fusionbayer3",false);
 
-            glProg.setTexture("upsampled", upsampleWip);
+            glProg.setTexture("upsampled", upsample);
             glProg.setVar("useUpsampled", 1);
             glProg.setVar("blendMpy",1.0f+dehazing-dehazing*((float)i)/(normalExpo.laplace.length-1.f));
             glProg.setVar("level",i);
@@ -386,7 +385,7 @@ public class ExposureFusionBayer3 extends Node {
             glProg.drawBlocks(binnedFuse,normalExpo.sizes[i]);
             //glUtils.SaveProgResult(binnedFuse.mSize,"ExposureFusion"+i);
 
-            upsampleWip.close();
+            upsample.close();
             normalExpo.gauss[i].close();
             //highExpo.gauss[i].close();
             normalExpo.laplace[i].close();
