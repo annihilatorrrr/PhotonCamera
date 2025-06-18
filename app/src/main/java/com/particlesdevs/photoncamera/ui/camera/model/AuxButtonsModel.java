@@ -35,6 +35,16 @@ public class AuxButtonsModel extends BaseObservable {
     private String currentCameraId;
     private AuxButtonsLayout.AuxButtonListener auxButtonListener;
 
+    private boolean isEnabled = true;
+
+    public boolean isEnabled() {
+        return isEnabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        isEnabled = enabled;
+    }
+
     public AuxButtonsLayout.AuxButtonListener getAuxButtonListener() {
         return auxButtonListener;
     }

@@ -141,10 +141,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     private CameraUIController mCameraUIEventsListener;
     public CaptureController captureController;
     private CameraFragmentViewModel cameraFragmentViewModel;
-    private AuxButtonsViewModel auxButtonsViewModel;
+    public AuxButtonsViewModel auxButtonsViewModel;
     public CameraFragmentBinding cameraFragmentBinding;
     private TouchFocus mTouchFocus;
-    private Swipe mSwipe;
+    public Swipe mSwipe;
     private MediaPlayer burstPlayer;
     private MediaPlayer endPlayer;
     public GLPreview textureView;
@@ -657,6 +657,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             logD("onProcessingFinished: " + obj);
             mCameraUIView.setProcessingProgressBarIndeterminate(false);
             mCameraUIView.activateShutterButton(true);
+            mCameraUIView.lockUIForBurst(false);
             stopNotification();
 
         }
@@ -681,6 +682,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         public void onProcessingError(Object obj) {
             if (obj instanceof String)
                 showToast((String) obj);
+            mCameraUIView.lockUIForBurst(false);
             onProcessingFinished("Processing Finished Unexpectedly!!");
         }
 
@@ -697,6 +699,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         @Override
         public void onCaptureStillPictureStarted(Object o) {
             mCameraUIView.setCaptureProgressBarOpacity(1.0f);
+            mCameraUIView.lockUIForBurst(true);
             //textureView.post(() -> textureView.setAlpha(0.8f));
         }
 
@@ -735,6 +738,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             }
             timerFrameCountViewModel.clearFrameTimeCnt();
             mCameraUIView.resetCaptureProgressBar();
+            mCameraUIView.lockUIForBurst(false);
             textureView.post(() -> textureView.setAlpha(1f));
         }
 

@@ -111,12 +111,14 @@ public class AuxButtonsLayout extends LinearLayout {
     }
 
     private void onAuxButtonClick(View view) {
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            child.setSelected(view.equals(child));
+        if (auxButtonsModel.isEnabled()) {
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                child.setSelected(view.equals(child));
+            }
+            if (auxButtonListener != null)
+                auxButtonListener.onAuxButtonClicked(auxButtonsMap.get(view.getId()));
         }
-        if (auxButtonListener != null)
-            auxButtonListener.onAuxButtonClicked(auxButtonsMap.get(view.getId()));
     }
 
     private void addNewButton(String cameraId, String buttonText) {

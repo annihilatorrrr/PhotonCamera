@@ -41,6 +41,7 @@ public class AuxButtonsViewModel extends ViewModel {
     private static final Comparator<CameraLensData> SORT_BY_ZOOM_FACTOR = (o1, o2) -> -Double.compare(o1.getZoomFactor(), o2.getZoomFactor());
     private final AuxButtonsModel auxButtonsModel = new AuxButtonsModel();
     private boolean initialized = false;
+    private boolean isEnabled = true;
 
     public void initCameraLists(Map<String, CameraLensData> cameraLensDataMap) {
         if (!initialized) {
@@ -62,6 +63,15 @@ public class AuxButtonsViewModel extends ViewModel {
 
     public void setAuxButtonListener(AuxButtonsLayout.AuxButtonListener auxButtonListener) {
         auxButtonsModel.setAuxButtonListener(auxButtonListener);
+    }
+
+    public boolean isEnabled() {
+        return isEnabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        isEnabled = enabled;
+        auxButtonsModel.setEnabled(enabled);
     }
 
     public void setActiveId(String cameraId) {

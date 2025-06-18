@@ -51,6 +51,13 @@ public interface CameraUIView {
 
     void showFlashButton(boolean flashAvailable);
 
+    /**
+     * Lock UI elements during burst capture (except shutter button)
+     *
+     * @param locked true = lock UI, false = unlock UI
+     */
+    void lockUIForBurst(boolean locked);
+
     void destroy();
 
 

@@ -124,6 +124,7 @@ class CameraUIViewImpl implements CameraUIView {
         if (!processing) {
             this.activateShutterButton(true);
             this.setProcessingProgressBarIndeterminate(false);
+            this.lockUIForBurst(false);
         }
     }
 
@@ -157,6 +158,53 @@ class CameraUIViewImpl implements CameraUIView {
     public void showFlashButton(boolean flashAvailable) {
         this.topbar.setFlashVisible(flashAvailable);
         cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.flash_entry_layout, flashAvailable ? View.VISIBLE : GONE);
+    }
+
+    @Override
+    public void lockUIForBurst(boolean locked) {
+        
+        // Lock/unlock bottom bar buttons (except shutter button)
+        if (this.bottombuttons != null) {
+                this.bottombuttons.galleryImageButton.post(() -> this.bottombuttons.galleryImageButton.setEnabled(!locked));
+            // Note: shutter button remains enabled for burst control
+        }
+        
+        // Lock/unlock mode picker
+        if (this.mModePicker != null) {
+            this.mModePicker.post(() -> this.mModePicker.setEnabled(!locked));
+        }
+        
+        // Lock/unlock aux buttons container - disable touch events
+        if (cameraFragment.cameraFragmentBinding != null) {
+            cameraFragment.cameraFragmentBinding.auxButtonsContainer.post(() -> {
+                cameraFragment.cameraFragmentBinding.auxButtonsContainer.setEnabled(!locked);
+                // Also set alpha to visually indicate disabled state
+                cameraFragment.cameraFragmentBinding.auxButtonsContainer.setAlpha(locked ? 0.5f : 1.0f);
+                cameraFragment.auxButtonsViewModel.setEnabled(!locked);
+            });
+        }
+        
+        // Lock/unlock settings bar - disable touch events and reduce alpha
+        if (cameraFragment.cameraFragmentBinding != null) {
+            cameraFragment.cameraFragmentBinding.settingsBar.post(() -> {
+                cameraFragment.cameraFragmentBinding.settingsBar.setEnabled(!locked);
+                cameraFragment.cameraFragmentBinding.settingsBar.setAlpha(locked ? 0.5f : 1.0f);
+            });
+        }
+        
+        // Lock/unlock manual mode console - disable swipe gestures
+        if (cameraFragment.cameraFragmentBinding != null) {
+            cameraFragment.cameraFragmentBinding.manualMode.post(() -> {
+                cameraFragment.cameraFragmentBinding.manualMode.setEnabled(!locked);
+                cameraFragment.cameraFragmentBinding.manualMode.setAlpha(locked ? 0.5f : 1.0f);
+            });
+        }
+        
+        // Lock/unlock touch focus by disabling the swipe controls
+        if (cameraFragment.textureView != null) {
+            // Disable touch events on the texture view to prevent focus/swipe during burst
+            cameraFragment.textureView.post(() -> cameraFragment.textureView.setEnabled(!locked));
+        }
     }
 
     @Override
