@@ -381,7 +381,9 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     #endif
     float br = (pRGB.r+pRGB.g+pRGB.b)/3.0;
     //pRGB /= br;
-    gainsVal = mix(1.0,gainsVal,VIGNETTE);
+    float shadowRegion = mix(1.0,0.0,clamp(br*100.0,0.0,1.0));
+    float vignetteFactor = mix(VIGNETTE,0.0,shadowRegion);
+    gainsVal = mix(1.0,gainsVal,vignetteFactor);
     //br = clamp(reinhard_extended(br*gainsVal,max(1.0,gainsVal)),0.0,1.0);
     //br = clamp(reinhard_extended(br*tonemapGain,max(1.0,tonemapGain)),0.0,1.0);
     pRGB = clamp(pRGB*mix(tonemapGain,1.0,LTMMIX), 0.0,1.0);
