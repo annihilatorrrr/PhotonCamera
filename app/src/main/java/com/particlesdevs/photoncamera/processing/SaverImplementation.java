@@ -18,7 +18,7 @@ import java.util.Locale;
 
 public class SaverImplementation {
     private static final String TAG = "SaverImplementation";
-    public volatile boolean bufferLock = false;
+    public volatile boolean bufferLock = true;
     public volatile boolean newBurst = false;
     public static ArrayList<ImageFrame> IMAGE_BUFFER = new ArrayList<>();
     public int frameCount = 0;

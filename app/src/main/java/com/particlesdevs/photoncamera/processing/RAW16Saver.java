@@ -19,6 +19,7 @@ public class RAW16Saver extends DefaultSaver{
             Log.d(TAG, "unlimitedaddImage: " + this + " " + mUnlimitedProcessor);
             mUnlimitedProcessor.unlimitedCycle(image);
             image.close();
+            bufferLock = false;
         } else {
             Log.d(TAG, "start buffer size:" + IMAGE_BUFFER.size());
             image.getFormat();
@@ -29,6 +30,7 @@ public class RAW16Saver extends DefaultSaver{
                 }*/
             IMAGE_BUFFER.add(getFrame(image));
             image.close();
+            bufferLock = false;
         }
     }
 
