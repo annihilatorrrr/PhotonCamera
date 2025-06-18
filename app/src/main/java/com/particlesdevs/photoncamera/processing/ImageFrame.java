@@ -27,8 +27,7 @@ public class ImageFrame {
     }
 
     public ImageFrame(ByteBuffer in) {
-        ByteBuffer direct = Allocator.allocate(in.capacity());
-        direct.put(in);
+        ByteBuffer direct = Allocator.allocateAndCopy(in.capacity(), in);
         direct.position(0);
         buffer = direct;
     }

@@ -7,5 +7,7 @@ public class Allocator{
     }
     public native static ByteBuffer allocate(int capacity);
 
+    public native static ByteBuffer allocateAndCopy(int capacity, ByteBuffer origin);
+
     public native static void free(ByteBuffer buffer);
 }
