@@ -40,7 +40,7 @@ public class DefaultSaver extends SaverImplementation {
         super.runRaw(imageFormat, characteristics, captureResult,captureRequest, burstShakiness, cameraRotation, exposures);
         //Wait for one frame at least.
         Log.d(TAG, "Acquiring:" + IMAGE_BUFFER.size());
-        while (bufferLock){}
+        while (bufferLock || IMAGE_BUFFER.isEmpty()){}
         Log.d(TAG, "Acquired:" + IMAGE_BUFFER.size());
         bufferLock = true;
         Log.d(TAG,"Size:"+IMAGE_BUFFER.size());
