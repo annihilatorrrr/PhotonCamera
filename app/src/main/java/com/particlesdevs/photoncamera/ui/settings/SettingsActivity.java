@@ -156,7 +156,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setTelegramPref() {
-            AsyncTask.execute(()-> {
+            activity.runOnUiThread(()-> {
                 Preference myPref = findPreference(PreferenceKeys.Key.KEY_TELEGRAM.mValue);
                 if (myPref != null)
                     myPref.setOnPreferenceClickListener(preference -> {
@@ -168,7 +168,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setGithubPref() {
-            AsyncTask.execute(()-> {
+            activity.runOnUiThread(()-> {
             Preference github = findPreference(PreferenceKeys.Key.KEY_CONTRIBUTORS.mValue);
             if (github != null)
                 github.setOnPreferenceClickListener(preference -> {
@@ -180,7 +180,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setRestorePref() {
-                AsyncTask.execute(()-> {
+                activity.runOnUiThread(()-> {
             Preference restorePref = findPreference(mContext.getString(R.string.pref_restore_preferences_key));
             if (restorePref != null) {
                 restorePref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -193,7 +193,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setBackupPref() {
-            AsyncTask.execute(()-> {
+            activity.runOnUiThread(()-> {
                 Preference backupPref = findPreference(mContext.getString(R.string.pref_backup_preferences_key));
                 if (backupPref != null) {
                     backupPref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -205,7 +205,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
            });
         }
         private void setSupportedDevices() {
-            AsyncTask.execute(()-> {
+            activity.runOnUiThread(()-> {
                 Preference preference = findPreference(PreferenceKeys.Key.ALL_DEVICES_NAMES_KEY.mValue);
                 if (preference != null) {
                     preference.setSummary((mSettingsManager.getStringSet(PreferenceKeys.Key.DEVICES_PREFERENCE_FILE_NAME.mValue,
@@ -216,7 +216,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setProTitle() {
-                AsyncTask.execute(()-> {
+            activity.runOnUiThread(()-> {
                     Preference preference = findPreference(mContext.getString(R.string.pref_about_key));
                     if (preference != null && supportedDevice.isSupportedDevice()) {
                         preference.setTitle(R.string.device_support);
@@ -302,7 +302,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         }
 
         private void setVersionDetails() {
-            AsyncTask.execute(() -> {
+            activity.runOnUiThread(() -> {
                 Preference about = findPreference(mContext.getString(R.string.pref_version_key));
                 if (about != null) {
                     try {
