@@ -112,8 +112,6 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             showHideHdrxSettings();
             setFramesSummary();
             setVersionDetails();
-            Toolbar toolbar = activity.findViewById(R.id.settings_toolbar);
-            toolbar.setTitle(getPreferenceScreen().getTitle());
             setHdrxTitle();
             checkEszdTheme();
             setTelegramPref();
@@ -143,7 +141,18 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
             mRootView = view;
+            setupToolbar();
         }
+
+        private void setupToolbar() {
+            if (activity != null) {
+                Toolbar toolbar = activity.findViewById(R.id.settings_toolbar);
+                if (toolbar != null) {
+                    toolbar.setTitle(getPreferenceScreen().getTitle());
+                }
+            }
+        }
+
         @Override
         public void onResume() {
             super.onResume();
