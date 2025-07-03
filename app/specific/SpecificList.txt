@@ -6,6 +6,7 @@ xiaomi:alioth
 xiaomi:earth
 xiaomi:psyche
 xiaomi:star
+xiaomi:xuanyuan
 oneplus:guacamole
 oneplus:guacamoles
 oneplus:guacamoleb

@@ -14,6 +14,7 @@ xiaomi:ishtar
 xiaomi:earth
 xiaomi:psyche
 xiaomi:star
+xiaomi:xuanyuan
 oneplus:oneplus7
 oneplus:oneplus7t
 oneplus:oneplus7tpro
