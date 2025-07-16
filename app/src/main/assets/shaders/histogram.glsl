@@ -1,5 +1,6 @@
-precision mediump sampler2D;
+precision highp sampler2D;
 precision highp int;
+precision highp float;
 uniform sampler2D inTexture;
 uniform vec4 exposure;
 #define COL_R 1
@@ -40,12 +41,11 @@ shared uint localAlpha[HISTSIZE];
 #define CUSTOM_PROGRAM //
 
 #define LAYOUT //
-//LAYOUT
-layout(local_size_x = 8, local_size_y = 8) in;
+LAYOUT
 void main() {
     ivec2 storePos = ivec2(gl_GlobalInvocationID.xy)*SCALE;
     ivec2 imgsize = textureSize(inTexture,0).xy;
-    uint index = uint(gl_LocalInvocationIndex);
+    uint index = uint(gl_LocalInvocationIndex); // 0 - 64
     for (uint i = 0u; i < HISTSTEPS; i++) {
         #if COL_R == 1
         localRed[index*HISTSTEPS + i] = 0u;

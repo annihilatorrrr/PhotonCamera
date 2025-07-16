@@ -35,17 +35,18 @@ public class Histogram extends View {
         super(context, attributeSet);
         wallPaint = new Paint();
         histogramExecutor.execute(() -> {
-            glHistogram = new GLHistogram();
+            glHistogram = new GLHistogram(256);
         });
     }
     public HistogramModel analyze(Bitmap bitmap) {
         int size = 256;
-        int[][][] colorsMap = new int[1][4][256];
+        int[][][] colorsMap = new int[1][4][size];
         int maxY = 0;
         //colorsMap = HistogramRs.getHistogram(bitmap);
         AtomicBoolean compute = new AtomicBoolean(false);
         histogramExecutor.execute(() -> {
             GLImage glImage = new GLImage(bitmap);
+            glHistogram.Ac = false;
             colorsMap[0] = glHistogram.Compute(glImage);
             glImage.close();
             compute.set(true);
