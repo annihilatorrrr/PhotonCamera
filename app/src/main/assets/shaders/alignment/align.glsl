@@ -61,6 +61,7 @@ mat4 getSharedDifferences(ivec2 xy, ivec2 prevOffset) {
     float value = 0.0;
     float maxNoise = sqrt(noiseS + noiseO)*1.0/integralNorm;
     vec4 baseValue = clamp(getPixel(xy, baseTexture), 0.000, 1.0);
+    float baseBrightness = brightness(baseValue);
     //baseValue *= sqrt((baseValue*baseValue)/(baseValue*baseValue + maxNoise*maxNoise));
     //baseValue = clamp(baseValue / exposure, vec4(0.0), vec4(1.0));
     for (int i = 0; i < 4; i++) {
@@ -70,12 +71,13 @@ mat4 getSharedDifferences(ivec2 xy, ivec2 prevOffset) {
             //alterValue *= sqrt((alterValue*alterValue)/(alterValue*alterValue + maxNoise*maxNoise));
             //float luma = brightness(baseValue) - brightness(alterValue);
             //float luma = texture(baseCurve, vec2(brightness(baseValue), 0.5)).r - texture(alterCurve, vec2(brightness(alterValue),0.5)).r;
-            float luma = brightness(baseValue) - brightness(alterValue);
+            float luma = baseBrightness - brightness(alterValue);
             //float luma = texture(baseCurve, vec2(brightness(baseValue), 0.5)).r - texture(alterCurve, vec2(brightness(alterValue),0.5)).r;
             differences[i][j] = abs(luma);
         }
     }
-    if(brightness(baseValue) > brightness(clamp(baseValue, 0.0, exposure)) || brightness(baseValue) < 0.001){
+    //if(brightness(baseValue) > brightness(clamp(baseValue, 0.0, exposure)) || brightness(baseValue) < 0.001){
+    if (baseBrightness > brightness(clamp(baseValue, 0.0, exposure)) || baseBrightness < 0.001) {
         differences *= 0.0;
     }
     return differences;
@@ -85,9 +87,9 @@ mat4 getOffsetDifferences(ivec2 xy) {
     mat4 differences;
     float maxNoise = sqrt(noiseS + noiseO)*1.0/integralNorm;
     vec4 baseValue = clamp(getPixel(xy, baseTexture), 0.000, 1.0);
+    float baseBrightness = brightness(baseValue);
     //baseValue *= sqrt((baseValue*baseValue)/(baseValue*baseValue + maxNoise*maxNoise));
     //baseValue = clamp(baseValue / exposure, vec4(0.0), vec4(1.0));
-    float value = 0.0;
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             vec2 prevOffset = vec4ToAlignment(getAlignment(xy/(2*TILE) + ivec2(i-1, j-1)))*2.0;
@@ -97,12 +99,11 @@ mat4 getOffsetDifferences(ivec2 xy) {
             //differences[i][j] = dot(abs(diff), vec4(0.25));
             //float luma = median4(baseValue)-median4(alterValue);
             //float luma = texture(baseCurve, vec2(brightness(baseValue), 0.5)).r - texture(alterCurve, vec2(brightness(alterValue),0.5)).r;
-            float luma = brightness(baseValue) - brightness(alterValue);
-            value += brightness(baseValue);
+            float luma = baseBrightness - brightness(alterValue);
             differences[i][j] = abs(luma);
         }
     }
-    if(brightness(baseValue) > brightness(clamp(baseValue, 0.0, exposure)) || brightness(baseValue) < 0.001){
+    if (baseBrightness > brightness(clamp(baseValue, 0.0, exposure)) || baseBrightness < 0.001) {
         differences *= 0.0;
     }
     return differences;
