@@ -70,7 +70,7 @@ void main() {
     w = (vec4(1.0) - w);
     if(first){
         //base = vec4(0.0);
-        //base *= robustWeight(w);
+        base *= robustWeight(w);
     }
     //w = vec4(1.0);
     //w = robustWeight(w);
@@ -86,4 +86,5 @@ void main() {
     storing.a *= w.a;*/
 
     imageStore(outTexture, xy, base + diffCenter*robustWeight(w));
+    //imageStore(outTexture, xy, base + diffCenter);
 }

@@ -44,7 +44,7 @@ public class PyramidMerging extends GLOneScript {
     GLTexture baseDiff;
     GLTexture diffFlow;
     GLTexture base;
-    GLTexture avrFrames;
+    GLTexture baseLow;
     //GLTexture;
     GLTexture brightMap;
     GLTexture result;
@@ -52,6 +52,7 @@ public class PyramidMerging extends GLOneScript {
     GLTexture alignmentTex;
     GLTexture hotPix;
     GLUtils.Pyramid pyramid;
+    GLUtils.Pyramid pyramidBase;
 
     @Override
     public void Run() {
@@ -61,7 +62,9 @@ public class PyramidMerging extends GLOneScript {
         Log.d("Alignment", "alignment pipeline size: " + alignmentOutputSize.x + " " + alignmentOutputSize.y);
         PyramidAlignment pyramidAlignment = new PyramidAlignment(alignmentOutputSize, images, glProg, glUtils);
         pyramidAlignment.parameters = parameters;
+        long startTime = System.currentTimeMillis();
         pyramidAlignment.Run();
+        Log.d("PyramidMerging", "Alignment time: " + (System.currentTimeMillis() - startTime) + "ms");
         alignmentTex = pyramidAlignment.Result;
         pyramidAlignment.close();
         Point raw = parameters.rawSize;
@@ -73,6 +76,7 @@ public class PyramidMerging extends GLOneScript {
         diffFlow = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         // Temporal result
         base = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
+        baseLow = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         //avrFrames = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_MIRRORED_REPEAT);
         //noiseMap = new GLTexture(new Point(rawHalf.x/4,rawHalf.y/4),new GLFormat(GLFormat.DataType.FLOAT_32,4));
         brightMap = new GLTexture(new Point(rawHalf.x/4,rawHalf.y/4),new GLFormat(GLFormat.DataType.FLOAT_16,4));
@@ -101,6 +105,17 @@ public class PyramidMerging extends GLOneScript {
         glProg.setTextureCompute("inTexture",base, false);
         glProg.setTextureCompute("outTexture",brightMap, true);
         glProg.computeAuto(brightMap.mSize, 1);
+
+        /*glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("merge/merge00",true);
+        glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
+        glProg.setVar("blackLevel", blackLevel);
+        glProg.setVar("exposure", 1.f/1.f);
+        glProg.setVar("createDiff", 0);
+        glProg.setVar("cfaPattern", parameters.cfaPattern);
+        glProg.setTexture("inTexture",inputBase);
+        glProg.setTextureCompute("outTexture",baseLow, true);
+        glProg.computeAuto(new Point(baseLow.mSize.x, baseLow.mSize.y), 1);*/
 
         /*
         glProg.setLayout(tile,tile,1);
@@ -137,6 +152,9 @@ public class PyramidMerging extends GLOneScript {
         NoiseFitting.NoiseParameters fitted = NoiseFitting.findParameters(data);
         Log.d(Name, "Fitted parameters: " + fitted.toString());*/
         pyramid = new GLUtils.Pyramid();
+        //pyramidBase = new GLUtils.Pyramid();
+
+        //glUtils.createPyramidStore(levelcount, baseLow, pyramidBase);
         NoiseModeler modeler = parameters.noiseModeler;
         float noiseS = modeler.baseModel[0].first.floatValue() +
                 modeler.baseModel[1].first.floatValue() +
@@ -155,61 +173,6 @@ public class PyramidMerging extends GLOneScript {
         Point border = new Point(16,16);
         inputAlter = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16, 1), null, GL_NEAREST, GL_MIRRORED_REPEAT);
         //alignmentTex = new GLTexture(aSize, new GLFormat(GLFormat.DataType.FLOAT_32, 2), alignment, GL_NEAREST, GL_MIRRORED_REPEAT);
-
-        /*FloatBuffer fb = alignment.asFloatBuffer();
-        for (int i = 0; i < aSize.x*aSize.y*4*2; i++) {
-            Log.d("PyramidMerging", "alignment: " + fb.get(i));
-        }*/
-        /*
-        glProg.setLayout(tile, tile, 1);
-        glProg.useAssetProgram("merge/merge5", true);
-        glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
-        glProg.setVar("blackLevel", parameters.blackLevel);
-        glProg.setVar("start", 1);
-        glProg.setVar("last", 0);
-        glProg.setVar("noiseS", noiseS);
-        glProg.setVar("noiseO", noiseO);
-        glProg.setTexture("brTexture", brightMap);
-        glProg.setTexture("inTexture", inputBase);
-        glProg.setTextureCompute("diffTexture", avrFrames, false);
-        glProg.setTextureCompute("outTexture", avrFrames, true);
-        glProg.computeAuto(rawHalf, 1);
-
-        for (int f = 1; f < images.size(); f++) {
-            glProg.setLayout(tile, tile, 1);
-            glProg.useAssetProgram("merge/merge5", true);
-            glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
-            glProg.setVar("blackLevel", parameters.blackLevel);
-            glProg.setVar("exposure", 1.f/images.get(f).pair.layerMpy);
-            glProg.setVar("start", 0);
-            glProg.setVar("last", 0);
-            glProg.setVar("noiseS", noiseS);
-            glProg.setVar("noiseO", noiseO);
-            inputAlter.loadData(images.get(0).buffer);
-            glProg.setTexture("brTexture", brightMap);
-            glProg.setTexture("inTexture", inputAlter);
-            glProg.setTextureCompute("diffTexture", avrFrames, false);
-            glProg.setTextureCompute("outTexture", avrFrames, true);
-            glProg.computeAuto(rawHalf, 1);
-        }
-
-        glProg.setLayout(tile, tile, 1);
-        glProg.useAssetProgram("merge/merge5", true);
-        glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
-        glProg.setVar("blackLevel", parameters.blackLevel);
-        glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
-        glProg.setVar("start", 0);
-        glProg.setVar("last", 1);
-        glProg.setVar("noiseS", noiseS);
-        glProg.setVar("noiseO", noiseO);
-        inputAlter.loadData(images.get(0).buffer);
-        glProg.setTexture("brTexture", brightMap);
-        glProg.setTexture("inTexture", inputAlter);
-        glProg.setTextureCompute("diffTexture", avrFrames, false);
-        glProg.setTextureCompute("hotPixTexture", hotPix, true);
-        glProg.computeAuto(rawHalf, 1);*/
-        // remove first frame
-        //HashMap<Float, Float> counter = new HashMap<>();
 
         float minExp = 1.f;
         int minExpIdx = 0;
@@ -296,6 +259,7 @@ public class PyramidMerging extends GLOneScript {
             GLUtils.Pyramid diff = glUtils.createPyramidStore(levelcount, baseDiff, pyramid);
             Log.d("PyramidMerging", "diff created");
 
+            Log.d("PyramidMerging", "diff.laplace.length: " + diff.laplace.length + " diff.gauss.length: " + diff.gauss.length);
             // do pyramid upscaling
             for (int i = diff.laplace.length - 1; i >= 0; i--) {
                 float integralNorm = (float)rawHalf.x * rawHalf.y/(diff.gauss[i+1].mSize.x * diff.gauss[i+1].mSize.y);
@@ -304,14 +268,16 @@ public class PyramidMerging extends GLOneScript {
                 glProg.useAssetProgram("merge/merge1", true);
                 glProg.setTexture("brTexture", brightMap);
                 glProg.setTexture("baseTexture", diff.gauss[i + 1]);
+                //glProg.setTexture("baseOriginTexture", pyramidBase.gauss[i + 1]);
                 glProg.setTextureCompute("diffTexture", diff.laplace[i], false);
+                //glProg.setTextureCompute("diffOriginTexture", pyramidBase.laplace[i], false);
                 glProg.setTextureCompute("outTexture", diff.gauss[i], true);
                 //glProg.setVar("noiseS", (float) fitted.S);
                 glProg.setVar("minLevel",minLevel);
                 glProg.setVar("noiseS", noiseS);
                 //glProg.setVar("noiseO", (float) fitted.O);
                 glProg.setVar("noiseO", noiseO);
-                glProg.setVar("integralNorm", (float) Math.sqrt(integralNorm)*8.0f);
+                glProg.setVar("integralNorm", (float) Math.sqrt(integralNorm)*0.5f);
                 glProg.setVar("first", (i==diff.laplace.length - 1) ? 1 : 0);
                 glProg.computeAuto(diff.gauss[i].mSize, 1);
             }
@@ -319,6 +285,7 @@ public class PyramidMerging extends GLOneScript {
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge/merge11", true);
             glProg.setTextureCompute("inTexture", base, false);
+            //glProg.setTextureCompute("baseDiff", baseLow, false);
             glProg.setTextureCompute("diffTexture", diff.gauss[0], false);
             glProg.setTextureCompute("outTexture", base, true);
             glProg.setVar("noiseS", noiseS);

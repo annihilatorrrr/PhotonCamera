@@ -35,5 +35,5 @@ vec4 getBayerVec(ivec2 coords, highp usampler2D tex){
 void main() {
     ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
     vec4 bayer = getBayerVec(xy*TILE, inTexture);
-    imageStore(outTexture, xy, bayer);
+    imageStore(outTexture, xy, bayer * vec4(exposure));
 }

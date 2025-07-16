@@ -118,7 +118,7 @@ void main() {
     float mixf = clamp(max((ma-target*exposure),(mb-target*exposure))/(max(0.01,exposure-target*exposure)),0.0,1.0);
     float mixf2 = clamp(max((target*exposureLow-ma),(target*exposureLow-mb))/(max(0.01,exposureLow-target*exposureLow)),0.0,1.0);
     vec4 bbDiff = bayerBase - bayer;
-    bbDiff *= (sqrt(vec4(1.0) - ((bbDiff*bbDiff)/(noise*noise*4.0 + bbDiff*bbDiff))));
+    bbDiff *= (sqrt(vec4(1.0) - ((bbDiff*bbDiff)/(noise*noise*8.0 + bbDiff*bbDiff))));
 
     //vec4 denoised = mix(bayer+bbDiff, bayer, clamp(mb,0.0,1.0));
     vec4 denoised = bayer+bbDiff;
@@ -128,5 +128,8 @@ void main() {
         alignedSum = vec4(0.0);
     }*/
     alignedSum *= (sqrt(vec4(1.0) - ((alignedSum*alignedSum)/(noise*noise*4.0 + alignedSum*alignedSum))));
-    imageStore(outTexture, xy, clamp(alignedSum/16.0, vec4(-1.0), vec4(1.0)));
+    /*if(length(alignedSum) > 0.1) {
+        alignedSum = vec4(0.0);
+    }*/
+    imageStore(outTexture, xy, alignedSum);
 }
