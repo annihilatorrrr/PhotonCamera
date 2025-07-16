@@ -1,5 +1,6 @@
 package com.particlesdevs.photoncamera.processing.opengl.scripts;
 
+import android.graphics.Point;
 import android.util.Log;
 
 import com.particlesdevs.photoncamera.processing.opengl.GLBuffer;
@@ -26,6 +27,9 @@ public class GLHistogram implements AutoCloseable{
     public int resize = 3;
     public float[] exposure = new float[4];
     public String CustomProgram = "";
+    public GLHistogram(int size) {
+        this(new GLContext(1,1),size);
+    }
     public GLHistogram() {
         this(new GLContext(1,1),256);
     }
@@ -86,12 +90,15 @@ public class GLHistogram implements AutoCloseable{
         glProg.setBufferCompute("histogramGreen",buffers[1]);
         glProg.setBufferCompute("histogramBlue",buffers[2]);
         glProg.setBufferCompute("histogramAlpha",buffers[3]);
-        glProg.computeManual(input.mSize.x/(resize*tile)+1,input.mSize.y/(resize*tile)+1,1);
-
-        outputArr[0] = buffers[0].readBufferIntegers(true);
-        outputArr[1] = buffers[1].readBufferIntegers(true);
-        outputArr[2] = buffers[2].readBufferIntegers(true);
-        outputArr[3] = buffers[3].readBufferIntegers(true);
+        glProg.computeAuto(new Point(input.mSize.x/resize, input.mSize.y/resize), 1);
+        if (Rc)
+            outputArr[0] = buffers[0].readBufferIntegers(true);
+        if (Gc)
+            outputArr[1] = buffers[1].readBufferIntegers(true);
+        if (Bc)
+            outputArr[2] = buffers[2].readBufferIntegers(true);
+        if (Ac)
+            outputArr[3] = buffers[3].readBufferIntegers(true);
         Log.d("GLHistogram"," elapsed:"+(System.currentTimeMillis()-time)+" ms");
         return outputArr;
     }
