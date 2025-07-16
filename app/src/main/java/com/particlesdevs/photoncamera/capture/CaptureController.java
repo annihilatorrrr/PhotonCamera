@@ -69,6 +69,7 @@ import com.particlesdevs.photoncamera.api.CameraManager2;
 import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.api.CameraReflectionApi;
 import com.particlesdevs.photoncamera.api.Settings;
+import com.particlesdevs.photoncamera.api.VendorTagUtils;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.control.TouchFocus;
@@ -173,6 +174,8 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
     private static final SparseIntArray DEFAULT_ORIENTATIONS = new SparseIntArray();
     private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
+
+    private boolean useMaximumResolutionKey = false;
 
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
@@ -929,6 +932,63 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         //mTextureView.setTransform(matrix);
         mTextureView.setOrientation(mSensorOrientation+90);
     }
+
+    private ArrayList<Size> getAllTargets(){
+        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID);
+        StreamConfigurationMap map = characteristics.get(
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        ArrayList<Size> allTargets = new ArrayList<>();
+
+        Size[] targetSizes = map.getOutputSizes(mTargetFormat);
+        if(targetSizes != null)
+            allTargets.addAll(Arrays.asList(targetSizes));
+        if(PhotonCamera.getSettings().QuadBayer) {
+            useMaximumResolutionKey = false;
+            int[] capabilities = characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            for (int capability : capabilities) {
+                if (capability == CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) {
+                    Size arraySize = null;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        arraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION);
+                    }
+                    if(arraySize != null) {
+                        useMaximumResolutionKey = true;
+                        allTargets.add(arraySize);
+                    }
+                }
+            }
+            if(!useMaximumResolutionKey) {
+                Size[] highResSizes = map.getHighResolutionOutputSizes(mTargetFormat);
+                // Extend targetSizes with high resolution sizes
+                if (highResSizes != null && highResSizes.length > 0) {
+                    allTargets.addAll(Arrays.asList(highResSizes));
+                }
+                var keys = CameraReflectionApi.getCameraCharacteristicsKeys(characteristics, null, true);
+                for (Object keyObj : keys) {
+                    try {
+                        if (keyObj instanceof CameraCharacteristics.Key<?>) {
+                            CameraCharacteristics.Key<?> key = (CameraCharacteristics.Key<?>) keyObj;
+                            if (key.getName().contains("StreamConfigurations")) {
+                                Object res = characteristics.get(key);
+                                int[] vals = (int[]) res;
+                                for (int i = 0; i < vals.length; i += 4) {
+                                    int format = vals[i];
+                                    int width = vals[i + 1];
+                                    int height = vals[i + 2];
+                                    if (format == mTargetFormat) {
+                                        allTargets.add(new Size(width, height));
+                                        Log.d(TAG, "Added custom resolution(" + key.getName() + "):" + width + " " + height);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+        return allTargets;
+    }
     @SuppressLint("MissingPermission")
     public void restartCamera() {
         CameraFragment.mSelectedMode = PhotonCamera.getSettings().selectedMode;
@@ -976,13 +1036,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 showToast("Failed to release camera");
             }
         }
-
-        StreamConfigurationMap map = this.mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID).get(
+        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID);
+        StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
-        if (map == null) return;
+        ArrayList<Size> allTargets = getAllTargets();
         Size preview = getCameraOutputSize(map.getOutputSizes(mPreviewTargetFormat));
-        Size target = getCameraOutputSize(map.getOutputSizes(mTargetFormat), preview);
+        Size target = getCameraOutputSize(allTargets.toArray(new Size[0]), preview);
         int max = 3;
         if (mTargetFormat == mPreviewTargetFormat && isDualSession) max = PhotonCamera.getSettings().frameCount + 3;
         //largest = target;
@@ -1162,9 +1221,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         if (map == null) {
             return;
         }
-        //Size preview = getPreviewOutputSize(mTextureView.getDisplay(),characteristics,PhotonCamera.getSettings().selectedMode);
+        ArrayList<Size> allTargets = getAllTargets();
+
         Size preview = getCameraOutputSize(map.getOutputSizes(mPreviewTargetFormat));
-        Size target = getCameraOutputSize(map.getOutputSizes(mTargetFormat), preview);
+        Size target = getCameraOutputSize(allTargets.toArray(new Size[0]), preview);
         int maxjpg = 3;
         if (mTargetFormat == mPreviewTargetFormat && isDualSession)
             maxjpg = PhotonCamera.getSettings().frameCount + 3;
@@ -1339,6 +1399,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         // Flash is automatically enabled when necessary.
                         resetPreviewAEMode();
                         Camera2ApiAutoFix.applyPrev(mPreviewRequestBuilder);
+                        VendorTagUtils.builderSessionApply(mPreviewRequestBuilder, false, useMaximumResolutionKey);
                         // Finally, we start displaying the camera preview.
                         if (is30Fps) {
                             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
@@ -1667,6 +1728,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             //setAutoFlash(captureBuilder);
             //int rotation = Interface.getGravity().getCameraRotation();//activity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, PhotonCamera.getGravity().getCameraRotation(mSensorOrientation));
+            VendorTagUtils.builderSessionApply(captureBuilder, true, useMaximumResolutionKey);
 
             captures = new ArrayList<>();
             BurstShakiness = new ArrayList<>();

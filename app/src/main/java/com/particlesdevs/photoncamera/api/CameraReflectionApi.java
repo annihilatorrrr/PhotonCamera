@@ -25,10 +25,116 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class CameraReflectionApi {
+    /**
+     * Get camera characteristics keys using RestrictionBypass to access protected getKeys method
+     */
+    public static ArrayList<Object> getCameraCharacteristicsKeys(
+            CameraCharacteristics cameraCharacteristics,
+            int[] filterTags,
+            boolean includeSynthetic) {
+        try {
+            Log.d("CameraAPI", "getCameraCharacteristicsKeys called");
+
+            // Get the CameraCharacteristics.Key class
+            Class<?> keyClass = Class.forName("android.hardware.camera2.CameraCharacteristics$Key");
+
+            // Use RestrictionBypass to get the protected getKeys method
+            // The method signature is: getKeys(Class<?> type, Class<TKey> keyClass, CameraMetadata<TKey> instance, int[] filterTags, boolean includeSynthetic)
+            Log.d("CameraAPI", "Attempting to get getKeys method from CameraMetadata class");
+            Method getKeysMethod = RestrictionBypass.getDeclaredMethod(
+                    CameraMetadata.class,
+                    "getKeys",
+                    Class.class,
+                    Class.class,
+                    CameraMetadata.class,
+                    int[].class,
+                    boolean.class
+            );
+
+            if (getKeysMethod == null) {
+                Log.e("CameraAPI", "Failed to find getKeys method");
+                return null;
+            }
+
+            Log.d("CameraAPI", "Found getKeys method: " + getKeysMethod);
+
+            // Make the method accessible
+            getKeysMethod.setAccessible(true);
+
+            // Call the method with proper parameters
+            @SuppressWarnings("unchecked")
+            ArrayList<Object> result = (ArrayList<Object>) getKeysMethod.invoke(
+                    cameraCharacteristics,
+                    cameraCharacteristics.getClass(),
+                    keyClass,
+                    cameraCharacteristics,
+                    filterTags,
+                    includeSynthetic
+            );
+
+            Log.i("CameraAPI", "Successfully called getKeys method");
+            return result;
+        } catch (Exception e) {
+            Log.e("CameraAPI", "Error calling getCameraCharacteristicsKeys: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public static ArrayList<Object> getCaptureRequestKeys(
+            CaptureRequest captureRequest,
+            int[] filterTags,
+            boolean includeSynthetic) {
+        try {
+            // Get the CameraCharacteristics.Key class
+            Class<?> keyClass = Class.forName("android.hardware.camera2.CaptureRequest$Key");
+
+            // Use RestrictionBypass to get the protected getKeys method
+            // The method signature is: getKeys(Class<?> type, Class<TKey> keyClass, CameraMetadata<TKey> instance, int[] filterTags, boolean includeSynthetic)
+            Log.d("CameraAPI", "Attempting to get getKeys method from CameraMetadata class");
+            Method getKeysMethod = RestrictionBypass.getDeclaredMethod(
+                    CameraMetadata.class,
+                    "getKeys",
+                    Class.class,
+                    Class.class,
+                    CameraMetadata.class,
+                    int[].class,
+                    boolean.class
+            );
+
+            if (getKeysMethod == null) {
+                Log.e("CameraAPI", "Failed to find getKeys method");
+                return null;
+            }
+
+            Log.d("CameraAPI", "Found getKeys method: " + getKeysMethod);
+
+            // Make the method accessible
+            getKeysMethod.setAccessible(true);
+
+            // Call the method with proper parameters
+            @SuppressWarnings("unchecked")
+            ArrayList<Object> result = (ArrayList<Object>) getKeysMethod.invoke(
+                    captureRequest,
+                    captureRequest.getClass(),
+                    keyClass,
+                    captureRequest,
+                    filterTags,
+                    includeSynthetic
+            );
+
+            Log.i("CameraAPI", "Successfully called getKeys method");
+            return result;
+        } catch (Exception e) {
+            Log.e("CameraAPI", "Error calling getCaptureRequestKeys: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
     public static <T> void set(CameraCharacteristics characteristics, CameraCharacteristics.Key<T> key, T value) {
         try {
             //Class<?> metadataNativeClass = ReflectBypass.findClass("android/hardware/camera2/impl/CameraMetadataNative");
