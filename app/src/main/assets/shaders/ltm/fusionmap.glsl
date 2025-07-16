@@ -31,6 +31,6 @@ void main() {
     //br = gammaInverse(br);
     //br+=DH+0.003;
     result=(((br2+0.00001)/((br)+0.00001)));
-    result = max(result,mix(1.0,result,clamp(br*10.0,0.0,1.0)));
+    //result = max(result,mix(1.0,result,clamp(br*10.0,0.0,1.0)));
     result = clamp(result/(FUSIONGAIN),0.0,1.0);
 }

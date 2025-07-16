@@ -16,7 +16,7 @@ uniform float target;
 //#define TARGET 0.0
 //#define GAUSS 0.5
 #define MAXLEVEL 4
-#define NORM 64.0
+#define NORM 4.0
 #define EPS 1e-6
 #define LAPLACEMIN 0.01
 #define EXPOMIN 0.01

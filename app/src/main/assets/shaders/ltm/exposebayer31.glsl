@@ -128,5 +128,5 @@ void main() {
     br = mix(highMpy,initial_br,1.0/4.0);
     //br = gammaEncode(br);
     result.a = clamp(br,0.0,highLim);
-    result /= 64.0;
+    result /= 4.0;
 }
