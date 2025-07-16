@@ -37,6 +37,120 @@ public class PyramidAlignment implements AutoCloseable {
         int shiftY = ((f-1)/parameters.tilesX) * (parameters.alignmentSize.y);
         return new Point(shiftX, shiftY);
     }
+    
+    /**
+     * Find optimal exposure by comparing histograms using brute force approach
+     * @param baseHist Base frame histogram (reference)
+     * @param alterHist Alter frame histogram (1x exposure)
+     * @return Optimal exposure value
+     */
+    private float findOptimalExposure(int[][] baseHist, int[][] alterHist) {
+        float bestExposure = 1.0f;
+        double bestScore = Double.MAX_VALUE;
+        
+        // Stage 1: Coarse search from 0.1x to 10x with step 0.05
+        for (float testExposure = 1.0f; testExposure <= 10.0f; testExposure += 0.005f) {
+            double score = compareHistograms(baseHist, alterHist, testExposure);
+            if (score < bestScore) {
+                bestScore = score;
+                bestExposure = testExposure;
+            }
+        }
+        Log.d("PyramidAlignment", "Stage 1 best exposure: " + bestExposure + " with score: " + bestScore);
+        /*
+        // Stage 2: Fine search around best exposure with step 0.005
+        float coarseExposure = bestExposure;
+        bestScore = Double.MAX_VALUE;
+        for (float testExposure = Math.max(0.1f, coarseExposure - 0.1f);
+             testExposure <= coarseExposure + 0.1f; testExposure += 0.005f) {
+            double score = compareHistograms(baseHist, alterHist, testExposure);
+            if (score < bestScore) {
+                bestScore = score;
+                bestExposure = testExposure;
+            }
+        }
+        Log.d("PyramidAlignment", "Stage 2 best exposure: " + bestExposure + " with score: " + bestScore);
+        
+        // Stage 3: Ultra-fine search around best exposure with step 0.001
+        float fineExposure = bestExposure;
+        bestScore = Double.MAX_VALUE;
+        for (float testExposure = Math.max(0.1f, fineExposure - 0.02f); 
+             testExposure <= fineExposure + 0.02f; testExposure += 0.001f) {
+            double score = compareHistograms(baseHist, alterHist, testExposure);
+            if (score < bestScore) {
+                bestScore = score;
+                bestExposure = testExposure;
+            }
+        }
+        
+        Log.d("PyramidAlignment", "Stage 3 best exposure: " + bestExposure + " with score: " + bestScore);*/
+        return bestExposure;
+    }
+    /**
+     * Compare histograms by applying exposure to alter histogram and computing difference
+     * @param baseHist Base frame histogram
+     * @param alterHist Alter frame histogram (1x exposure)
+     * @param exposure Exposure to apply to alter histogram
+     * @return Histogram difference score (lower is better)
+     */
+    private double compareHistograms(int[][] baseHist, int[][] alterHist, float exposure) {
+        double totalDiff = 0.0;
+        int numChannels = Math.min(baseHist.length, alterHist.length);
+        
+        for (int channel = 0; channel < numChannels; channel++) {
+            int[] base = baseHist[channel];
+            int[] alter = alterHist[channel];
+            
+            // Calculate total pixels for normalization
+            long baseTotalPixels = 0;
+            long alterTotalPixels = 0;
+            for (int i = 0; i < base.length; i++) {
+                baseTotalPixels += base[i];
+            }
+            for (int i = 0; i < alter.length; i++) {
+                alterTotalPixels += alter[i];
+            }
+            
+            if (baseTotalPixels == 0 || alterTotalPixels == 0) continue;
+            
+            // Create exposure-compensated histogram for alter frame
+            double[] alterExposed = new double[alter.length];
+            for (int i = 0; i < alter.length; i++) {
+                // Map current alter bin to exposed position
+                float sourceValue = i / (float)(alter.length - 1);
+                float exposedValue = sourceValue / exposure;
+                
+                if (exposedValue <= 1.0f) {
+                    // Map to target bin in exposed space
+                    float targetBinFloat = exposedValue * (alter.length - 1);
+                    int targetBin = (int)targetBinFloat;
+                    float fraction = targetBinFloat - targetBin;
+                    
+                    // Distribute pixel count with linear interpolation
+                    if (targetBin < alter.length) {
+                        alterExposed[targetBin] += alter[i] * (1.0f - fraction);
+                    }
+                    if (targetBin + 1 < alter.length) {
+                        alterExposed[targetBin + 1] += alter[i] * fraction;
+                    }
+                } else {
+                    // Clamp overexposed pixels to brightest bin
+                    alterExposed[alter.length - 1] += alter[i];
+                }
+            }
+            
+            // Compare base histogram with exposure-compensated alter histogram
+            for (int i = 0; i < base.length; i++) {
+                double baseNormalized = (double)base[i] / baseTotalPixels;
+                double alterNormalized = alterExposed[i] / alterTotalPixels;
+                
+                double diff = baseNormalized - alterNormalized;
+                totalDiff += diff * diff;
+            }
+        }
+        
+        return totalDiff / numChannels;
+    }
 
     float downScalePerLevel = 2.0f;
 
@@ -73,7 +187,7 @@ public class PyramidAlignment implements AutoCloseable {
         glProg.setTextureCompute("outTexture", temp, true);
         glProg.computeAuto(temp.mSize, 1);
 
-        GLHistogram hist = new GLHistogram(glProg, 256);
+        GLHistogram hist = new GLHistogram(glProg, 1024);
         hist.Rc = true;
         hist.Gc = true;
         hist.Bc = true;
@@ -99,10 +213,15 @@ public class PyramidAlignment implements AutoCloseable {
             }
         }
 
+        //hist.exposure = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+        //histDataBase = hist.Compute(temp).clone();
+
         glProg.setLayout(8, 8, 1);
         glProg.useAssetProgram("alignment/normalizebl", true);
         glProg.setVar("blackLevel", blackLevel);
+        glProg.setVar("whiteLevel", 1.0f);
         glProg.setTexture("baseTexture", temp);
+        glProg.setTexture("gainMap", gainMap);
         glProg.setTextureCompute("outTexture", base, true);
         glProg.computeAuto(base.mSize, 1);
 
@@ -136,11 +255,31 @@ public class PyramidAlignment implements AutoCloseable {
         int alignCount = 0;
         for (int f = 1; f < images.size(); f++) {
             ImageFrame frame = images.get(f);
-            float exposure = 1.f/frame.pair.layerMpy;
-            Log.d("PyramidAlignment", "load:"+frame.pair.curlayer.name() + " " + frame.pair.layerMpy);
+            Log.d("PyramidAlignment", "load:"+frame.pair.curlayer.name());
             inputAlter.loadData(frame.buffer);
             
-            // Use normalize script to fill alter texture
+            // Compute alter frame histogram with exposure = 1.0 for exposure determination
+            /*glProg.setLayout(tile, tile, 1);
+            glProg.useAssetProgram("alignment/normalize", true);
+            glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
+            glProg.setVar("blackLevel", parameters.blackLevel);
+            glProg.setVar("exposure", 1.0f); // Use 1.0 exposure for histogram comparison
+            glProg.setVar("noiseS", noiseS);
+            glProg.setVar("noiseO", noiseO);
+            glProg.setTexture("inTexture", inputAlter);
+            glProg.setTexture("gainMap", gainMap);
+            glProg.setTextureCompute("outTexture", temp, true);
+            glProg.computeAuto(temp.mSize, 1);
+            
+            // Compute histogram for alter frame with 1x exposure
+            int[][] histDataAlter = hist.Compute(temp).clone();*/
+            
+            // Find optimal exposure using brute force histogram matching
+            //float exposure = 1.0f/findOptimalExposure(histDataBase, histDataAlter);
+            float exposure = 1.0f/frame.pair.layerMpy;
+            //Log.d("PyramidAlignment", "Computed exposure: " + exposure + " reference exposure: " + 1.0f/frame.pair.layerMpy);
+            
+            // Use normalize script to fill alter texture with computed exposure
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("alignment/normalize", true);
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
@@ -154,7 +293,7 @@ public class PyramidAlignment implements AutoCloseable {
             glProg.computeAuto(temp.mSize, 1);
 
 
-            int[][] histData = hist.Compute(temp);
+            /*int[][] histData = hist.Compute(temp);
 
 
             for (int i = 0; i < 4; i++) {
@@ -172,12 +311,14 @@ public class PyramidAlignment implements AutoCloseable {
                         break;
                     }
                 }
-            }
+            }*/
 
             glProg.setLayout(8, 8, 1);
             glProg.useAssetProgram("alignment/normalizebl", true);
             glProg.setVar("blackLevel", blackLevel);
+            glProg.setVar("whiteLevel", 1.0f);
             glProg.setTexture("baseTexture", temp);
+            glProg.setTexture("gainMap", gainMap);
             glProg.setTextureCompute("outTexture", alter, true);
             glProg.computeAuto(alter.mSize, 1);
 
