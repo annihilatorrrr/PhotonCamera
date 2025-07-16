@@ -1,6 +1,6 @@
 package com.particlesdevs.photoncamera.processing.render;
 
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Pair;
 
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;

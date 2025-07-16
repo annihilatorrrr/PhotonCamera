@@ -4,7 +4,7 @@ import android.app.Application;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

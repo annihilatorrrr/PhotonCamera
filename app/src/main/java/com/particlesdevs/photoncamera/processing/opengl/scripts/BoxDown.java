@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.processing.opengl.scripts;
 
 import android.graphics.Point;
 import android.graphics.drawable.Drawable;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.processing.opengl.GLCoreBlockProcessing;

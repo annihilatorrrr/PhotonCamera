@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.processing.opengl.nodes;
 
 import android.graphics.Point;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.processing.opengl.GLBasePipeline;
 import com.particlesdevs.photoncamera.processing.opengl.GLInterface;

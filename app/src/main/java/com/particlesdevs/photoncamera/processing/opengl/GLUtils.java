@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.processing.opengl;
 
 import android.graphics.Point;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.processing.ImagePath;
 import com.particlesdevs.photoncamera.util.Utilities;
 import java.io.File;

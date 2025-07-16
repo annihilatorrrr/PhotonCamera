@@ -4,7 +4,7 @@ import android.graphics.Point;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.MeteringRectangle;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Size;
 import android.view.View;
 import android.view.View.OnTouchListener;

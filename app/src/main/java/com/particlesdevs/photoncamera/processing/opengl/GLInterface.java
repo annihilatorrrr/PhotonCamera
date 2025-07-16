@@ -1,6 +1,6 @@
 package com.particlesdevs.photoncamera.processing.opengl;
 
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.render.Parameters;

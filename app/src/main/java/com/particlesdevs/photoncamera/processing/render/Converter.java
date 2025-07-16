@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.processing.render;
 
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.params.ColorSpaceTransform;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.SparseIntArray;
 
 import java.util.Arrays;

@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
 import android.graphics.Point;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
@@ -79,10 +79,11 @@ public class ExposureFusionBayer3 extends Node {
         GLTexture vectored = glUtils.convertVec4(lowGauss,"in1.r*64.0");
         //GLImage sourceh = glUtils.GenerateGLImage(lowGauss.mSize);
         glHistogram = new GLHistogram(basePipeline.glint.glProcessing);
+        glHistogram.Rc = true;
         glHistogram.Bc = false;
         glHistogram.Gc = false;
         glHistogram.Ac = false;
-        glHistogram.resize = 1;
+        glHistogram.resize = 2;
         glHistogram.Compute(vectored);
 
         //sourceh.close();
@@ -91,7 +92,7 @@ public class ExposureFusionBayer3 extends Node {
 
     GLTexture autoExposureHigh(){
         float integrated = 0.f;
-        float full = 0.f;
+        float full = 0.0001f;
         float gaussNorm = 0.0f;
         for(int i = 0; i < 255; i++){
             float line = i/255.f;
@@ -99,6 +100,8 @@ public class ExposureFusionBayer3 extends Node {
             gaussNorm += (float) Math.exp(-line*line*Math2.mix(0.1f,1.0f,overExposeMpy));
             //Log.d(Name,"Histogram:"+glHistogram.outputArr[0][i]);
         }
+        Log.d(Name,"Full histogram:"+full);
+        Log.d(Name,"Gauss norm:"+gaussNorm);
         float[] overexposed = new float[255];
         for(int i = 0; i < 255; i++){
             float line = i/255.f;
@@ -108,6 +111,7 @@ public class ExposureFusionBayer3 extends Node {
             //integrated += Math.min(cnt, fusionExpoHighLimit/255.f);
             overexposed[i] = integrated;
         }
+        Log.d(Name,"Overexposure integrated:"+integrated);
         for (int i = 0; i < 255; i++){
             overexposed[i] /= integrated;
             Log.d(Name,"Overexposure curve:"+overexposed[i]);

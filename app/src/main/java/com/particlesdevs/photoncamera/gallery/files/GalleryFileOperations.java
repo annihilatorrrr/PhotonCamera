@@ -10,7 +10,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

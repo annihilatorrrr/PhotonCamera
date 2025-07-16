@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.settings;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.StringRes;
 

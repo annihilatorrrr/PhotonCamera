@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.ui.camera;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.CountDownTimer;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 
 import androidx.lifecycle.Observer;

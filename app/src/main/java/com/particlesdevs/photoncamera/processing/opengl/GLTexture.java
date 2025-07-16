@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.processing.opengl;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.opengl.GLUtils;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 

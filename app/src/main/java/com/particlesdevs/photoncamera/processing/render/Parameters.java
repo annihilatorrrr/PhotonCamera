@@ -11,7 +11,7 @@ import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.LensShadingMap;
 import android.os.Build;
 import android.os.Environment;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Rational;
 import android.util.SizeF;
 

@@ -8,7 +8,7 @@ import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.AttributeSet;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 
 import com.particlesdevs.photoncamera.processing.opengl.GLImage;

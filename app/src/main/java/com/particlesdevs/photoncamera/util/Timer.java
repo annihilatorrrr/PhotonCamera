@@ -1,6 +1,6 @@
 package com.particlesdevs.photoncamera.util;
 
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 public class Timer {
     private static final String TAG = "Timer";

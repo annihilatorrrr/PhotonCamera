@@ -6,7 +6,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.BlackLevelPattern;
 import android.hardware.camera2.params.RggbChannelVector;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Range;
 import android.util.Rational;
 

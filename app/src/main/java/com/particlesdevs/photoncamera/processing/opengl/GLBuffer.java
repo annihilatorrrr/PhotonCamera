@@ -1,5 +1,5 @@
 package com.particlesdevs.photoncamera.processing.opengl;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

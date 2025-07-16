@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.processing;
 
 import android.media.Image;
 import android.os.AsyncTask;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.api.CameraMode;

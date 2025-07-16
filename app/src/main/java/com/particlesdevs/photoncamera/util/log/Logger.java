@@ -1,6 +1,6 @@
 package com.particlesdevs.photoncamera.util.log;
 
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 

@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.processing.parameters;
 
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Range;
 
 import com.particlesdevs.photoncamera.api.CameraMode;

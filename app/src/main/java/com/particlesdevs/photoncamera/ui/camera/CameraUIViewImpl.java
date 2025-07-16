@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.ui.camera;
 
 import android.os.Bundle;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;

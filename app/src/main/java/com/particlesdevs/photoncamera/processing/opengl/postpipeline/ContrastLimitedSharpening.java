@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
 import android.hardware.camera2.CaptureResult;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.capture.CaptureController;

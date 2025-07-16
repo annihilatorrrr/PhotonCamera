@@ -5,7 +5,7 @@ import android.graphics.*;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 

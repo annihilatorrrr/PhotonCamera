@@ -8,7 +8,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.exifinterface.media.ExifInterface;
 

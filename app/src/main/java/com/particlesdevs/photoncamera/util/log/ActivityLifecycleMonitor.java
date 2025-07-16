@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.util.log;
 import android.app.Activity;
 import android.app.Application;
 import android.os.Bundle;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

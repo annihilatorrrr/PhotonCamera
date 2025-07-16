@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.api;
 import android.annotation.SuppressLint;
 import android.hardware.camera2.CaptureRequest;
 import android.os.Build;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 public class VendorTagUtils {
     private static final String TAG = "VendorTagUtils";

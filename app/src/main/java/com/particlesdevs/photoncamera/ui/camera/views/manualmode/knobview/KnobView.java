@@ -9,7 +9,7 @@ import android.graphics.Paint.Style;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Range;
 import android.view.MotionEvent;
 import android.view.View;

@@ -3,7 +3,7 @@ package com.particlesdevs.photoncamera.ui.settings.custompreferences;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 import android.widget.SeekBar;
 import android.widget.TextView;

@@ -1,6 +1,6 @@
 package com.particlesdevs.photoncamera.processing.opengl.scripts;
 
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.processing.opengl.GLBuffer;
 import com.particlesdevs.photoncamera.processing.opengl.GLContext;

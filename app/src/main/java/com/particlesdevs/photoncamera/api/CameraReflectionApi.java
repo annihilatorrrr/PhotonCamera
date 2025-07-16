@@ -12,7 +12,7 @@ import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.media.Image;
 import android.os.Handler;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.view.Surface;
 
 import com.particlesdevs.photoncamera.capture.CaptureController;

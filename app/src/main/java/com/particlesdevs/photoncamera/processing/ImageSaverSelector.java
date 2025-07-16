@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.processing;
 
 import android.graphics.ImageFormat;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 public class ImageSaverSelector {
     private static JPEGSaver JPEGSaver;

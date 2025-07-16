@@ -49,7 +49,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 import android.util.Range;
 import android.util.Rational;
 import android.util.Size;

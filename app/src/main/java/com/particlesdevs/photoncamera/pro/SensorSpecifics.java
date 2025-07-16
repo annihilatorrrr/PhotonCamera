@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.pro;
 
 import android.os.AsyncTask;
 import android.os.Build;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.processing.render.SpecificSettingSensor;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;

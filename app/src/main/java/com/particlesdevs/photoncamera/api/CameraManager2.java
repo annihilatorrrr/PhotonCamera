@@ -2,7 +2,7 @@ package com.particlesdevs.photoncamera.api;
 
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

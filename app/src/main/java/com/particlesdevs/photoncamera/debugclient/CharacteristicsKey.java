@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.debugclient;
 
 import android.hardware.camera2.CameraCharacteristics;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.capture.CaptureController;
 

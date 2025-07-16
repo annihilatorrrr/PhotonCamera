@@ -18,7 +18,7 @@ package com.particlesdevs.photoncamera.manual;
  */
 
 import android.hardware.camera2.CaptureRequest;
-import android.util.Log;
+import com.particlesdevs.photoncamera.util.Log;
 
 import androidx.annotation.NonNull;
 
