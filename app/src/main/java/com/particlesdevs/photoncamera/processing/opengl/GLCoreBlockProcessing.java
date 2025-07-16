@@ -24,7 +24,9 @@ import static android.opengl.GLES30.GL_RGBA8;
 import static android.opengl.GLES30.glReadPixels;
 import static android.opengl.GLES30.glViewport;
 
-public class GLCoreBlockProcessing extends GLContext {
+import com.particlesdevs.photoncamera.util.Allocator;
+
+public class GLCoreBlockProcessing extends GLContext implements AutoCloseable {
     private static String TAG = "GLCoreBlockProcessing";
     public GLImage mOut = null;
     public Point shift = new Point(0,0);
@@ -45,6 +47,7 @@ public class GLCoreBlockProcessing extends GLContext {
     }
     public GLCoreBlockProcessing(Point size, GLImage out, GLFormat glFormat, GLDrawParams.Allocate alloc) {
         this(size, glFormat,alloc);
+        allocation = alloc;
         mOut = out;
     }
     public GLCoreBlockProcessing(Point size, GLImage out, GLFormat glFormat) {
@@ -56,6 +59,7 @@ public class GLCoreBlockProcessing extends GLContext {
     }
     public GLCoreBlockProcessing(Point size, GLFormat glFormat, GLDrawParams.Allocate alloc) {
         super(size.x, GLDrawParams.TileSize);
+        allocation = alloc;
         mglFormat = glFormat;
         mOutWidth = size.x;
         mOutHeight = size.y;
@@ -68,7 +72,7 @@ public class GLCoreBlockProcessing extends GLContext {
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, bindRB[0]);
         final int capacity = mOutWidth * mOutHeight * mglFormat.mFormat.mSize * mglFormat.mChannels;
         if(alloc == GLDrawParams.Allocate.None) return;
-        if(alloc == GLDrawParams.Allocate.Direct) mOutBuffer = ByteBuffer.allocateDirect(capacity);
+        if(alloc == GLDrawParams.Allocate.Direct) mOutBuffer = Allocator.allocate(capacity);
         else {
             mOutBuffer = ByteBuffer.allocate(capacity);
         }
@@ -130,7 +134,8 @@ public class GLCoreBlockProcessing extends GLContext {
 
     public ByteBuffer drawBlocksToOutput(Point size, GLFormat glFormat,GLDrawParams.Allocate alloc) {
         ByteBuffer mOutBuffer;
-        if(alloc == GLDrawParams.Allocate.Direct) mOutBuffer = ByteBuffer.allocateDirect(size.x * size.y * glFormat.mFormat.mSize * glFormat.mChannels);
+        allocation = alloc;
+        if(alloc == GLDrawParams.Allocate.Direct) mOutBuffer = Allocator.allocate(size.x * size.y * glFormat.mFormat.mSize * glFormat.mChannels);
         else
             mOutBuffer = ByteBuffer.allocate(size.x * size.y * glFormat.mFormat.mSize * glFormat.mChannels);
         return drawBlocksToOutput(size,glFormat,mOutBuffer);
@@ -170,5 +175,25 @@ public class GLCoreBlockProcessing extends GLContext {
         mOutBuffer.position(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return mOutBuffer;
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        if (mOut != null) {
+            mOut.close();
+            mOut = null;
+        }
+        if (mBlockBuffer != null) {
+            mBlockBuffer.clear();
+            mBlockBuffer = null;
+        }
+        if (mOutBuffer != null) {
+            if (allocation == GLDrawParams.Allocate.Direct) {
+                //Allocator.free(mOutBuffer);
+            } else
+                mOutBuffer.clear();
+            mOutBuffer = null;
+        }
     }
 }

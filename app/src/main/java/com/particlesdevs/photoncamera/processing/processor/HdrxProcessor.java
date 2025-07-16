@@ -21,6 +21,7 @@ import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
 import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
+import com.particlesdevs.photoncamera.util.Allocator;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -290,13 +291,16 @@ public class HdrxProcessor extends ProcessorBase {
                 processingEventsListener.onProcessingFinished("HdrX RAW Processing Finished");
                 callback.onFinished();
                 images.get(0).close();
+                Allocator.free(output);
+                Allocator.getMemoryCount();
                 return;
             }
         }
-
+        images.get(0).close();
         PostPipeline pipeline = new PostPipeline();
 
         Bitmap img = pipeline.Run(result, PhotonCamera.getParameters());
+        Allocator.free(result);
 
         img = overlay(img, pipeline.debugData.toArray(new Bitmap[0]));
         try {
@@ -319,8 +323,8 @@ public class HdrxProcessor extends ProcessorBase {
 
         pipeline.close();
 
-        //if(saveRAW)
-        images.get(0).close();
+
+        Allocator.getMemoryCount();
         callback.onFinished();
     }
 

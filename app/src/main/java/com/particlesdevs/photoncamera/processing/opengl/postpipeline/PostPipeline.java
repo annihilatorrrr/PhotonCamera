@@ -17,6 +17,7 @@ import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.parameters.ResolutionSolution;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
+import com.particlesdevs.photoncamera.util.Allocator;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -108,7 +109,9 @@ public class PostPipeline extends GLBasePipeline {
         glint.parameters = parameters;
 
         BuildDefaultPipeline();
-        Bitmap res = runAll().getBufferedImage();
+        GLImage resImg = runAll();
+        Bitmap res = resImg.getBufferedImage();
+        Allocator.free(resImg.byteBuffer);
         GLTexture.closeAll();
         return res;
     }
