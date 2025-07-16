@@ -77,3 +77,11 @@ Java_com_particlesdevs_photoncamera_util_Allocator_free(JNIEnv *env, jclass claz
     memoryCount -= capacity;
     LOGD("Buffer freed successfully");
 }
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_particlesdevs_photoncamera_util_Allocator_getMemoryCount(JNIEnv *env, jclass clazz) {
+    // Return the current memory count
+    LOGD("Current memory count: %ld MB", (memoryCount/1024)/1024);
+    return memoryCount;
+}

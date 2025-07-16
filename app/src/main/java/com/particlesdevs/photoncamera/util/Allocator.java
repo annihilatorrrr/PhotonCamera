@@ -10,4 +10,5 @@ public class Allocator{
     public native static ByteBuffer allocateAndCopy(int capacity, ByteBuffer origin);
 
     public native static void free(ByteBuffer buffer);
+    public native static long getMemoryCount();
 }
