@@ -157,7 +157,9 @@ public class Gyro {
         for (GyroBurst burst : BurstShakiness) {
             avgSize += burst.samples;
         }
-        avgSize/=BurstShakiness.size();
+        if (!BurstShakiness.isEmpty()) {
+            avgSize/=BurstShakiness.size();
+        }
         for(int i =0; i<BurstShakiness.size();i++) {
             int shakeInteg = BurstShakiness.get(i).samples;
             if(BurstShakiness.get(i).samples > avgSize*2){
