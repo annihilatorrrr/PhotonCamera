@@ -469,6 +469,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             mPreviewCaptureRequest = request;
             process(result);
             cameraEventsListener.onPreviewCaptureCompleted(result);
+            if(PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO && !burst && !mTouchFocus.isTouchFocus) {
+                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+                rebuildPreviewBuilderOneShot();
+            }
         }
 
         //Automatic 60fps preview
@@ -1493,7 +1497,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
         mPreviewRequestBuilder.addTarget(surface);
         mPreviewMeteringAF = mPreviewRequestBuilder.get(CONTROL_AF_REGIONS);
-        mPreviewAFMode = mPreviewRequestBuilder.get(CONTROL_AF_MODE);
+        mPreviewAFMode = PreferenceKeys.getAfMode();
         if (mIsRecordingVideo) {
             mPreviewRequestBuilder.set(CONTROL_AF_MODE, CONTROL_AF_MODE_CONTINUOUS_VIDEO);
             mPreviewAFMode = CONTROL_AF_MODE_CONTINUOUS_VIDEO;
@@ -1541,7 +1545,16 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                     CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
             rebuildPreviewBuilderOneShot();
+            //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+            //        CameraMetadata.CONTROL_AF_TRIGGER_START);
+            //rebuildPreviewBuilderOneShot();
             reset3Aparams();
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    CameraMetadata.CONTROL_AF_TRIGGER_START);
+            rebuildPreviewBuilderOneShot();
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                    CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+            rebuildPreviewBuilderOneShot();
             paramController.setupPreview();
             /*mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                     CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
@@ -1702,9 +1715,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     captureBuilder.addTarget(mImageReaderPreview.getSurface());
             } else {
                 captureBuilder.addTarget(mImageReaderRaw.getSurface());
-                if(frametime > 0.06 && !isDualSession) {
+                //if(frametime > 0.06 && !isDualSession) {
                     captureBuilder.addTarget(surface);
-                }
+                //}
                 //captureBuilder.addTarget(surface);
             }
             Camera2ApiAutoFix.applyEnergySaving();
@@ -1741,8 +1754,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             //IsoExpoSelector.HDR = (PhotonCamera.getSettings().alignAlgorithm == 1);
             IsoExpoSelector.HDR = true;
             Log.d(TAG, "HDR:" + IsoExpoSelector.HDR);
-            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
-            captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+            Object mode = mPreviewRequestBuilder.get(CONTROL_AF_MODE);
+            if(mode != null && (int) mode != CaptureRequest.CONTROL_AF_MODE_AUTO || PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO) {
+                captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+                captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+            }
             //captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_EDOF);
             //if ((!(focus == 0.0 && Build.BRAND.equalsIgnoreCase("samsung")))) {
                 MeteringRectangle rectaf = new MeteringRectangle(0, 0, 0, 0, 0);
@@ -1985,7 +2001,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
     public void reset3Aparams() {
         setAEMode(mPreviewRequestBuilder, PreferenceKeys.getAeMode());
-        setAFMode(mPreviewRequestBuilder, CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+        setAFMode(mPreviewRequestBuilder, PreferenceKeys.getAfMode());
         rebuildPreviewBuilder();
     }
 
