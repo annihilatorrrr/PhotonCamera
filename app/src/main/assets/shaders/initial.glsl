@@ -178,7 +178,7 @@ float tonemapSin(float ch) {
 vec2 tonemapSin(vec2 ch) {
     return vec2(tonemapSin(ch.x), tonemapSin(ch.y));
 }
-
+/*
 vec3 tonemap(vec3 rgb, float gain) {
     vec3 sorted = rgb;
 
@@ -264,7 +264,39 @@ vec3 tonemap(vec3 rgb, float gain) {
         break;
     }
     return finalRGB;
+}*/
+
+vec3 tonemap(vec3 rgb, float gain) {
+    float r = rgb.r;
+    float g = rgb.g;
+    float b = rgb.b;
+
+    float min_val = min(r, min(g, b));
+    float max_val = max(r, max(g, b));
+    float mid_val = dot(rgb, vec3(1.0)) - min_val - max_val;
+
+    vec2 minmax_in = vec2(min_val, max_val);
+    vec2 minmax = minmax_in * minmax_in * minmax_in * toneMapCoeffs.x +
+        minmax_in * minmax_in * toneMapCoeffs.y +
+        minmax_in * toneMapCoeffs.z +
+        toneMapCoeffs.w;
+    minmax *= gain;
+
+    float new_min = minmax.x;
+    float new_max = minmax.y;
+
+    float denom = max_val - min_val;
+    float yprog = (mid_val - min_val) / (denom + 1e-10);
+    float new_mid = new_min + (new_max - new_min) * yprog;
+
+    // Branchless assignment using nested mix for each channel
+    float new_r = mix(mix(new_mid, new_max, float(r == max_val)), new_min, float(r == min_val));
+    float new_g = mix(mix(new_mid, new_max, float(g == max_val)), new_min, float(g == min_val));
+    float new_b = mix(mix(new_mid, new_max, float(b == max_val)), new_min, float(b == min_val));
+
+    return vec3(new_r, new_g, new_b);
 }
+
 #define TONEMAP_CONTRAST (1.3)
 vec3 brightnessContrast(vec3 value, float brightness, float contrast)
 {
@@ -381,9 +413,8 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     #endif
     float br = (pRGB.r+pRGB.g+pRGB.b)/3.0;
     //pRGB /= br;
-    float shadowRegion = mix(1.0,0.0,clamp(br*100.0,0.0,1.0));
-    float vignetteFactor = mix(VIGNETTE,0.0,shadowRegion);
-    gainsVal = mix(1.0,gainsVal,vignetteFactor);
+    float vignetteFactor = mix(0.0,VIGNETTE,clamp(br*100.0 - 0.01,0.0,1.0));
+    gainsVal = mix(float(1.0), gainsVal, vignetteFactor);
     //br = clamp(reinhard_extended(br*gainsVal,max(1.0,gainsVal)),0.0,1.0);
     //br = clamp(reinhard_extended(br*tonemapGain,max(1.0,tonemapGain)),0.0,1.0);
     pRGB = clamp(pRGB*mix(tonemapGain,1.0,LTMMIX), 0.0,1.0);
