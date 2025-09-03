@@ -5,7 +5,7 @@ package com.particlesdevs.photoncamera.pro;
 public class SpecificSetting {
     public boolean isDualSessionSupported = false;
     public boolean isRawColorCorrection = false;
-    public int[] cameraIDS;
+    public String[] cameraIDS;
     public SpecificSetting(){
     }
 }

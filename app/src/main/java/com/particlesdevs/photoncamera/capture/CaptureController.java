@@ -38,6 +38,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.ImageReader;
@@ -103,6 +104,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
@@ -548,9 +550,21 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         @Override
         public void onSurfaceTextureAvailable(@NonNull SurfaceTexture texture, int width, int height) {
             try {
-                Log.d(TAG, "ID:" + mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID));
+                String curID = PhotonCamera.getSettings().mCameraID;
+                if(curID.contains("-")){
+                    logicalID = curID.split("-")[0];
+                    physicalID = curID.split("-")[1];
+                } else {
+                    logicalID = curID;
+                    physicalID = curID;
+                }
+                Log.d(TAG, "ID:" + mCameraCharacteristicsMap.get(physicalID));
+                // list available characteristics ids
+                for (String id : mCameraCharacteristicsMap.keySet()) {
+                    Log.d(TAG, "Available camera ID: " + id);
+                }
                 Size optimal = getPreviewOutputSize(mTextureView.getDisplay(),
-                        mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID),
+                        mCameraCharacteristicsMap.get(physicalID),
                         PhotonCamera.getSettings().selectedMode);
                 openCamera(optimal.getWidth(), optimal.getHeight());
             } catch (Exception e){
@@ -603,7 +617,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         try {
             String[] cameraIds = mCameraManager2.getCameraIdList();
             for (String cameraId : cameraIds) {
-                mCameraCharacteristicsMap.put(cameraId, mCameraManager.getCameraCharacteristics(cameraId));
+                String physicalID = cameraId;
+                if(cameraId.contains("-")){
+                    physicalID = cameraId.split("-")[1];
+                }
+                mCameraCharacteristicsMap.put(physicalID, mCameraManager.getCameraCharacteristics(physicalID));
             }
         } catch (CameraAccessException cameraAccessException) {
             // Should not be possible to get here but anyway
@@ -792,7 +810,15 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         try {
             mPreviewWidth = width;
             mPreviewHeight = height;
-            UpdateCameraCharacteristics(PhotonCamera.getSettings().mCameraID);
+            String curID = PhotonCamera.getSettings().mCameraID;
+            if(curID.contains("-")) {
+                logicalID = curID.split("-")[0];
+                physicalID = curID.split("-")[1];
+            } else {
+                logicalID = curID;
+                physicalID = logicalID;
+            }
+            UpdateCameraCharacteristics(physicalID);
             //Thread thr = new Thread(mImageSaver);
             //thr.start();
         } catch (Exception e) {
@@ -938,7 +964,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     }
 
     private ArrayList<Size> getAllTargets(){
-        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID);
+        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(physicalID);
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         ArrayList<Size> allTargets = new ArrayList<>();
@@ -1028,7 +1054,6 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 mPreviewRequestBuilder = null;
             }
             stopBackgroundThread();
-            UpdateCameraCharacteristics(PhotonCamera.getSettings().mCameraID);
             cameraEventsListener.onCameraRestarted();
         } catch (Exception e) {
             Log.e(TAG, Log.getStackTraceString(e));
@@ -1040,7 +1065,15 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 showToast("Failed to release camera");
             }
         }
-        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID);
+        String curID = PhotonCamera.getSettings().mCameraID;
+        if(curID.contains("-")) {
+            logicalID = curID.split("-")[0];
+            physicalID = curID.split("-")[1];
+        } else {
+            logicalID = curID;
+            physicalID = logicalID;
+        }
+        CameraCharacteristics characteristics =  this.mCameraCharacteristicsMap.get(physicalID);
         StreamConfigurationMap map = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         ArrayList<Size> allTargets = getAllTargets();
@@ -1062,14 +1095,14 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
-            this.mCameraManager.openCamera(PhotonCamera.getSettings().mCameraID, mStateCallback, mBackgroundHandler);
+            this.mCameraManager.openCamera(logicalID, mStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
             Log.e(TAG, Log.getStackTraceString(e));
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to restart camera.", e);
         }
         //stopBackgroundThread();
-        UpdateCameraCharacteristics(PhotonCamera.getSettings().mCameraID);
+        UpdateCameraCharacteristics(physicalID);
         startBackgroundThread();
 
         Size optimal = getPreviewOutputSize(mTextureView.getDisplay(), mCameraCharacteristics, CameraFragment.mSelectedMode);
@@ -1181,6 +1214,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         }
     }
 
+    private String physicalID = "";
+    private String logicalID = "";
+
     /**
      * Opens the camera specified by {@link Settings#mCameraID}.
      */
@@ -1203,7 +1239,16 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 if (!mCameraOpenCloseLock.tryAcquire(1000, TimeUnit.MILLISECONDS)) {
                     throw new RuntimeException("Time out waiting to lock camera opening.");
                 }
-                this.mCameraManager.openCamera(PhotonCamera.getSettings().mCameraID, mStateCallback, mBackgroundHandler);
+                physicalID = PhotonCamera.getSettings().mCameraID;
+                logicalID = PhotonCamera.getSettings().mCameraID;
+                // Split x-y, x - logical, y - physical
+                if(PhotonCamera.getSettings().mCameraID.contains("-")){
+                    String[] ids = PhotonCamera.getSettings().mCameraID.split("-");
+                    logicalID = ids[0];
+                    physicalID = ids[1];
+                    isDualSession = true;
+                }
+                this.mCameraManager.openCamera(logicalID, mStateCallback, mBackgroundHandler);
             } catch (CameraAccessException e) {
                 Log.e(TAG, Log.getStackTraceString(e));
             } catch (InterruptedException e) {
@@ -1368,6 +1413,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             Log.d(TAG, "createCameraPreviewSession() Texture:" + texture);
             Log.d(TAG, "bufferSize:" + mBufferSize);
             Log.d(TAG, "previewSize:" + mPreviewSize);
+            Log.d(TAG, "ID:" + PhotonCamera.getSettings().mCameraID + " deviceID:" + mCameraDevice.getId() + " logicalID:" + logicalID + " physicalID:" + physicalID);
 
             //Camera output
             texture.setDefaultBufferSize(mBufferSize.getHeight(), mBufferSize.getWidth());
@@ -1383,7 +1429,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             Log.d(TAG, "createCameraPreviewSession() surfaces:" + Arrays.toString(surfaces.toArray()));
             ArrayList<OutputConfiguration> outputConfigurations = new ArrayList<>();
             for (Surface surfacei : surfaces) {
-                outputConfigurations.add(new OutputConfiguration(surfacei));
+                var config = new OutputConfiguration(surfacei);
+                if(!Objects.equals(physicalID, logicalID) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
+                    config.setPhysicalCameraId(physicalID);
+                }
+                outputConfigurations.add(config);
             }
 
             CameraCaptureSession.StateCallback stateCallback =
@@ -1446,11 +1496,14 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     showToast(activity.getString(R.string.session_on_configure_failed));
                 }
             };
-
-            if (mIsRecordingVideo) {
-                //InputConfiguration inputConfiguration = new InputConfiguration(mImageReaderPreview.getWidth(),mImageReaderPreview.getHeight(),ImageFormat.YUV_420_888);
-                //CameraReflectionApi.createCustomCaptureSession(mCameraDevice,inputConfiguration,outputConfigurations,61444,stateCallback,null);
-                mCameraDevice.createCaptureSession(surfaces, stateCallback, mBackgroundHandler);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                SessionConfiguration configuration = new SessionConfiguration(
+                        SessionConfiguration.SESSION_REGULAR,
+                        outputConfigurations,
+                        processExecutor,
+                        stateCallback
+                );
+                mCameraDevice.createCaptureSession(configuration);
             } else {
                 mCameraDevice.createCaptureSession(surfaces, stateCallback, mBackgroundHandler);
             }
@@ -1671,7 +1724,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     mMeasuredFrameCnt = finalFrameCount;
                     burst = false;
                     //Surface texture related
-                    activity.runOnUiThread(() -> UpdateCameraCharacteristics(PhotonCamera.getSettings().mCameraID));
+                    activity.runOnUiThread(() -> UpdateCameraCharacteristics(physicalID));
                     if (!isDualSession)
                         unlockFocus();
                     else
@@ -1715,10 +1768,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     captureBuilder.addTarget(mImageReaderPreview.getSurface());
             } else {
                 captureBuilder.addTarget(mImageReaderRaw.getSurface());
-                //if(frametime > 0.06 && !isDualSession) {
+                if(frametime > 0.06 && !isDualSession || PhotonCamera.getSettings().selectedMode == CameraMode.MOTION) {
                     captureBuilder.addTarget(surface);
-                //}
-                //captureBuilder.addTarget(surface);
+                }
             }
             Camera2ApiAutoFix.applyEnergySaving();
             cameraRotation = PhotonCamera.getGravity().getCameraRotation(mSensorOrientation);
@@ -2186,9 +2238,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             if (mTextureView == null)
                 mTextureView = new GLPreview(activity);
             if (mTextureView.isAvailable()) {
-                Log.d(TAG,"ID:"+mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID));
+                Log.d(TAG,"ID:"+mCameraCharacteristicsMap.get(physicalID));
                 Size optimal = getPreviewOutputSize(mTextureView.getDisplay(),
-                        mCameraCharacteristicsMap.get(PhotonCamera.getSettings().mCameraID),
+                        mCameraCharacteristicsMap.get(physicalID),
                         PhotonCamera.getSettings().selectedMode);
                 openCamera(optimal.getWidth(), optimal.getHeight());
             } else {
