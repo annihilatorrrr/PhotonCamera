@@ -189,6 +189,8 @@ public class PostPipeline extends GLBasePipeline {
 
         add(new Initial());
 
+        add(new AutoExposure());
+
 
         //add(new GlobalToneMapping());
 
