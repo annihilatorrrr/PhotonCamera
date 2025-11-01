@@ -9,5 +9,6 @@ public enum SettingType {
     GRID,
     EIS,
     RAW,
-    BATTERY_SAVER
+    BATTERY_SAVER,
+    BRACKETING
 }

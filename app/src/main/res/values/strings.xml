@@ -106,6 +106,7 @@
     <string name="sync_on">Sync. On</string>
     <string name="sync_off">Sync. Off</string>
     <string name="mode_unlimited">Unlimited</string>
+    <string name="mode_rawvideo">RAW Video</string>
     <string name="mode_motion">Motion</string>
     <string name="mode_photo">Photo</string>
     <string name="mode_night">Night</string>
@@ -131,4 +132,11 @@
     <string name="gallery_folders">Gallery Folders</string>
     <string name="options">Options</string>
     <string name="session_on_configure_failed">Session configuration failed try changing preview format</string>
+    
+    <!-- Bracketing mode strings -->
+    <string name="exposure_bracketing">Exposure Bracketing</string>
+    <string name="bracketing_off">Off (1x)</string>
+    <string name="bracketing_normal">Normal (1x, 4x)</string>
+    <string name="bracketing_high">High (1x, 8x)</string>
+    <string name="pref_bracketing_key">pref_bracketing_mode_key</string>
 </resources>

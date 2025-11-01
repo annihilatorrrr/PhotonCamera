@@ -67,6 +67,7 @@ public class PreferenceKeys {
         settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_AE_MODE, resources.getString(R.string.pref_ae_mode_default));
         settingsManager.setInitial(SCOPE_GLOBAL, Key.CAMERA_MODE, resources.getString(R.string.pref_camera_mode_default));
         settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER, 0);
+        settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE, 0); // Default to disable bracketing
 
         settingsManager.setDefaults(Key.CAMERA_ID, resources.getString(R.string.camera_id_default), new String[]{"0", "1"});
         settingsManager.setDefaults(Key.TONEMAP, resources.getString(R.string.tonemap_default), new String[]{resources.getString(R.string.tonemap_default)});
@@ -320,6 +321,14 @@ public class PreferenceKeys {
     public static void setCountdownTimerIndex(int valueMS) {
         preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER, valueMS);
     }
+    
+    public static int getBracketingMode() {
+        return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE);
+    }
+    
+    public static void setBracketingMode(int value) {
+        preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE, value);
+    }
 
     public static void setCameraID(String value) {
         preferenceKeys.settingsManager.set(Key.CAMERAS_PREFERENCE_FILE_NAME.mValue, Key.CAMERA_ID, value);
@@ -403,6 +412,7 @@ public class PreferenceKeys {
         KEY_SHOW_GRADIENT(R.string.pref_show_gradient_key),
         KEY_AF_MODE(R.string.pref_af_mode_key),
         KEY_AE_MODE(R.string.pref_ae_mode_key),
+        KEY_BRACKETING_MODE(R.string.pref_bracketing_key),
         KEY_COUNTDOWN_TIMER(R.string.pref_countdown_timer_key),
         /**
          * Enhanced settings keys
