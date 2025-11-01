@@ -50,11 +50,11 @@
                     app:layout_constraintVertical_bias="0.0" />
 
             <!--    Block 1.2-->
-            <!--    Dummy reference view with ratio 3:4. This acts as an anchor view for bottom buttons-->
+            <!--    Dummy reference view with programmable aspect ratio. This acts as an anchor view for bottom buttons-->
             <FrameLayout
                     android:id="@+id/dummy_reference_view"
                     android:layout_width="match_parent"
-                    app:layout_constraintDimensionRatio="3:4"
+                    app:setAspectRatio="@{uimodel.dummyAspectRatio}"
                     android:layout_height="0dp"
                     tools:visibility="visible"
                     android:clickable="false"

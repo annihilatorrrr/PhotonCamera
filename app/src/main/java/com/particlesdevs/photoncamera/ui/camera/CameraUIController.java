@@ -3,6 +3,8 @@ package com.particlesdevs.photoncamera.ui.camera;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.CountDownTimer;
+
+import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 
@@ -50,6 +52,7 @@ final class CameraUIController implements CameraUIEventsListener,
                         else startTimer();
                         break;
                     case UNLIMITED:
+                    case RAWVIDEO:
                         if (!cameraFragment.captureController.onUnlimited) {
                             cameraFragment.captureController.callUnlimitedStart();
                             view.setActivated(false);
@@ -176,6 +179,7 @@ final class CameraUIController implements CameraUIEventsListener,
             case MOTION:
             case NIGHT:
             case UNLIMITED:
+            case RAWVIDEO:
             default:
                 break;
             case VIDEO:
@@ -249,6 +253,11 @@ final class CameraUIController implements CameraUIEventsListener,
                         break;
                     case BATTERY_SAVER:
                         PreferenceKeys.setBatterySaver(value.equals(1));
+                        break;
+                    case BRACKETING:
+                        PreferenceKeys.setBracketingMode((Integer) value);
+                        // Update HDR class to use the new bracketing mode
+                        IsoExpoSelector.HDR = (Integer) value > 0;
                         break;
 
                 }

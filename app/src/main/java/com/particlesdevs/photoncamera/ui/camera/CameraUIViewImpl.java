@@ -1,6 +1,8 @@
 package com.particlesdevs.photoncamera.ui.camera;
 
 import android.os.Bundle;
+
+import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
@@ -78,6 +80,7 @@ class CameraUIViewImpl implements CameraUIView {
                 currentState = new VideoModeState();
                 break;
             case UNLIMITED:
+            case RAWVIDEO:
                 currentState = new UnlimitedModeState();
                 break;
             case PHOTO:
@@ -101,6 +104,7 @@ class CameraUIViewImpl implements CameraUIView {
                             .findViewById(R.id.camera_container)
                             .getLayoutParams();
             switch (mode) {
+                case RAWVIDEO:
                 case VIDEO:
                     camera_containerLP.topToTop = R.id.textureHolder;
                     camera_containerLP.topToBottom = -1;
@@ -162,18 +166,18 @@ class CameraUIViewImpl implements CameraUIView {
 
     @Override
     public void lockUIForBurst(boolean locked) {
-        
+
         // Lock/unlock bottom bar buttons (except shutter button)
         if (this.bottombuttons != null) {
                 this.bottombuttons.galleryImageButton.post(() -> this.bottombuttons.galleryImageButton.setEnabled(!locked));
             // Note: shutter button remains enabled for burst control
         }
-        
+
         // Lock/unlock mode picker
         if (this.mModePicker != null) {
             this.mModePicker.post(() -> this.mModePicker.setEnabled(!locked));
         }
-        
+
         // Lock/unlock aux buttons container - disable touch events
         if (cameraFragment.cameraFragmentBinding != null) {
             cameraFragment.cameraFragmentBinding.auxButtonsContainer.post(() -> {
@@ -183,7 +187,7 @@ class CameraUIViewImpl implements CameraUIView {
                 cameraFragment.auxButtonsViewModel.setEnabled(!locked);
             });
         }
-        
+
         // Lock/unlock settings bar - disable touch events and reduce alpha
         if (cameraFragment.cameraFragmentBinding != null) {
             cameraFragment.cameraFragmentBinding.settingsBar.post(() -> {
@@ -191,7 +195,7 @@ class CameraUIViewImpl implements CameraUIView {
                 cameraFragment.cameraFragmentBinding.settingsBar.setAlpha(locked ? 0.5f : 1.0f);
             });
         }
-        
+
         // Lock/unlock manual mode console - disable swipe gestures
         if (cameraFragment.cameraFragmentBinding != null) {
             cameraFragment.cameraFragmentBinding.manualMode.post(() -> {
@@ -199,7 +203,7 @@ class CameraUIViewImpl implements CameraUIView {
                 cameraFragment.cameraFragmentBinding.manualMode.setAlpha(locked ? 0.5f : 1.0f);
             });
         }
-        
+
         // Lock/unlock touch focus by disabling the swipe controls
         if (cameraFragment.textureView != null) {
             // Disable touch events on the texture view to prevent focus/swipe during burst
@@ -228,8 +232,16 @@ class CameraUIViewImpl implements CameraUIView {
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.fps_entry_layout, View.VISIBLE);
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.timer_entry_layout, View.GONE);
             mShutterButton.setBackgroundResource(R.drawable.unlimitedbutton);
+            // Set the dummy view's aspect ratio to 16:9
+            if(cameraFragment.displayAspectRatio <= 16f / 9f)
+                cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+            else {
+                float avg = ((4f/3f) + (16f / 9f)) / 2f;
+                cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio(String.valueOf(1.0f/avg));
+                //cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("0.580");
+            }
             cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackgroundResource(R.color.panel_transparency);
-            cameraFragment.cameraFragmentBinding.getRoot().setBackgroundResource(android.R.color.black);
+            cameraFragment.cameraFragmentBinding.getRoot().setBackgroundResource(R.drawable.gradient_vector_video);
 
             toggleConstraints(mode);
         }
@@ -244,9 +256,22 @@ class CameraUIViewImpl implements CameraUIView {
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.fps_entry_layout, View.VISIBLE);
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.timer_entry_layout, View.GONE);
             mShutterButton.setBackgroundResource(R.drawable.unlimitedbutton);
-            cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
-            cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
-
+            if(PhotonCamera.getSettings().aspect169 || mode == CameraMode.RAWVIDEO) {
+                // Set the dummy view's aspect ratio to 16:9
+                if(cameraFragment.displayAspectRatio <= 16f / 9f)
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                else {
+                    float avg = ((4f/3f) + (16f / 9f)) / 2f;
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio(String.valueOf(1.0f/avg));
+                    //cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("0.580");
+                }
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackgroundResource(R.color.panel_transparency);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackgroundResource(R.drawable.gradient_vector_video);
+            } else {
+                cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+            }
             toggleConstraints(mode);
         }
     }
@@ -263,8 +288,25 @@ class CameraUIViewImpl implements CameraUIView {
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.timer_entry_layout, View.VISIBLE);
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.hdrx_entry_layout, View.GONE);
             mShutterButton.setBackgroundResource(R.drawable.roundbutton);
-            cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
-            cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+            //cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
+            //cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+
+            if(PhotonCamera.getSettings().aspect169) {
+                // Set the dummy view's aspect ratio to 16:9
+                if(cameraFragment.displayAspectRatio <= 16f / 9f)
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                else {
+                    float avg = ((4f/3f) + (16f / 9f)) / 2f;
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio(String.valueOf(1.0f/avg));
+                    //cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("0.580");
+                }
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackgroundResource(R.color.panel_transparency);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackgroundResource(R.drawable.gradient_vector_video);
+            } else {
+                cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+            }
 
             toggleConstraints(mode);
         }
@@ -280,8 +322,22 @@ class CameraUIViewImpl implements CameraUIView {
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.fps_entry_layout, View.GONE);
             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.timer_entry_layout, View.VISIBLE);
             mShutterButton.setBackgroundResource(R.drawable.roundbutton);
-            cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
-            cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+            if(PhotonCamera.getSettings().aspect169) {
+                // Set the dummy view's aspect ratio to 16:9
+                if(cameraFragment.displayAspectRatio <= 16f / 9f)
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                else {
+                    float avg = ((4f/3f) + (16f / 9f)) / 2f;
+                    cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio(String.valueOf(1.0f/avg));
+                    //cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("0.580");
+                }
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackgroundResource(R.color.panel_transparency);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackgroundResource(R.drawable.gradient_vector_video);
+            } else {
+                cameraFragment.cameraFragmentBinding.getUimodel().setDummyAspectRatio("3:4");
+                cameraFragment.cameraFragmentBinding.layoutBottombar.layoutBottombar.setBackground(null);
+                cameraFragment.cameraFragmentBinding.getRoot().setBackground(Utilities.resolveDrawable(cameraFragment.requireActivity(), R.attr.cameraFragmentBackground));
+            }
 
             toggleConstraints(mode);
         }
