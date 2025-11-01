@@ -3,9 +3,6 @@ package com.particlesdevs.photoncamera.processing;
 import android.media.Image;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
-import com.particlesdevs.photoncamera.processing.DefaultSaver;
-import com.particlesdevs.photoncamera.processing.ImagePath;
-import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -24,7 +21,7 @@ public class JPEGSaver extends DefaultSaver {
             IMAGE_BUFFER.add(getFrame(image));
             byte[] bytes = new byte[buffer.remaining()];
             if (IMAGE_BUFFER.size() == PhotonCamera.getCaptureController().mMeasuredFrameCnt && PhotonCamera.getSettings().frameCount != 1) {
-                Path jpgPath = ImagePath.newJPGFilePath();
+                Path jpgPath = ImagePath.newImageFilePath();
                 buffer.duplicate().get(bytes);
                 Files.write(jpgPath, bytes);
 
@@ -35,7 +32,7 @@ public class JPEGSaver extends DefaultSaver {
                 IMAGE_BUFFER.clear();
             }
             if (PhotonCamera.getSettings().frameCount == 1) {
-                Path jpgPath = ImagePath.newJPGFilePath();
+                Path jpgPath = ImagePath.newImageFilePath();
                 IMAGE_BUFFER.clear();
                 buffer.get(bytes);
                 Files.write(jpgPath, bytes);
