@@ -18,8 +18,8 @@ public class ImagePath {
         return getNewImageFilePath("dng");
     }
 
-    public static Path newJPGFilePath() {
-        return getNewImageFilePath("jpg");
+    public static Path newImageFilePath() {
+        return getNewImageFilePath("");
     }
 
     public static Path getNewImageFilePath(String extension) {
@@ -27,6 +27,15 @@ public class ImagePath {
         if (extension.equalsIgnoreCase("dng")) {
             dir = FileManager.sPHOTON_RAW_DIR;
         }
-        return Paths.get(dir.getAbsolutePath(), generateNewFileName() + '.' + extension);
+        if(!extension.isEmpty()) {
+            return Paths.get(dir.getAbsolutePath(), generateNewFileName() + '.' + extension);
+        } else {
+            return Paths.get(dir.getAbsolutePath(), generateNewFileName());
+        }
+    }
+
+    public static Path getNewImageFolderPath() {
+        File dir = FileManager.sPHOTON_RAW_DIR;
+        return Paths.get(dir.getAbsolutePath(), generateNewFileName());
     }
 }
