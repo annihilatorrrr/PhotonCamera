@@ -87,7 +87,7 @@ public class RawVideoProcessor extends ProcessorBase {
             dngCreator = new DngCreator();
             dngCreator.setParameters(PhotonCamera.getParameters());
             dngCreator.setCompression(false);
-            dngCreator.setBitsPerSample(8);
+            dngCreator.setBitsPerSample(16);
             dngBuffers[0] = dngCreator.dngBuffer(image.getPlanes()[0].getBuffer(), PhotonCamera.getParameters().rawSize.x, PhotonCamera.getParameters().rawSize.y);
             for (int i = 1; i < writeBufferSize; i++) {
                 dngBuffers[i] = Allocator.allocateAndCopy(dngBuffers[0].capacity(), dngBuffers[0], 0);
