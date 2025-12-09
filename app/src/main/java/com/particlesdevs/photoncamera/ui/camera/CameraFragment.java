@@ -541,6 +541,8 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
     public void launchSettings() {
         Intent settingsIntent = new Intent(activity, SettingsActivity.class);
+        // Pass current camera mode to settings
+        settingsIntent.putExtra("camera_mode", PreferenceKeys.getCameraModeOrdinal());
         startActivity(settingsIntent);
     }
 

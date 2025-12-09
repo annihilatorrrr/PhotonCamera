@@ -68,6 +68,7 @@ public class PreferenceKeys {
         settingsManager.setInitial(SCOPE_GLOBAL, Key.CAMERA_MODE, resources.getString(R.string.pref_camera_mode_default));
         settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER, 0);
         settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE, 0); // Default to disable bracketing
+        settingsManager.setInitial(SCOPE_GLOBAL, Key.KEY_VIDEO_RESOLUTION, resources.getString(R.string.pref_video_resolution_default));
 
         settingsManager.setDefaults(Key.CAMERA_ID, resources.getString(R.string.camera_id_default), new String[]{"0", "1"});
         settingsManager.setDefaults(Key.TONEMAP, resources.getString(R.string.tonemap_default), new String[]{resources.getString(R.string.tonemap_default)});
@@ -76,6 +77,11 @@ public class PreferenceKeys {
 
 
         settingsManager.addListener((settingsManager1, key) -> {
+            // Guard against null key (can happen during preference restore)
+            if (key == null) {
+                return;
+            }
+            
             if (isPerLensSettingsOn()) {
                 if (key.equals(Key.CAMERA_ID.mValue)) {
                     loadSettingsForCamera(getCameraID());
@@ -374,6 +380,14 @@ public class PreferenceKeys {
         return preferenceKeys.settingsManager.getFloat(SCOPE_GLOBAL, key);
     }
 
+    public static String getVideoResolution() {
+        return preferenceKeys.settingsManager.getString(SCOPE_GLOBAL, Key.KEY_VIDEO_RESOLUTION, "1920x1080");
+    }
+
+    public static void setVideoResolution(String value) {
+        preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_VIDEO_RESOLUTION, value);
+    }
+
 
     public enum Key {
         KEY_PREF_VERSION(R.string._pref_version),
@@ -418,6 +432,7 @@ public class PreferenceKeys {
          * Enhanced settings keys
          */
         KEY_PREVIEW_RESOLUTION(R.string.pref_preview_resolution_key),////TODO add preview resolution selector
+        KEY_VIDEO_RESOLUTION(R.string.pref_video_resolution_key),
         KEY_SHOW_AF_DATA(R.string.pref_show_afdata_key),
         KEY_SAVE_RAW(R.string.pref_save_raw_key),
         KEY_CFA(R.string.pref_cfa_key),

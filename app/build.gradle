@@ -48,7 +48,7 @@ android {
             //noinspection ChromeOsAbiSupport
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
-        versionName '0.93'
+        versionName '0.94'
         versionProps['VERSION_NAME'] = versionName
         proguardFiles
     }
@@ -108,6 +108,7 @@ android {
 
 
 dependencies {
+
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(path: ':circularbarlib')
     implementation 'de.hdodenhof:circleimageview:3.1.0'
@@ -141,9 +142,6 @@ dependencies {
     implementation 'androidx.test.ext:junit:1.2.1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'org.testng:testng:7.4.0'
-    implementation 'com.elvishew:xlog:1.11.1'
-    implementation 'com.elvishew:xlog-libcat:1.0.0'
-
 }
 repositories {
     mavenCentral()

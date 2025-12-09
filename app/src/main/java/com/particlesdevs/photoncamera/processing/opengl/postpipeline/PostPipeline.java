@@ -17,6 +17,7 @@ import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.parameters.ResolutionSolution;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
+import com.particlesdevs.photoncamera.settings.annotations.Tunable;
 import com.particlesdevs.photoncamera.util.Allocator;
 
 import java.nio.ByteBuffer;
@@ -64,6 +65,17 @@ public class PostPipeline extends GLBasePipeline {
     }
 
     float constShift = 0.0f;
+    
+    @Tunable(
+        title = "Demosaicing Method",
+        description = "0 = Demosaic (compatibility mode), 1 = Demosaic3 (better quality)",
+        category = "Demosaic",
+        min = 0.0f,
+        max = 1.0f,
+        defaultValue = 1.0f,
+        step = 1.0f
+    )
+    int demosaicingMethod = 1;
 
     public Bitmap Run(ByteBuffer inBuffer, Parameters parameters) {
         mParameters = parameters;
@@ -112,6 +124,9 @@ public class PostPipeline extends GLBasePipeline {
         stackFrame = inBuffer;
         glint.parameters = parameters;
 
+        // Inject tunable values for PostPipeline (since it doesn't extend Node)
+        com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
+        
         BuildDefaultPipeline();
         GLImage resImg = runAll();
         Bitmap res = resImg.getBufferedImage();
@@ -154,9 +169,9 @@ public class PostPipeline extends GLBasePipeline {
 
                 if(mSettings.alignAlgorithm != 2) {
                     //add(new HotPixelFilter());
-                    int selectedDemosaicing = getTuning("DemosaicingMethod", 1);
+                    // demosaicingMethod is automatically injected from settings
                     //noinspection SwitchStatementWithTooFewBranches
-                    switch (selectedDemosaicing){
+                    switch (demosaicingMethod){
                         case 0:
                             add(new Demosaic());
                             break;

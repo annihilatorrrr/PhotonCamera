@@ -3,9 +3,22 @@
     import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
     import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
     import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
+    import com.particlesdevs.photoncamera.settings.annotations.Tunable;
     import com.particlesdevs.photoncamera.util.Log;
 
     public class AutoExposure extends Node {
+    @Tunable(title = "Enable", category = "Auto Exposure", defaultValue = 1, min = 0, max = 1, step = 1, description = "Enable post processing auto exposure adjustment")
+    boolean enable;
+    
+    @Tunable(title = "Target Brightness", category = "Auto Exposure", max = 255.0f, defaultValue = 153.6f)
+    float target = 153.6f;
+    
+    @Tunable(title = "Noise Max", category = "Auto Exposure", max = 1.0f, defaultValue = 0.1f)
+    float noiseMax = 0.1f;
+    
+    @Tunable(title = "Gain Max", category = "Auto Exposure", max = 20.0f, defaultValue = 8.0f)
+    float gainMax = 8.0f;
+    
     public AutoExposure() {
         super("", "AutoExposure");
     }
@@ -18,9 +31,11 @@
     public void Compile() {}
     @Override
     public void Run() {
-        float target = getTuning("Target", 153.6f);
-        float noiseMax = getTuning("NoiseMax", 0.1f);
-        float gainMax = getTuning("GainMax", 8.0f);
+        if(!enable) {
+            WorkingTexture = previousNode.WorkingTexture;
+            return;
+        }
+        // Values are automatically injected in BeforeRun()!
         GLHistogram histogram = new GLHistogram(glProg, 256);
         histogram.Rc = true;
         histogram.Gc = true;

@@ -193,6 +193,10 @@ public class PhotonCamera extends Application {
     public SettingsManager getSettingsManager() {
         return mSettingsManager;
     }
+    
+    public static SettingsManager getSettingsManagerStatic() {
+        return sPhotonCamera != null ? sPhotonCamera.mSettingsManager : null;
+    }
 
     @Override
     public void onCreate() {

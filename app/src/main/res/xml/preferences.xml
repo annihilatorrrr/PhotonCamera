@@ -9,15 +9,6 @@
             android:layout="@layout/preference_category_layout"
             android:key="@string/pref_category_general_key"
             android:title="@string/general">
-        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
-                android:key="@string/pref_frame_count_key"
-                android:layout="@layout/preference_seekbar"
-                android:title="@string/frame_count"
-                android:defaultValue="@string/pref_framecount_default"
-                app:maxValue="200"
-                app:minValue="1"
-                android:icon="@drawable/ic_burst_mode_black_24dp"
-                />
         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
                 android:key="@string/pref_wide169_key"
                 android:defaultValue="@bool/pref_wide169_default"
@@ -95,6 +86,34 @@
                 app:defaultValue="false"
 
                 />
+    </PreferenceCategory>
+    <PreferenceCategory
+            android:layout="@layout/preference_category_layout"
+            android:key="@string/pref_category_photo_key"
+            android:title="@string/photo_settings">
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
+                android:key="@string/pref_frame_count_key"
+                android:layout="@layout/preference_seekbar"
+                android:title="@string/frame_count"
+                android:defaultValue="@string/pref_framecount_default"
+                app:maxValue="200"
+                app:minValue="1"
+                android:icon="@drawable/ic_burst_mode_black_24dp"
+                />
+    </PreferenceCategory>
+    <PreferenceCategory
+            android:layout="@layout/preference_category_layout"
+            android:key="@string/pref_category_video_key"
+            android:title="@string/video_settings">
+        <ListPreference
+                android:layout="@layout/preference_with_margin"
+                android:key="@string/pref_video_resolution_key"
+                android:title="@string/video_resolution"
+                app:useSimpleSummaryProvider="true"
+                android:icon="@drawable/ic_saturation"
+                android:entries="@array/video_resolution_entries"
+                android:entryValues="@array/video_resolution_entryvalues"
+                android:defaultValue="@string/pref_video_resolution_default"/>
     </PreferenceCategory>
     <PreferenceCategory
             android:layout="@layout/preference_category_layout"
@@ -350,6 +369,14 @@
                 android:icon="@drawable/ic_gradient_black_24dp"
                 android:defaultValue="@bool/pref_show_gradient_def_value"/>
     </PreferenceCategory>
+    <PreferenceScreen
+            android:layout="@layout/preference_with_margin"
+            android:title="Tunable Settings"
+            android:summary="Advanced tunable parameters"
+            android:key="pref_tunable_submenu"
+            android:icon="@drawable/ic_tune_black_24dp">
+        <!-- Tunable preferences will be added here dynamically -->
+    </PreferenceScreen>
     <PreferenceCategory
             android:layout="@layout/preference_category_layout"
             android:key="@string/pref_category_backup_restore"

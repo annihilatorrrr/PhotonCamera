@@ -26,13 +26,16 @@ import androidx.preference.PreferenceScreen;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.particlesdevs.photoncamera.R;
+import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.app.base.BaseActivity;
 import com.particlesdevs.photoncamera.pro.SupportedDevice;
 import com.particlesdevs.photoncamera.settings.BackupRestoreUtil;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
+import com.particlesdevs.photoncamera.settings.TunablePreferenceGenerator;
 import com.particlesdevs.photoncamera.ui.settings.custompreferences.ResetPreferences;
+import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.util.log.FragmentLifeCycleMonitor;
 
 import java.text.SimpleDateFormat;
@@ -47,11 +50,17 @@ import static com.particlesdevs.photoncamera.settings.PreferenceKeys.SCOPE_GLOBA
 
 public class SettingsActivity extends BaseActivity implements PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
     public static boolean toRestartApp;
+    private static int sCameraMode = -1;
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         getDelegate().setLocalNightMode(PreferenceKeys.getThemeValue());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        
+        // Get camera mode from intent
+        sCameraMode = getIntent().getIntExtra("camera_mode", -1);
+        
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.settings_container, new SettingsFragment())
@@ -109,6 +118,11 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             supportedDevice = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSupportedDevice();
             Objects.requireNonNull(getPreferenceScreen().getSharedPreferences())
                     .registerOnSharedPreferenceChangeListener(this);
+            
+            // Generate tunable preferences automatically
+            generateTunablePreferences();
+            
+            filterPreferencesByMode();
             showHideHdrxSettings();
             setFramesSummary();
             setVersionDetails();
@@ -121,6 +135,102 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             setSupportedDevices();
             setProTitle();
             setThisDevice();
+        }
+        
+        private void generateTunablePreferences() {
+            Log.d("SettingsActivity", "=== generateTunablePreferences called ===");
+            Log.d("SettingsActivity", "Context: " + (mContext != null ? "OK" : "NULL"));
+            Log.d("SettingsActivity", "PreferenceScreen: " + (getPreferenceScreen() != null ? "OK" : "NULL"));
+            
+            try {
+                // Register classes with @Tunable annotations
+                Class<?>[] tunableClasses = {
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Sharpen2.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.ESD3D.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.AutoExposure.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Initial.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Demosaic3.class,
+                    com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidAlignment.class,
+                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.ExposureFusionBayer3.class
+                };
+                
+                for (Class<?> clazz : tunableClasses) {
+                    TunablePreferenceGenerator.registerTunableClass(clazz);
+                    com.particlesdevs.photoncamera.settings.TunableSettingsManager.registerClass(clazz);
+                }
+                
+                Log.d("SettingsActivity", "Registered Sharpen2, now generating preferences...");
+                
+                // Generate preferences and add to screen
+                TunablePreferenceGenerator.generatePreferences(mContext, getPreferenceScreen());
+                
+                // Add reset button for tunable preferences
+                addTunableResetButton();
+                
+                Log.d("SettingsActivity", "=== generateTunablePreferences completed ===");
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "ERROR in generateTunablePreferences", e);
+                e.printStackTrace();
+            }
+        }
+        
+        private void addTunableResetButton() {
+            try {
+                // Find the tunable submenu screen
+                androidx.preference.PreferenceScreen tunableSubmenu = findPreference("pref_tunable_submenu");
+                
+                if (tunableSubmenu != null) {
+                    // Create reset button preference
+                    androidx.preference.Preference resetButton = new androidx.preference.Preference(mContext);
+                    resetButton.setKey("pref_reset_tunable_settings");
+                    resetButton.setTitle("Reset All to Defaults");
+                    resetButton.setSummary("Reset all tunable parameters to their default values");
+                    resetButton.setIcon(android.R.drawable.ic_menu_revert);
+                    resetButton.setOrder(9999); // Force to the end
+                    
+                    resetButton.setOnPreferenceClickListener(preference -> {
+                        // Reset all tunable settings
+                        com.particlesdevs.photoncamera.settings.TunableSettingsManager.resetAllToDefaults(mContext);
+                        
+                        // Restart the settings activity to refresh UI
+                        if (getActivity() != null) {
+                            getActivity().recreate();
+                        }
+                        
+                        com.particlesdevs.photoncamera.app.PhotonCamera.showToast("Tunable settings reset to defaults");
+                        return true;
+                    });
+                    
+                    tunableSubmenu.addPreference(resetButton);
+                    Log.d("SettingsActivity", "Added reset button at end of tunable submenu");
+                } else {
+                    Log.w("SettingsActivity", "Tunable submenu not found, cannot add reset button");
+                }
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "Error adding reset button", e);
+            }
+        }
+
+        private void filterPreferencesByMode() {
+            // Get the camera mode from the activity
+            if (sCameraMode == -1) {
+                // If no mode is passed, get from preferences
+                sCameraMode = PreferenceKeys.getCameraModeOrdinal();
+            }
+            
+            CameraMode cameraMode = CameraMode.valueOf(sCameraMode);
+            
+            // Show/hide categories based on camera mode
+            if (cameraMode == CameraMode.VIDEO || cameraMode == CameraMode.RAWVIDEO) {
+                // In video mode: hide photo-specific settings, show video settings
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_photo_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_jpg_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_hdrx_key));
+            } else {
+                // In photo mode: hide video-specific settings, show photo settings
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_video_key));
+            }
         }
 
         private void showHideHdrxSettings() {
@@ -148,15 +258,23 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             if (activity != null) {
                 Toolbar toolbar = activity.findViewById(R.id.settings_toolbar);
                 if (toolbar != null) {
-                    toolbar.setTitle(getPreferenceScreen().getTitle());
+                    CharSequence title = getPreferenceScreen().getTitle();
+                    // Default to "Settings" if title is null
+                    if (title == null || title.toString().isEmpty()) {
+                        title = "Settings";
+                    }
+                    toolbar.setTitle(title);
                 }
             }
         }
-
+        
         @Override
         public void onResume() {
             super.onResume();
+            // Update toolbar title when fragment resumes (e.g., after navigating back)
+            setupToolbar();
         }
+
 
         @Override
         public void onDestroy() {
@@ -192,6 +310,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
                 activity.runOnUiThread(()-> {
             Preference restorePref = findPreference(mContext.getString(R.string.pref_restore_preferences_key));
             if (restorePref != null) {
+                restorePref.setSummary(mContext.getString(R.string.restore_summary_json));
                 restorePref.setOnPreferenceChangeListener((preference, newValue) -> {
                     String restoreResult = BackupRestoreUtil.restorePreferences(mContext, newValue.toString());
                     Snackbar.make(mRootView, restoreResult, Snackbar.LENGTH_LONG).show();
@@ -205,6 +324,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             activity.runOnUiThread(()-> {
                 Preference backupPref = findPreference(mContext.getString(R.string.pref_backup_preferences_key));
                 if (backupPref != null) {
+                    backupPref.setSummary(mContext.getString(R.string.backup_summary_json));
                     backupPref.setOnPreferenceChangeListener((preference, newValue) -> {
                         String backupResult = BackupRestoreUtil.backupSettings(mContext, newValue.toString());
                         Snackbar.make(mRootView, backupResult, Snackbar.LENGTH_LONG).show();
@@ -250,6 +370,11 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
 
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+            // Guard against null key (can happen during preference restore)
+            if (key == null) {
+                return;
+            }
+            
             if (key.equals(PreferenceKeys.Key.KEY_SAVE_PER_LENS_SETTINGS.mValue)) {
                 setHdrxTitle();
                 if (PreferenceKeys.isPerLensSettingsOn()) {

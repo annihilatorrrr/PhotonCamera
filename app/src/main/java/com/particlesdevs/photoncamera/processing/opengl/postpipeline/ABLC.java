@@ -1,5 +1,7 @@
 package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
+import android.annotation.SuppressLint;
+
 import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
@@ -16,6 +18,7 @@ public class ABLC extends Node {
     public void Compile() {
     }
 
+    @SuppressLint("DefaultLocale")
     @Override
     public void Run() {
         ABL abl = new ABL(basePipeline.glint.glProcessing, 256);

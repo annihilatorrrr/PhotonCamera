@@ -131,4 +131,14 @@
         <item>3</item>
         <item>10</item>
     </integer-array>
+    <string-array name="video_resolution_entries">
+        <item>@string/video_res_4k</item>
+        <item>@string/video_res_fhd</item>
+        <item>@string/video_res_hd</item>
+    </string-array>
+    <string-array name="video_resolution_entryvalues">
+        <item>3840x2160</item>
+        <item>1920x1080</item>
+        <item>1280x720</item>
+    </string-array>
 </resources>

@@ -1,42 +1,246 @@
 package com.particlesdevs.photoncamera.settings;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 
+import androidx.preference.PreferenceManager;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.util.FileManager;
+import com.particlesdevs.photoncamera.util.Log;
 
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 
 public class BackupRestoreUtil {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    
+    /**
+     * Export all settings to JSON format, including per-lens settings
+     */
     public static String backupSettings(Context context, String fileName) {
-        File data_dir = context.getDataDir();
-        File shared_prefs_file = Paths.get(
-                data_dir.toPath()
-                        + File.separator
-                        + "shared_prefs"
-                        + File.separator
-                        + context.getPackageName() + "_preferences.xml"
-        ).toFile();
-        File toSave = new File(FileManager.sPHOTON_DIR, fileName.concat(".xml"));
         try {
             if (fileName.equals("")) {
                 throw new IOException(context.getString(R.string.empty_file_name_error));
             }
-            FileUtils.copyFile(shared_prefs_file, toSave);
-            return "Saved:" + toSave;
+            
+            // Create the export data structure
+            Map<String, Object> exportData = new HashMap<>();
+            
+            // Get all SharedPreferences files
+            String packageName = context.getPackageName();
+            
+            // Export main preferences (excluding per-lens keys)
+            SharedPreferences mainPrefs = PreferenceManager.getDefaultSharedPreferences(context);
+            Map<String, ?> mainPrefsMap = mainPrefs.getAll();
+            exportData.put("main_preferences", mainPrefsMap);
+            
+            // Export per-lens settings as an array (more human-readable)
+            String perLensFileName = context.getString(R.string._per_lens);
+            SharedPreferences perLensPrefs = context.getSharedPreferences(packageName + perLensFileName, Context.MODE_PRIVATE);
+            Map<String, ?> perLensPrefsMap = perLensPrefs.getAll();
+            
+            if (!perLensPrefsMap.isEmpty()) {
+                java.util.List<Map<String, Object>> perLensArray = new java.util.ArrayList<>();
+                
+                for (Map.Entry<String, ?> entry : perLensPrefsMap.entrySet()) {
+                    String key = entry.getKey();
+                    // Keys are like "settings_for_camera_0", extract the camera ID
+                    if (key.startsWith("settings_for_camera_")) {
+                        String cameraId = key.substring("settings_for_camera_".length());
+                        
+                        Map<String, Object> cameraSettings = new HashMap<>();
+                        cameraSettings.put("id", cameraId);
+                        
+                        // Parse the JSON string to a map for better readability
+                        String jsonString = entry.getValue().toString();
+                        try {
+                            Map<String, ?> settingsMap = GSON.fromJson(jsonString, HashMap.class);
+                            cameraSettings.put("settings", settingsMap);
+                        } catch (Exception e) {
+                            // If parsing fails, store as string
+                            cameraSettings.put("settings", jsonString);
+                        }
+                        
+                        perLensArray.add(cameraSettings);
+                    }
+                }
+                
+                if (!perLensArray.isEmpty()) {
+                    exportData.put("per_lens_settings", perLensArray);
+                }
+            }
+            
+            // Export tunable settings (only non-default values)
+            Map<String, Object> tunableSettings = TunableSettingsManager.exportTunableSettings(context);
+            if (!tunableSettings.isEmpty()) {
+                exportData.put("tunable_settings", tunableSettings);
+            }
+            
+            // Add metadata
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("version", "2.1"); // Increment version to include tunable settings
+            metadata.put("format", "json");
+            metadata.put("timestamp", String.valueOf(System.currentTimeMillis()));
+            exportData.put("metadata", metadata);
+            
+            // Write to JSON file
+            File toSave = new File(FileManager.sPHOTON_DIR, fileName.concat(".json"));
+            try (FileWriter writer = new FileWriter(toSave)) {
+                GSON.toJson(exportData, writer);
+            }
+            
+            return "Saved: " + toSave.getAbsolutePath();
         } catch (IOException e) {
             e.printStackTrace();
-            return e.getLocalizedMessage();
+            return "Error: " + e.getLocalizedMessage();
         }
     }
 
+    /**
+     * Import settings from JSON or XML format
+     * Supports both new JSON format and legacy XML format
+     */
     public static String restorePreferences(Context context, String fileName) {
         File toRestore = new File(FileManager.sPHOTON_DIR, fileName);
+        
+        if (!toRestore.exists()) {
+            return "Error: File not found";
+        }
+        
+        try {
+            // Check if it's JSON or XML format
+            if (fileName.endsWith(".json")) {
+                return restoreFromJson(context, toRestore);
+            } else if (fileName.endsWith(".xml")) {
+                return restoreFromXml(context, toRestore);
+            } else {
+                return "Error: Unknown file format. Use .json or .xml";
+            }
+        } catch (Exception e) {
+            Log.e("BackupRestoreUtil", "Restore error: " + Log.getStackTraceString(e));
+            return "Error: " + e.getLocalizedMessage();
+        }
+    }
+    
+    /**
+     * Restore from new JSON format
+     */
+    private static String restoreFromJson(Context context, File jsonFile) throws IOException {
+        try (FileReader reader = new FileReader(jsonFile)) {
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            
+            String packageName = context.getPackageName();
+            
+            // Check version to determine format
+            String version = "1.0"; // default
+            if (root.has("metadata")) {
+                JsonObject metadata = root.getAsJsonObject("metadata");
+                if (metadata.has("version")) {
+                    version = metadata.get("version").getAsString();
+                }
+            }
+            
+            // Restore main preferences
+            if (root.has("main_preferences")) {
+                SharedPreferences mainPrefs = PreferenceManager.getDefaultSharedPreferences(context);
+                SharedPreferences.Editor editor = mainPrefs.edit();
+                editor.clear();
+                
+                JsonObject mainPrefsObj = root.getAsJsonObject("main_preferences");
+                for (String key : mainPrefsObj.keySet()) {
+                    putJsonValueToEditor(editor, key, mainPrefsObj.get(key));
+                }
+                editor.apply();
+            }
+            
+            // Restore per-lens settings
+            if (root.has("per_lens_settings")) {
+                String perLensFileName = context.getString(R.string._per_lens);
+                SharedPreferences perLensPrefs = context.getSharedPreferences(packageName + perLensFileName, Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = perLensPrefs.edit();
+                editor.clear();
+                
+                com.google.gson.JsonElement perLensElement = root.get("per_lens_settings");
+                
+                if (perLensElement.isJsonArray()) {
+                    // New format (v2.0): array of objects with id and settings
+                    com.google.gson.JsonArray perLensArray = perLensElement.getAsJsonArray();
+                    for (com.google.gson.JsonElement element : perLensArray) {
+                        JsonObject cameraObj = element.getAsJsonObject();
+                        String cameraId = cameraObj.get("id").getAsString();
+                        JsonObject settings = cameraObj.getAsJsonObject("settings");
+                        
+                        // Convert settings back to JSON string for storage
+                        String settingsJson = GSON.toJson(settings);
+                        editor.putString("settings_for_camera_" + cameraId, settingsJson);
+                    }
+                } else if (perLensElement.isJsonObject()) {
+                    // Old format (v1.0): object with keys like "settings_for_camera_0"
+                    JsonObject perLensPrefsObj = perLensElement.getAsJsonObject();
+                    for (String key : perLensPrefsObj.keySet()) {
+                        putJsonValueToEditor(editor, key, perLensPrefsObj.get(key));
+                    }
+                }
+                
+                editor.apply();
+            }
+            
+            // Restore tunable settings if present
+            if (root.has("tunable_settings")) {
+                JsonObject tunableSettingsObj = root.getAsJsonObject("tunable_settings");
+                Map<String, Object> tunableSettingsMap = GSON.fromJson(tunableSettingsObj, 
+                    new com.google.gson.reflect.TypeToken<Map<String, Object>>(){}.getType());
+                TunableSettingsManager.importTunableSettings(context, tunableSettingsMap);
+            }
+            
+            // For backward compatibility: restore old format fields if present
+            if (root.has("cameras_preferences")) {
+                String camerasFileName = context.getString(R.string._cameras);
+                SharedPreferences camerasPrefs = context.getSharedPreferences(packageName + camerasFileName, Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = camerasPrefs.edit();
+                
+                JsonObject camerasPrefsObj = root.getAsJsonObject("cameras_preferences");
+                for (String key : camerasPrefsObj.keySet()) {
+                    putJsonValueToEditor(editor, key, camerasPrefsObj.get(key));
+                }
+                editor.apply();
+            }
+            
+            if (root.has("devices_preferences")) {
+                String devicesFileName = context.getString(R.string._devices);
+                SharedPreferences devicesPrefs = context.getSharedPreferences(packageName + devicesFileName, Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = devicesPrefs.edit();
+                
+                JsonObject devicesPrefsObj = root.getAsJsonObject("devices_preferences");
+                for (String key : devicesPrefsObj.keySet()) {
+                    putJsonValueToEditor(editor, key, devicesPrefsObj.get(key));
+                }
+                editor.apply();
+            }
+            
+            PhotonCamera.restartWithDelay(context, 1000);
+            return "Restored from JSON: " + jsonFile.getName();
+        }
+    }
+    
+    /**
+     * Restore from legacy XML format (backward compatibility)
+     */
+    private static String restoreFromXml(Context context, File xmlFile) throws IOException {
         File data_dir = context.getDataDir();
         File shared_prefs_file = Paths.get(
                 data_dir.toPath()
@@ -45,14 +249,45 @@ public class BackupRestoreUtil {
                         + File.separator
                         + context.getPackageName() + "_preferences.xml"
         ).toFile();
-
-        try {
-            FileUtils.copyFile(toRestore, shared_prefs_file);
-            PhotonCamera.restartWithDelay(context, 1000);
-            return "Restored:" + toRestore.getName();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return "Failed!";
+        
+        FileUtils.copyFile(xmlFile, shared_prefs_file);
+        PhotonCamera.restartWithDelay(context, 1000);
+        return "Restored from XML: " + xmlFile.getName();
+    }
+    
+    /**
+     * Helper method to put JSON values into SharedPreferences Editor
+     */
+    private static void putJsonValueToEditor(SharedPreferences.Editor editor, String key, com.google.gson.JsonElement value) {
+        if (value.isJsonPrimitive()) {
+            com.google.gson.JsonPrimitive primitive = value.getAsJsonPrimitive();
+            if (primitive.isBoolean()) {
+                editor.putBoolean(key, primitive.getAsBoolean());
+            } else if (primitive.isNumber()) {
+                // Try to determine if it's int, long, or float
+                String strValue = primitive.getAsString();
+                if (strValue.contains(".")) {
+                    editor.putFloat(key, primitive.getAsFloat());
+                } else {
+                    try {
+                        editor.putInt(key, primitive.getAsInt());
+                    } catch (Exception e) {
+                        editor.putLong(key, primitive.getAsLong());
+                    }
+                }
+            } else {
+                editor.putString(key, primitive.getAsString());
+            }
+        } else if (value.isJsonArray()) {
+            // Handle string sets
+            java.util.Set<String> stringSet = new java.util.HashSet<>();
+            for (com.google.gson.JsonElement element : value.getAsJsonArray()) {
+                stringSet.add(element.getAsString());
+            }
+            editor.putStringSet(key, stringSet);
+        } else {
+            // For complex objects, store as string
+            editor.putString(key, value.toString());
         }
     }
 
