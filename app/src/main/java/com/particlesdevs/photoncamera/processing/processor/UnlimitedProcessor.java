@@ -18,6 +18,7 @@ import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class UnlimitedProcessor extends ProcessorBase {
     private static final String TAG = "UnlimitedProcessor";
@@ -126,7 +127,7 @@ public class UnlimitedProcessor extends ProcessorBase {
         Bitmap bitmap = pipeline.Run(unlimitedBuffer, PhotonCamera.getParameters());
 
         processingEventsListener.onProcessingFinished("Unlimited JPG Processing Finished");
-
+        imageFile = Paths.get(imageFile.toAbsolutePath() + ".jpg");
         boolean imageSaved = ImageSaver.Util.saveBitmapAsJPG(imageFile, bitmap,
                 ImageSaver.JPG_QUALITY, exifData);
 
