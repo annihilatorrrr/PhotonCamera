@@ -13,10 +13,14 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.MarginLayoutParams;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.Preference;
@@ -61,12 +65,38 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         // Get camera mode from intent
         sCameraMode = getIntent().getIntExtra("camera_mode", -1);
         
+        // Setup window insets to handle navigation bar
+        setupWindowInsets();
+        
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.settings_container, new SettingsFragment())
                 .commit();
         getSupportFragmentManager().registerFragmentLifecycleCallbacks(new FragmentLifeCycleMonitor(), true);
 
+    }
+    
+    private void setupWindowInsets() {
+        View settingsContainer = findViewById(R.id.settings_container);
+        if (settingsContainer != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(settingsContainer, (v, windowInsets) -> {
+                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                int navbarBottom = insets.bottom;
+                
+                // Apply margin bottom if navigation bar is present
+                MarginLayoutParams layoutParams = (MarginLayoutParams) v.getLayoutParams();
+                if (layoutParams != null) {
+                    layoutParams.bottomMargin = navbarBottom;
+                    v.setLayoutParams(layoutParams);
+                }
+                
+                // Return consumed insets to prevent default behavior
+                return windowInsets;
+            });
+            
+            // Request insets to be applied
+            ViewCompat.requestApplyInsets(settingsContainer);
+        }
     }
 
     public void back(View view) {
