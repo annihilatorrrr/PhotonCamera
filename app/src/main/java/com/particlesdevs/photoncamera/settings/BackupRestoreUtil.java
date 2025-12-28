@@ -43,10 +43,18 @@ public class BackupRestoreUtil {
             // Get all SharedPreferences files
             String packageName = context.getPackageName();
             
-            // Export main preferences (excluding per-lens keys)
+            // Export main preferences (excluding per-lens keys and tunable settings)
             SharedPreferences mainPrefs = PreferenceManager.getDefaultSharedPreferences(context);
             Map<String, ?> mainPrefsMap = mainPrefs.getAll();
-            exportData.put("main_preferences", mainPrefsMap);
+            // Filter out tunable settings - they are exported separately in tunable_settings section
+            Map<String, Object> filteredMainPrefs = new HashMap<>();
+            for (Map.Entry<String, ?> entry : mainPrefsMap.entrySet()) {
+                String key = entry.getKey();
+                if (key != null && !key.startsWith("pref_tunable_")) {
+                    filteredMainPrefs.put(key, entry.getValue());
+                }
+            }
+            exportData.put("main_preferences", filteredMainPrefs);
             
             // Export per-lens settings as an array (more human-readable)
             String perLensFileName = context.getString(R.string._per_lens);

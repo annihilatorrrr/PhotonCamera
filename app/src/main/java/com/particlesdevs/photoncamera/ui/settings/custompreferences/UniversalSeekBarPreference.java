@@ -1,10 +1,14 @@
 package com.particlesdevs.photoncamera.ui.settings.custompreferences;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.text.InputType;
 import android.util.AttributeSet;
 import com.particlesdevs.photoncamera.util.Log;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -75,6 +79,11 @@ public class UniversalSeekBarPreference extends Preference implements SeekBar.On
         seekBar.setMax((int) ((mMax - mMin) * mStepPerUnit));
         seekBar.setOnSeekBarChangeListener(this);
         set(convertToProgress(fallback_value));
+        
+        // Add click listener for precise value input on the value text
+        if (seekBarValue != null) {
+            seekBarValue.setOnClickListener(v -> showPreciseValueDialog());
+        }
     }
 
     @Override
@@ -119,6 +128,22 @@ public class UniversalSeekBarPreference extends Preference implements SeekBar.On
         persistString(valueToPersist);
         log("set : " + valueToPersist);
     }
+    
+    private void setDirectValue(float value) {
+        // Set value directly without step quantization - for manual input
+        String valueToPersist = isFloat ? 
+            String.format(Locale.ROOT, "%.10f", value).replaceAll("0+$", "").replaceAll("\\.$", "") :
+            String.valueOf((int) value);
+        
+        // Update seekbar to closest step position
+        int progress = (int) ((value - mMin) * mStepPerUnit);
+        seekBarProgress = progress;
+        
+        updateLabel(valueToPersist);
+        updateSeekbar(progress);
+        persistString(valueToPersist);
+        log("setDirectValue : " + valueToPersist);
+    }
 
     private void updateLabel(String valueToPersist) {
         if (seekBarValue != null) {
@@ -156,6 +181,90 @@ public class UniversalSeekBarPreference extends Preference implements SeekBar.On
 
     public SeekBar getSeekBar() {
         return seekBar;
+    }
+    
+    private void showPreciseValueDialog() {
+        Context context = getContext();
+        if (context == null) return;
+        
+        // Get current value
+        float currentValue = Float.parseFloat(getPersistedString(fallback_value));
+        String currentValueText = isFloat ? 
+            String.format(Locale.ROOT, "%.10f", currentValue).replaceAll("0+$", "").replaceAll("\\.$", "") :
+            String.valueOf((int) currentValue);
+        
+        // Get default value
+        float defaultValue = Float.parseFloat(fallback_value);
+        
+        // Create input dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(getTitle());
+        builder.setMessage("Enter precise value (" + 
+            String.format(Locale.ROOT, isFloat ? "%.10f" : "%.0f", mMin).replaceAll("0+$", "").replaceAll("\\.$", "") + " - " +
+            String.format(Locale.ROOT, isFloat ? "%.10f" : "%.0f", mMax).replaceAll("0+$", "").replaceAll("\\.$", "") + 
+            ")\nDefault: " + 
+            String.format(Locale.ROOT, isFloat ? "%.10f" : "%.0f", defaultValue).replaceAll("0+$", "").replaceAll("\\.$", ""));
+        
+        // Create input field
+        final EditText input = new EditText(context);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | 
+            (isFloat ? InputType.TYPE_NUMBER_FLAG_DECIMAL : 0) | 
+            InputType.TYPE_NUMBER_FLAG_SIGNED);
+        
+        input.setText(currentValueText);
+        input.setSelectAllOnFocus(true);
+        
+        // Add padding
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(50, 20, 50, 20);
+        input.setLayoutParams(lp);
+        
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.addView(input);
+        builder.setView(container);
+        
+        builder.setPositiveButton("Set", (dialog, which) -> {
+            try {
+                String valueStr = input.getText().toString();
+                float value = Float.parseFloat(valueStr);
+                
+                // Clamp to min/max
+                if (value < mMin) {
+                    value = mMin;
+                    PhotonCamera.showToast("Value clamped to minimum: " + mMin);
+                } else if (value > mMax) {
+                    value = mMax;
+                    PhotonCamera.showToast("Value clamped to maximum: " + mMax);
+                }
+                
+                // Set the exact value directly - bypasses step quantization
+                setDirectValue(value);
+                
+                Log.d(TAG, "Set precise value: " + value + " for " + getKey());
+            } catch (NumberFormatException e) {
+                PhotonCamera.showToast("Invalid number format");
+                Log.w(TAG, "Invalid input: " + input.getText().toString());
+            }
+        });
+        
+        builder.setNeutralButton("Reset", (dialog, which) -> {
+            // Reset to exact default value - preserves precision
+            setDirectValue(defaultValue);
+            
+            PhotonCamera.showToast("Reset to default: " + defaultValue);
+            Log.d(TAG, "Reset to default: " + defaultValue + " for " + getKey());
+        });
+        
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Request keyboard
+        input.requestFocus();
     }
 
 }

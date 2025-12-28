@@ -101,6 +101,8 @@ public class PreferenceKeys {
             settingsManager.setDefaults(Key.CAMERA_ID, ids[0], ids);
             Map<String, ?> map = settingsManager.getDefaultPreferences().getAll();
             map.keySet().removeAll(COMMON_KEYS);
+            // Exclude tunable preferences - they should be global, not per-lens
+            map.keySet().removeIf(key -> key != null && key.startsWith("pref_tunable_"));
             String json = GSON.toJson(map);
             for (String cameraId : ids) { //Makes a copy of default settings for each camera
                 settingsManager.setInitial(Key.PER_LENS_FILE_NAME.mValue, PER_LENS_KEY_PREFIX + cameraId, json);
@@ -112,6 +114,8 @@ public class PreferenceKeys {
         SettingsManager settingsManager = preferenceKeys.settingsManager;
         Map<String, ?> map = settingsManager.getDefaultPreferences().getAll();
         map.keySet().removeAll(COMMON_KEYS);
+        // Exclude tunable preferences - they should be global, not per-lens
+        map.keySet().removeIf(key -> key != null && key.startsWith("pref_tunable_"));
         String hashmapAsJson = GSON.toJson(map);
         String alreadySavedJSON = settingsManager.getString(Key.PER_LENS_FILE_NAME.mValue, PER_LENS_KEY_PREFIX + cameraID, "");
         if (!alreadySavedJSON.equals(hashmapAsJson)) {
@@ -123,9 +127,20 @@ public class PreferenceKeys {
     public static void loadSettingsForCamera(String cameraID) {
         SettingsManager settingsManager = preferenceKeys.settingsManager;
         String alreadySavedJSON = settingsManager.getString(Key.PER_LENS_FILE_NAME.mValue, PER_LENS_KEY_PREFIX + cameraID, null);
+        if (alreadySavedJSON == null) {
+            return;
+        }
         HashMap<String, ?> map = GSON.fromJson(alreadySavedJSON, HashMap.class);
+        if (map == null) {
+            return;
+        }
         for (Map.Entry<String, ?> e : map.entrySet()) {
-            settingsManager.set(SCOPE_GLOBAL, e.getKey(), e.getValue().toString());
+            String key = e.getKey();
+            // Skip tunable preferences - they should be global, not per-lens
+            if (key != null && key.startsWith("pref_tunable_")) {
+                continue;
+            }
+            settingsManager.set(SCOPE_GLOBAL, key, e.getValue().toString());
         }
     }
 
