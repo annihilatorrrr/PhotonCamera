@@ -36,6 +36,11 @@ public class VendorTagUtils {
                     Log.d(TAG, "remosaic.enabled is supported");
                     builder.set(remosaicEnabled, enable);
                 }
+                var remosaicQuadEnabled = new CaptureRequest.Key<>("xiaomi.quadcfa.enabled", Byte.class);
+                if (isSupported(builder, remosaicQuadEnabled)) {
+                    Log.d(TAG, "quadcfa.enabled is supported");
+                    builder.set(remosaicQuadEnabled, enable);
+                }
                 var remosaicEnabled2 = new CaptureRequest.Key<>("com.mediatek.control.capture.remosaicenable", int[].class);
                 if (isSupported(builder, remosaicEnabled2)) {
                     Log.d(TAG, "capture.remosaicenable is supported");
