@@ -89,7 +89,7 @@ public class TunablePreferenceGenerator {
                 
                 // Add preferences for each field
                 for (TunableFieldInfo fieldInfo : fields) {
-                    Log.d(TAG, "Adding preference for: " + fieldInfo.fieldName);
+                    //Log.d(TAG, "Adding preference for: " + fieldInfo.fieldName);
                     addPreference(context, category, fieldInfo);
                 }
             }
@@ -111,7 +111,7 @@ public class TunablePreferenceGenerator {
         int fieldOrder = 0; // Track field declaration order
         
         for (Field field : fields) {
-            Log.d(TAG, "Checking field: " + field.getName() + ", has annotation: " + field.isAnnotationPresent(Tunable.class));
+            //Log.d(TAG, "Checking field: " + field.getName() + ", has annotation: " + field.isAnnotationPresent(Tunable.class));
             if (field.isAnnotationPresent(Tunable.class)) {
                 Tunable annotation = field.getAnnotation(Tunable.class);
                 if (annotation == null) {
@@ -133,7 +133,7 @@ public class TunablePreferenceGenerator {
                 }
                 categorizedFields.get(category).add(info);
                 
-                Log.d(TAG, "Found tunable field: " + className + "." + field.getName() + " (order: " + info.order + ")");
+                //Log.d(TAG, "Found tunable field: " + className + "." + field.getName() + " (order: " + info.order + ")");
             }
         }
     }
@@ -220,20 +220,20 @@ public class TunablePreferenceGenerator {
                 int stepsPerUnit = (int) (1.0f / step);
                 seekBar.setStepPerUnit(Math.max(1, stepsPerUnit));
                 
-                Log.d(TAG, "Field " + info.fieldName + " - step: " + step + ", isFloat: " + isFloat + ", stepsPerUnit: " + stepsPerUnit);
+                //Log.d(TAG, "Field " + info.fieldName + " - step: " + step + ", isFloat: " + isFloat + ", stepsPerUnit: " + stepsPerUnit);
                 
                 // Get default value from the actual field
                 float defaultValue = getFieldDefaultValue(info);
                 
                 // Set default value AFTER isFloat and stepPerUnit are set
                 seekBar.setDefaultValue(defaultValue);
-                Log.d(TAG, "Set default value for " + prefKey + ": " + defaultValue);
+                //Log.d(TAG, "Set default value for " + prefKey + ": " + defaultValue);
                 
                 // No icons for tunable preferences - keep UI clean and simple
                 
                 category.addPreference(seekBar);
                 
-                Log.d(TAG, "Added seekbar preference: " + prefKey + " with default: " + defaultValue);
+                //Log.d(TAG, "Added seekbar preference: " + prefKey + " with default: " + defaultValue);
             }
         }
     }
@@ -242,7 +242,7 @@ public class TunablePreferenceGenerator {
         // Check if default value is specified in annotation
         float annotationDefault = info.annotation.defaultValue();
         if (annotationDefault != -999999f) {
-            Log.d(TAG, "Using annotation default for " + info.fieldName + ": " + annotationDefault);
+            //Log.d(TAG, "Using annotation default for " + info.fieldName + ": " + annotationDefault);
             return annotationDefault;
         }
         

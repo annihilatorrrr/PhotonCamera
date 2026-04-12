@@ -19,6 +19,7 @@ import java.util.Map;
 public class TunableSettingsManager {
     private static final String TAG = "TunableSettingsMgr";
     private static final List<Class<?>> REGISTERED_CLASSES = new ArrayList<>();
+    private static boolean autoRegistered = false;
     
     /**
      * Register a class for tunable management
@@ -30,7 +31,27 @@ public class TunableSettingsManager {
     }
     
     /**
-     * Reset all tunable preferences to their default values (using native types)
+     * Automatically register all tunable classes.
+     * This ensures classes are registered even if the tunable settings screen is never opened.
+     */
+    public static void ensureTunableClassesRegistered() {
+        if (autoRegistered) {
+            return; // Already registered
+        }
+        
+        Log.d(TAG, "Auto-registering tunable classes...");
+        
+        for (Class<?> clazz : TunableRegistry.TUNABLE_CLASSES) {
+            registerClass(clazz);
+        }
+        
+        autoRegistered = true;
+        Log.d(TAG, "Auto-registered " + REGISTERED_CLASSES.size() + " tunable classes");
+    }
+    
+    /**
+     * Reset all tunable preferences to their default values by removing persisted values.
+     * This allows annotation defaults to always be used for non-customized values.
      */
     public static void resetAllToDefaults(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -48,31 +69,26 @@ public class TunableSettingsManager {
                     
                     String prefKey = "pref_tunable_" + className.toLowerCase() + "_" + field.getName().toLowerCase();
                     
-                    // Get default value from annotation  
-                    float defaultValue = annotation.defaultValue();
-                    if (defaultValue == -999999f) {
-                        defaultValue = annotation.min();
+                    // Remove the persisted value instead of setting to default
+                    // This ensures the annotation's current default is always used
+                    if (prefs.contains(prefKey)) {
+                        editor.remove(prefKey);
+                        resetCount++;
+                        
+                        // Get default value for logging
+                        float defaultValue = annotation.defaultValue();
+                        if (defaultValue == -999999f) {
+                            defaultValue = annotation.min();
+                        }
+                        
+                        Log.d(TAG, "Reset " + prefKey + " (removed persisted value, will use annotation default: " + defaultValue + ")");
                     }
-                    
-                    // Auto-detect if float based on step value
-                    float step = annotation.step();
-                    boolean isFloat = (step != Math.floor(step));
-                    
-                    // Store as native type (float or int)
-                    if (isFloat) {
-                        editor.putFloat(prefKey, defaultValue);
-                    } else {
-                        editor.putInt(prefKey, (int) defaultValue);
-                    }
-                    resetCount++;
-                    
-                    Log.d(TAG, "Reset " + prefKey + " to default: " + defaultValue + " (isFloat: " + isFloat + ")");
                 }
             }
         }
         
         editor.apply();
-        Log.d(TAG, "Reset " + resetCount + " tunable preferences to defaults");
+        Log.d(TAG, "Reset " + resetCount + " tunable preferences (removed persisted values)");
     }
     
     /**

@@ -2,6 +2,7 @@ package com.particlesdevs.photoncamera.ui.settings;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -105,6 +106,10 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
     @Override
     public boolean onPreferenceStartScreen(@NonNull PreferenceFragmentCompat preferenceFragmentCompat,
                                            PreferenceScreen preferenceScreen) {
+        Log.d("SettingsActivity", "onPreferenceStartScreen called for key: " + preferenceScreen.getKey());
+        
+        // Note: Tunable preferences are already generated in onPreferenceTreeClick before reaching here
+        
         FragmentTransaction ft = getSupportFragmentManager().beginTransaction()
                 .setCustomAnimations(R.anim.animate_slide_left_enter, R.anim.animate_slide_left_exit
                         , R.anim.animate_card_enter, R.anim.animate_slide_right_exit);
@@ -133,6 +138,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         private Context mContext;
         private View mRootView;
         private SupportedDevice supportedDevice;
+        private boolean tunablePreferencesGenerated = false;
 
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -149,8 +155,14 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             Objects.requireNonNull(getPreferenceScreen().getSharedPreferences())
                     .registerOnSharedPreferenceChangeListener(this);
             
-            // Generate tunable preferences automatically
-            generateTunablePreferences();
+            // Check if we're opening the tunable submenu specifically
+            String rootKey = getArguments() != null ? getArguments().getString(PreferenceFragmentCompat.ARG_PREFERENCE_ROOT) : null;
+            Log.d("SettingsFragment", "onCreate with rootKey: " + rootKey);
+            
+            if ("pref_tunable_submenu".equals(rootKey)) {
+                Log.d("SettingsFragment", "This is the tunable submenu fragment, generating preferences now");
+                generateTunablePreferences();
+            }
             
             filterPreferencesByMode();
             showHideHdrxSettings();
@@ -165,40 +177,43 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             setSupportedDevices();
             setProTitle();
             setThisDevice();
+            setFetchConfigurationsPref();
         }
         
         private void generateTunablePreferences() {
+            // Only generate once per fragment instance
+            if (tunablePreferencesGenerated) {
+                Log.d("SettingsActivity", "Tunable preferences already generated, skipping");
+                return;
+            }
+            tunablePreferencesGenerated = true;
             Log.d("SettingsActivity", "=== generateTunablePreferences called ===");
             Log.d("SettingsActivity", "Context: " + (mContext != null ? "OK" : "NULL"));
             Log.d("SettingsActivity", "PreferenceScreen: " + (getPreferenceScreen() != null ? "OK" : "NULL"));
             
             try {
-                // Register classes with @Tunable annotations
-                Class<?>[] tunableClasses = {
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Sharpen2.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.ESD3D.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.AutoExposure.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Initial.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.Demosaic3.class,
-                    com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidAlignment.class,
-                    com.particlesdevs.photoncamera.processing.opengl.postpipeline.ExposureFusionBayer3.class
-                };
+                // Ensure tunable classes are registered
+                com.particlesdevs.photoncamera.settings.TunableSettingsManager.ensureTunableClassesRegistered();
                 
-                for (Class<?> clazz : tunableClasses) {
+                // Register with TunablePreferenceGenerator for UI generation
+                for (Class<?> clazz : com.particlesdevs.photoncamera.settings.TunableRegistry.TUNABLE_CLASSES) {
                     TunablePreferenceGenerator.registerTunableClass(clazz);
-                    com.particlesdevs.photoncamera.settings.TunableSettingsManager.registerClass(clazz);
                 }
                 
-                Log.d("SettingsActivity", "Registered Sharpen2, now generating preferences...");
+                Log.d("SettingsActivity", "Registered classes, now generating preferences...");
+                
+                PreferenceScreen screen = getPreferenceScreen();
+                Log.d("SettingsActivity", "Target PreferenceScreen: " + screen.getKey() + " (count before: " + screen.getPreferenceCount() + ")");
                 
                 // Generate preferences and add to screen
-                TunablePreferenceGenerator.generatePreferences(mContext, getPreferenceScreen());
+                TunablePreferenceGenerator.generatePreferences(mContext, screen);
+                
+                Log.d("SettingsActivity", "Generated preferences (count after: " + screen.getPreferenceCount() + ")");
                 
                 // Add reset button for tunable preferences
                 addTunableResetButton();
                 
-                Log.d("SettingsActivity", "=== generateTunablePreferences completed ===");
+                Log.d("SettingsActivity", "=== generateTunablePreferences completed (final count: " + screen.getPreferenceCount() + ") ===");
             } catch (Exception e) {
                 Log.e("SettingsActivity", "ERROR in generateTunablePreferences", e);
                 e.printStackTrace();
@@ -207,10 +222,12 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         
         private void addTunableResetButton() {
             try {
-                // Find the tunable submenu screen
-                androidx.preference.PreferenceScreen tunableSubmenu = findPreference("pref_tunable_submenu");
+                // When we're inside the tunable submenu fragment, getPreferenceScreen() IS the tunable submenu
+                androidx.preference.PreferenceScreen tunableSubmenu = getPreferenceScreen();
                 
                 if (tunableSubmenu != null) {
+                    Log.d("SettingsActivity", "Adding reset button to tunable submenu (preferenceCount before: " + tunableSubmenu.getPreferenceCount() + ")");
+                    
                     // Create reset button preference
                     androidx.preference.Preference resetButton = new androidx.preference.Preference(mContext);
                     resetButton.setKey("pref_reset_tunable_settings");
@@ -233,9 +250,9 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
                     });
                     
                     tunableSubmenu.addPreference(resetButton);
-                    Log.d("SettingsActivity", "Added reset button at end of tunable submenu");
+                    Log.d("SettingsActivity", "Added reset button (preferenceCount after: " + tunableSubmenu.getPreferenceCount() + ")");
                 } else {
-                    Log.w("SettingsActivity", "Tunable submenu not found, cannot add reset button");
+                    Log.w("SettingsActivity", "PreferenceScreen is null, cannot add reset button");
                 }
             } catch (Exception e) {
                 Log.e("SettingsActivity", "Error adding reset button", e);
@@ -252,14 +269,22 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             CameraMode cameraMode = CameraMode.valueOf(sCameraMode);
             
             // Show/hide categories based on camera mode
-            if (cameraMode == CameraMode.VIDEO || cameraMode == CameraMode.RAWVIDEO) {
-                // In video mode: hide photo-specific settings, show video settings
+            if (cameraMode == CameraMode.RAWVIDEO) {
+                // Raw video mode: show raw video settings only
                 removePreferenceFromScreen(mContext.getString(R.string.pref_category_photo_key));
                 removePreferenceFromScreen(mContext.getString(R.string.pref_category_jpg_key));
                 removePreferenceFromScreen(mContext.getString(R.string.pref_category_hdrx_key));
-            } else {
-                // In photo mode: hide video-specific settings, show photo settings
                 removePreferenceFromScreen(mContext.getString(R.string.pref_category_video_key));
+            } else if (cameraMode == CameraMode.VIDEO) {
+                // Regular video mode: show video settings, hide raw video settings
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_photo_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_jpg_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_hdrx_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_rawvideo_key));
+            } else {
+                // Photo modes: hide all video-specific settings
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_video_key));
+                removePreferenceFromScreen(mContext.getString(R.string.pref_category_rawvideo_key));
             }
         }
 
@@ -390,6 +415,29 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             }
         }
 
+        private void setFetchConfigurationsPref() {
+            Preference fetchPref = findPreference(mContext.getString(R.string.pref_fetch_configurations_key));
+            if (fetchPref != null) {
+                fetchPref.setOnPreferenceClickListener(preference -> {
+                    preference.setSummary(mContext.getString(R.string.fetch_configurations_summary) + " (fetching…)");
+                    new Thread(() -> {
+                        supportedDevice.fetchFromNetwork();
+                    if (activity != null) {
+                        activity.runOnUiThread(() -> {
+                            preference.setSummary(mContext.getString(R.string.fetch_configurations_summary));
+                            com.google.android.material.snackbar.Snackbar.make(
+                                    activity.findViewById(android.R.id.content),
+                                    "Device configurations updated. Restart to apply camera changes.",
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                            ).show();
+                        });
+                    }
+                    }).start();
+                    return true;
+                });
+            }
+        }
+
         private void removePreferenceFromScreen(String preferenceKey) {
             PreferenceScreen parentScreen = findPreference(SettingsFragment.KEY_MAIN_PARENT_SCREEN);
             if (parentScreen != null)
@@ -404,6 +452,8 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             if (key == null) {
                 return;
             }
+            
+            Log.d("SettingsFragment", "onSharedPreferenceChanged: key=" + key);
             
             if (key.equals(PreferenceKeys.Key.KEY_SAVE_PER_LENS_SETTINGS.mValue)) {
                 setHdrxTitle();
@@ -425,6 +475,17 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             }
             if (key.equalsIgnoreCase(PreferenceKeys.Key.KEY_FRAME_COUNT.mValue)) {
                 setFramesSummary();
+            }
+            if (key.equalsIgnoreCase(PreferenceKeys.Key.KEY_HIDE_GALLERY_ICON.mValue)) {
+                Log.d("SettingsFragment", "Hide gallery icon changed, expected key: " + PreferenceKeys.Key.KEY_HIDE_GALLERY_ICON.mValue);
+                try {
+                    boolean hideIcon = mSettingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL, PreferenceKeys.Key.KEY_HIDE_GALLERY_ICON);
+                    Log.d("SettingsFragment", "Hide gallery icon value: " + hideIcon);
+                    toggleGalleryIconVisibility(hideIcon);
+                } catch (Exception e) {
+                    Log.e("SettingsFragment", "Error toggling gallery icon: " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -452,6 +513,66 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
                     frameCountPreference.setSummary(mContext.getString(R.string.unprocessed_raw));
                 } else {
                     frameCountPreference.setSummary(mContext.getString(R.string.frame_count_summary));
+                }
+            }
+        }
+
+        private void toggleGalleryIconVisibility(boolean hideIcon) {
+            try {
+                // Get the ComponentName for the activity-alias using explicit package name
+                String packageName = mContext.getPackageName();
+                ComponentName galleryLauncher = new ComponentName(
+                        packageName,
+                        packageName + ".gallery.ui.GalleryActivityLauncher"
+                );
+                
+                // Get the package manager
+                PackageManager pm = mContext.getPackageManager();
+                
+                // Set the component enabled state based on hideIcon preference
+                // If hideIcon is true, disable the launcher icon; otherwise enable it
+                int newState = hideIcon ? 
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED : 
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+                
+                Log.d("SettingsFragment", "Toggling gallery icon visibility:");
+                Log.d("SettingsFragment", "  hideIcon=" + hideIcon);
+                Log.d("SettingsFragment", "  newState=" + newState);
+                Log.d("SettingsFragment", "  component=" + galleryLauncher);
+                
+                pm.setComponentEnabledSetting(
+                        galleryLauncher,
+                        newState,
+                        PackageManager.DONT_KILL_APP
+                );
+                
+                Log.d("SettingsFragment", "Component state changed successfully");
+                
+                // Show a message to user
+                if (activity != null) {
+                    String message = hideIcon ? 
+                            "Gallery icon will be hidden from launcher" : 
+                            "Gallery icon will be visible in launcher";
+                    activity.runOnUiThread(() -> 
+                            com.google.android.material.snackbar.Snackbar.make(
+                                    activity.findViewById(android.R.id.content),
+                                    message,
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                            ).show()
+                    );
+                }
+            } catch (Exception e) {
+                Log.e("SettingsFragment", "Error in toggleGalleryIconVisibility: " + e.getMessage());
+                e.printStackTrace();
+                // Show error message to user
+                if (activity != null) {
+                    activity.runOnUiThread(() -> 
+                            com.google.android.material.snackbar.Snackbar.make(
+                                    activity.findViewById(android.R.id.content),
+                                    "Error toggling gallery icon: " + e.getMessage(),
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                            ).show()
+                    );
                 }
             }
         }
@@ -491,7 +612,25 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
 
         @Override
         public boolean onPreferenceTreeClick(@NonNull Preference preference) {
-            return true;
+            // Log which preference was clicked
+            Log.d("SettingsFragment", "onPreferenceTreeClick: " + preference.getKey());
+            
+            // Handle tunable submenu click manually to ensure proper navigation
+            if ("pref_tunable_submenu".equals(preference.getKey())) {
+                Log.d("SettingsFragment", "Tunable submenu clicked, navigating...");
+                
+                // Navigate to the submenu (preferences will be generated in the new fragment's onCreate)
+                if (preference instanceof PreferenceScreen) {
+                    PreferenceScreen screen = (PreferenceScreen) preference;
+                    if (activity instanceof SettingsActivity) {
+                        ((SettingsActivity) activity).onPreferenceStartScreen(this, screen);
+                        return true;
+                    }
+                }
+            }
+            
+            // Return false to allow default handling (like opening other subscreens)
+            return super.onPreferenceTreeClick(preference);
         }
 
         @Override

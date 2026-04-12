@@ -54,10 +54,21 @@ public class TunableInjector {
                         annotationDefault = annotation.min();
                     }
                     
+                    // Determine if stored as float or int based on step (same logic as TunablePreferenceGenerator)
+                    float step = annotation.step();
+                    boolean isStoredAsFloat = (step != Math.floor(step));
+                    
                     // Inject value based on type (using annotation default)
                     if (fieldType == float.class || fieldType == Float.class) {
-                        float value = SettingsManagerExtensions.getFloat(settingsManager, 
-                            PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
+                        float value;
+                        if (isStoredAsFloat) {
+                            value = SettingsManagerExtensions.getFloat(settingsManager, 
+                                PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
+                        } else {
+                            // Stored as int, convert to float
+                            value = (float) SettingsManagerExtensions.getInteger(settingsManager, 
+                                PreferenceKeys.SCOPE_GLOBAL, prefKey, (int) annotationDefault);
+                        }
                         field.setFloat(target, value);
                         Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + annotationDefault + ")");
                         
@@ -68,8 +79,16 @@ public class TunableInjector {
                         Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + (int) annotationDefault + ")");
                         
                     } else if (fieldType == double.class || fieldType == Double.class) {
-                        float value = SettingsManagerExtensions.getFloat(settingsManager, 
-                            PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
+                        double value;
+                        if (isStoredAsFloat) {
+                            // Stored as float
+                            value = (double) SettingsManagerExtensions.getFloat(settingsManager, 
+                                PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
+                        } else {
+                            // Stored as int, convert to double
+                            value = (double) SettingsManagerExtensions.getInteger(settingsManager, 
+                                PreferenceKeys.SCOPE_GLOBAL, prefKey, (int) annotationDefault);
+                        }
                         field.setDouble(target, value);
                         Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + annotationDefault + ")");
                         
@@ -80,7 +99,6 @@ public class TunableInjector {
                         // Checkbox preferences store as int (0 or 1), not boolean
                         float min = annotation.min();
                         float max = annotation.max();
-                        float step = annotation.step();
                         boolean isCheckbox = (min == 0.0f && max == 1.0f && step == 1.0f);
                         
                         boolean value;

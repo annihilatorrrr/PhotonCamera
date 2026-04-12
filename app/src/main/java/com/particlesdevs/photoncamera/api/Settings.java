@@ -1,6 +1,7 @@
 package com.particlesdevs.photoncamera.api;
 
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+import com.particlesdevs.photoncamera.util.Allocator;
 
 import static android.hardware.camera2.CaptureRequest.NOISE_REDUCTION_MODE_OFF;
 
@@ -15,6 +16,7 @@ public class Settings {
     public boolean watermark;
     public boolean energySaving;
     public boolean aspect169;
+    public boolean binning;
     public boolean DebugData;
     public boolean roundEdge;
     public boolean align;
@@ -36,7 +38,7 @@ public class Settings {
     public int theme;
     public boolean remosaic;//TODO
     public boolean eisPhoto;
-    public boolean fpsPreview;
+    public int fpsMode;
     public int alignAlgorithm;
 
     public int colorMethod;
@@ -60,6 +62,8 @@ public class Settings {
         watermark = PreferenceKeys.isShowWatermarkOn();
         energySaving = PreferenceKeys.getBool(PreferenceKeys.Key.KEY_ENERGY_SAVING);
         aspect169 = PreferenceKeys.getBool(PreferenceKeys.Key.KEY_WIDE169);
+        binning = PreferenceKeys.isBinningOn();
+        Allocator.binning = binning;
         DebugData = PreferenceKeys.isAfDataOn();
         roundEdge = PreferenceKeys.isRoundEdgeOn();
         sharpness = PreferenceKeys.getSharpnessValue();
@@ -79,7 +83,7 @@ public class Settings {
         remosaic = PreferenceKeys.isRemosaicOn();
         eisPhoto = PreferenceKeys.isEisPhotoOn();
         QuadBayer = PreferenceKeys.isQuadBayerOn();
-        fpsPreview = PreferenceKeys.isFpsPreviewOn();
+        fpsMode = PreferenceKeys.getFpsMode();
         hdrxNR = PreferenceKeys.isHdrxNrOn();
         alignAlgorithm = PreferenceKeys.getAlignMethodValue();
         colorMethod = PreferenceKeys.getColorMethodValue();

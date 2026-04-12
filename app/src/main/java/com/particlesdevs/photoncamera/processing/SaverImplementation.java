@@ -10,6 +10,7 @@ import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.processing.processor.ProcessorBase;
+import com.particlesdevs.photoncamera.util.Allocator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,17 +46,28 @@ public class SaverImplementation {
         if(PhotonCamera.getSettings().aspect169){
             if(width > height){
                 height = width * 9 / 16;
-                int offsetH = (image.getHeight() - height) / 2;
-                offsetH -= offsetH % 2;
-                offset = image.getPlanes()[0].getRowStride() * offsetH;
+                int offsetH;
+                if (ImageSaver.SETTINGS.cropType) {
+                    // Do nothing
+                } else {
+                    offsetH = (image.getHeight() - height) / 2;
+                    offsetH -= offsetH % 2;
+                    offset = image.getPlanes()[0].getRowStride() * offsetH;
+                }
                 capacity = image.getPlanes()[0].getRowStride() * height;
             }
         }
+        Allocator.binning = PhotonCamera.getSettings().binning;
         ImageFrame frame = new ImageFrame(image.getPlanes()[0].getBuffer(), image.getFormat(), width, image.getPlanes()[0].getRowStride(), offset, capacity);
         frame.timestamp = image.getTimestamp();
 
-        frame.width = width;
-        frame.height = height;
+        if (Allocator.binning) {
+            frame.width = width / 2;
+            frame.height = height / 2;
+        } else {
+            frame.width = width;
+            frame.height = height;
+        }
 
         return frame;
     }

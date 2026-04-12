@@ -38,6 +38,7 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
     private int seekBarProgress;
     private TextView seekBarValue;
     private SeekBar seekBar;
+    private boolean isUserInteraction = false;
 
     public TunableSeekBarPreference(Context context) {
         super(context);
@@ -108,6 +109,9 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
         if (seekBarValue != null) {
             seekBarValue.setOnClickListener(v -> showPreciseValueDialog());
         }
+        
+        // After binding is complete, any changes are user interactions
+        isUserInteraction = true;
     }
     
     private void showPreciseValueDialog() {
@@ -176,14 +180,17 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
         });
         
         builder.setNeutralButton("Reset", (dialog, which) -> {
-            // Reset to exact default value (bypass progress conversion to preserve precision)
-            if (isFloat) {
-                persistFloat(mDefaultValue);
-            } else {
-                persistInt((int) mDefaultValue);
+            // Temporarily disable user interaction flag to prevent re-persistence during UI updates
+            boolean wasUserInteraction = isUserInteraction;
+            isUserInteraction = false;
+            
+            // Remove the persisted value to use annotation default
+            SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
+            if (prefs != null) {
+                prefs.edit().remove(getKey()).apply();
             }
             
-            // Update UI to match
+            // Update UI to match default
             seekBarProgress = valueToProgress(mDefaultValue);
             String displayValue = formatValue(mDefaultValue);
             if (seekBarValue != null) {
@@ -194,8 +201,11 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
             }
             updateValueColor(mDefaultValue);
             
+            // Restore user interaction flag
+            isUserInteraction = wasUserInteraction;
+            
             PhotonCamera.showToast("Reset to default: " + mDefaultValue);
-            Log.d(TAG, "Reset to exact default: " + mDefaultValue + " for " + getKey());
+            Log.d(TAG, "Reset to default (removed persisted value): " + mDefaultValue + " for " + getKey());
         });
         
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
@@ -231,14 +241,11 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
         
         float currentValue;
         if (!hasPersisted) {
-            // First time - persist exact default
+            // First time - use default but DON'T persist it yet
+            // This allows default changes in @Tunable annotations to take effect
+            // Value will only be persisted when user actually changes it
             currentValue = mDefaultValue;
-            if (isFloat) {
-                persistFloat(mDefaultValue);
-            } else {
-                persistInt((int) mDefaultValue);
-            }
-            Log.d(TAG, "First init - persisted exact default: " + mDefaultValue);
+            Log.d(TAG, "First init - using default (NOT persisting yet): " + mDefaultValue);
         } else {
             // Load existing persisted value
             if (isFloat) {
@@ -269,11 +276,34 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
         updateLabel(displayValue);
         updateSeekbar(progress);
         
-        // Persist as native type (float or int)
-        if (isFloat) {
-            persistFloat(value);
+        // Only modify persistence during user interactions, not during initialization
+        if (!isUserInteraction) {
+            // During initialization - don't change persistence
+            Log.d(TAG, "Init - not modifying persistence for " + getKey());
+            updateValueColor(value);
+            return;
+        }
+        
+        // User is actively changing the value
+        boolean matchesDefault = Math.abs(value - mDefaultValue) < 0.0001f;
+        SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
+        
+        if (matchesDefault) {
+            // User explicitly set it to match current default - remove persistence
+            // This makes it white (not customized)
+            if (prefs != null && prefs.contains(getKey())) {
+                prefs.edit().remove(getKey()).apply();
+                Log.d(TAG, "User set to default - removed persistence: " + value + " for " + getKey());
+            }
         } else {
-            persistInt((int) value);
+            // User set it to differ from current default - persist it
+            // This makes it green (customized) and it will stay green even if default changes later
+            if (isFloat) {
+                persistFloat(value);
+            } else {
+                persistInt((int) value);
+            }
+            Log.d(TAG, "User set to non-default - persisted: " + value + " (default: " + mDefaultValue + ") for " + getKey());
         }
         
         // Update color based on value
@@ -290,16 +320,19 @@ public class TunableSeekBarPreference extends Preference implements SeekBar.OnSe
     private void updateValueColor(float currentValue) {
         if (seekBarValue == null) return;
         
-        // Direct float comparison with tiny epsilon
-        boolean isDefault = Math.abs(currentValue - mDefaultValue) < 0.0001f;
+        // Check if there's a persisted value (user set it to non-default at some point)
+        SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
+        boolean hasPersisted = prefs != null && prefs.contains(getKey());
         
-        if (isDefault) {
-            seekBarValue.setTextColor(Color.parseColor("#FFFFFF"));
-        } else {
+        // Green = persisted (user customized), White = not persisted (default)
+        if (hasPersisted) {
             seekBarValue.setTextColor(Color.parseColor("#4CAF50")); // Material Green
+        } else {
+            seekBarValue.setTextColor(Color.parseColor("#FFFFFF")); // White
         }
         
-        Log.d(TAG, "Color: current=" + currentValue + ", default=" + mDefaultValue + ", isDefault=" + isDefault);
+        Log.d(TAG, "Color: current=" + currentValue + ", default=" + mDefaultValue + 
+            ", persisted=" + hasPersisted + ", color=" + (hasPersisted ? "GREEN" : "WHITE"));
     }
 
     private void updateSeekbar(int progress) {

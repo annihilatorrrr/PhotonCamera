@@ -6,6 +6,7 @@ import android.util.AttributeSet;
 import androidx.preference.ListPreference;
 
 import com.particlesdevs.photoncamera.util.FileManager;
+import com.particlesdevs.photoncamera.util.SimpleStorageHelper;
 
 import org.apache.commons.io.FileUtils;
 
@@ -16,16 +17,17 @@ public class RestorePreference extends ListPreference {
         super(context, attrs);
         setPersistent(false);
         setOnPreferenceClickListener(preference -> {
-            String[] filesNames = FileManager.sPHOTON_DIR.list((dir, name) -> {
-                String ext = FileUtils.getExtension(name);
-                return ext.equalsIgnoreCase("xml") || ext.equalsIgnoreCase("json");
-            });
-
-            filesNames = filesNames != null ? filesNames : new String[0]; //null check
-
-            Arrays.sort(filesNames);
-            setEntries(filesNames);
-            setEntryValues(filesNames);
+            String[] fileNames = SimpleStorageHelper.listBackupFileNames(context);
+            if (fileNames == null || fileNames.length == 0) {
+                fileNames = FileManager.sPHOTON_DIR.list((dir, name) -> {
+                    String ext = FileUtils.getExtension(name);
+                    return ext != null && (ext.equalsIgnoreCase("xml") || ext.equalsIgnoreCase("json"));
+                });
+            }
+            fileNames = fileNames != null ? fileNames : new String[0];
+            Arrays.sort(fileNames);
+            setEntries(fileNames);
+            setEntryValues(fileNames);
             return true;
         });
     }
