@@ -24,6 +24,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.particlesdevs.photoncamera.settings.TunableInjector;
+
 import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.getImageSaver;
 import static com.particlesdevs.photoncamera.processing.ImageSaverSelector.init;
 
@@ -34,6 +36,8 @@ public class ImageSaver {
     public static final int JPG_QUALITY = 98;
     private static final String TAG = "ImageSaver";
 
+    public static final ImageSaverSettings SETTINGS = new ImageSaverSettings();
+
     public SaverImplementation implementation;
     private int imageFormat;
     private int frameCounter = 0;
@@ -42,6 +46,10 @@ public class ImageSaver {
 
     public void setFrameCount(int desiredFrameCount){
         this.desiredFrameCount = desiredFrameCount;
+    }
+
+    public void setImageFormat(int imageFormat) {
+        this.imageFormat = imageFormat;
     }
 
     public void updateFrameCount(int desiredFrameCount){
@@ -56,6 +64,7 @@ public class ImageSaver {
     public ImageSaver(ProcessingEventsListener processingEventsListener) {
         implementation = new DefaultSaver(processingEventsListener);
         init(implementation);
+        TunableInjector.inject(SETTINGS);
     }
 
     public void initProcess(ImageReader mReader) {
@@ -92,10 +101,12 @@ public class ImageSaver {
     }
 
     public void runRaw(CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, ArrayList<GyroBurst> burstShakiness, int cameraRotation, HashMap<Long, Double> exposures) {
+        TunableInjector.inject(SETTINGS);
         implementation.runRaw(imageFormat,characteristics,captureResult, captureRequest,burstShakiness,cameraRotation, exposures);
     }
 
     public void processStart(CameraCharacteristics characteristics, CaptureResult captureResult, CaptureRequest captureRequest, int cameraRotation) {
+        TunableInjector.inject(SETTINGS);
         implementation = ImageSaverSelector.getImageSaver(ImageFormat.RAW_SENSOR, implementation);
         implementation.processStart(imageFormat,characteristics,captureResult, captureRequest,cameraRotation);
     }
@@ -185,6 +196,7 @@ public class ImageSaver {
             DngCreator dngCreator = new DngCreator();
             dngCreator.setParameters(parameters);
             dngCreator.setCompression(true);
+            //dngCreator.setBinning(true);
             try {
                 OutputStream outputStream = Files.newOutputStream(dngFilePath);
                 dngCreator.writeBuffer(outputStream, buffer, parameters.rawSize.x, parameters.rawSize.y);
