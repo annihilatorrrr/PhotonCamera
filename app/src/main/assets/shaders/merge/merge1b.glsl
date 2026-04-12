@@ -15,7 +15,6 @@ uniform float noiseO;
 uniform float integralNorm;
 uniform bool first;
 uniform int cfaPattern;
-uniform vec2 size;
 #define MAXWEIGHT 1.0
 #define MINWEIGHT 0.0
 #define SIGMA 1.5
@@ -26,7 +25,7 @@ uniform vec2 size;
                 w.a * 2.0 + w.r + w.b) / 4.0;
 }*/
 vec4 robustWeight(vec4 w){
-    float mv = min(w.r, min(w.g, min(w.b, w.a)));
+    float mv = max(w.r, max(w.g, max(w.b, w.a)));
     //mv = smoothstep(0.05, 0.95, mv);
     return vec4(mv);
 }
@@ -46,26 +45,20 @@ float bayerCoord(ivec2 pos){
 #import gaussian
 void main() {
     ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
-    vec2 uv = vec2(xy) * size;// + vec2(0.5) * size;
-    vec4 base = texture(baseTexture, uv);
+    vec2 uv = vec2(xy) / vec2(imageSize(outTexture)) + vec2(0.5) / vec2(imageSize(outTexture));
+    vec4 base = max(texture(baseTexture, uv), texture(baseTexture, uv+vec2(1,0)/vec2(imageSize(outTexture))));
+    base = max(base, texture(baseTexture, uv+vec2(0,1)/vec2(imageSize(outTexture))));
+    base = max(base, texture(baseTexture, uv+vec2(0,-1)/vec2(imageSize(outTexture))));
+    base = max(base, texture(baseTexture, uv+vec2(-1,0)/vec2(imageSize(outTexture))));
 
     vec4 br = texture(brTexture, uv);
     vec4 noise = max(sqrt(max(br * noiseS + noiseO,EPS)), vec4(minLevel));
-    // use GAT
-    //vec4 noise = sqrt(max(noiseS*br + noiseS*noiseS * 3.0/8.0 + noiseO, EPS));
     // do wiener filtering
     vec4 weightSum = vec4(0.0001);
     float Z = 0.0001;
     vec4 diffCenter = imageLoad(diffTexture, xy);
     vec4 diffNormCenter = diffCenter*integralNorm;
     vec4 mean = vec4(0.0);
-    /*for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            vec4 diff = imageLoad(diffTexture, xy+ivec2(i, j));
-            mean += diff;
-        }
-    }
-    mean /= 9.0;*/
     vec4 variance = vec4(0.0);
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
@@ -74,49 +67,15 @@ void main() {
         }
     }
     variance /= 8.0;
-    /*for (int i = -1; i <= 1; i++) {
-        float f0 = pdf(float(i)/SIGMA);
-        for (int j = -1; j <= 1; j++) {
-            vec4 diff = imageLoad(diffTexture, xy+ivec2(i, j));
-            vec4 diffNorm = diff*integralNorm;
-            diffNorm *= diffNorm;
-            diffNorm = max(diffNorm - noise*noise, vec4(0.0));
-            //vec4 w = vec4(greaterThan(diffNorm, noise));
-            vec4 w = diffNorm / (noise * noise + diffNorm);
-            //w = vec4(1.0) - sqrt(w+EPS);
-            //w = robustWeight(w);
-            float w2 = 1.0/(length(diffNorm-diffNormCenter) + dot(noise,vec4(0.25)));
-            float f = pdf(float(j)/SIGMA) * f0;
-            //weightSum += f * w * w2;
-            weightSum = max(weightSum, w);
-            Z += f * w2;
-        }
-    }*/
-    //vec4 w = weightSum;
-    //vec4 w = weightSum;
     noise /= integralNorm*integralNorm;
-    variance = (max(variance - noise*noise, vec4(0.0)));
+    //variance = (max(variance - noise*noise, vec4(0.0)));
     vec4 w = (noise*noise) / (noise * noise + variance);
     w = ((clamp(w, MINWEIGHT, MAXWEIGHT)-MINWEIGHT)/(MAXWEIGHT-MINWEIGHT));
-    //w = (vec4(1.0) - w);
     if(first){
-        //base = vec4(0.0);
-        base *= (w);
+        base = vec4(1.0);
+        //base *= robustWeight(w);
     }
-    //w = vec4(1.0);
-    //w = robustWeight(w);
-
-    //diffCenter.r *= w.r;
-    //diffCenter.g *= w.g;
-    //diffCenter.b *= w.b;
-    //diffCenter.a *= w.a;
-    /*vec4 storing = (base + diffCenter);
-    storing.r *= w.r;
-    storing.g *= w.g;
-    storing.b *= w.b;
-    storing.a *= w.a;*/
-
-    //imageStore(outTexture, xy, clamp(base + diffCenter*robustWeight(w), -noise, noise));
-    imageStore(outTexture, xy, base + diffCenter*(w));
+    //base = vec4(1.0);
+    imageStore(outTexture, xy, base*robustWeight(w));
     //imageStore(outTexture, xy, base + diffCenter);
 }
