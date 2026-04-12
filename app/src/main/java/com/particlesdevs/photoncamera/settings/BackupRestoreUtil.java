@@ -9,11 +9,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.util.FileManager;
 import com.particlesdevs.photoncamera.util.Log;
+import com.particlesdevs.photoncamera.util.SimpleStorageHelper;
 
 import org.apache.commons.io.FileUtils;
 
@@ -21,6 +21,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +41,10 @@ public class BackupRestoreUtil {
             if (fileName.equals("")) {
                 throw new IOException(context.getString(R.string.empty_file_name_error));
             }
+            
+            // Ensure tunable classes are registered before export
+            // This is necessary even if the tunable settings screen was never opened
+            TunableSettingsManager.ensureTunableClassesRegistered();
             
             // Create the export data structure
             Map<String, Object> exportData = new HashMap<>();
@@ -105,14 +114,24 @@ public class BackupRestoreUtil {
             metadata.put("timestamp", String.valueOf(System.currentTimeMillis()));
             exportData.put("metadata", metadata);
             
-            // Write to JSON file
-            File toSave = new File(FileManager.sPHOTON_DIR, fileName.concat(".json"));
-            try (FileWriter writer = new FileWriter(toSave)) {
-                GSON.toJson(exportData, writer);
+            String nameWithExt = fileName.endsWith(".json") ? fileName : fileName.concat(".json");
+            if (SimpleStorageHelper.hasStorageAccess(context)) {
+                try (OutputStream os = SimpleStorageHelper.openOutputStream(context, nameWithExt);
+                     OutputStreamWriter writer = new OutputStreamWriter(os, StandardCharsets.UTF_8)) {
+                    GSON.toJson(exportData, writer);
+                }
+                return "Saved: DCIM/PhotonCamera/" + nameWithExt;
+            } else {
+                File toSave = new File(FileManager.sPHOTON_DIR, nameWithExt);
+                try (FileWriter writer = new FileWriter(toSave)) {
+                    GSON.toJson(exportData, writer);
+                }
+                return "Saved: " + toSave.getAbsolutePath();
             }
-            
-            return "Saved: " + toSave.getAbsolutePath();
         } catch (IOException e) {
+            e.printStackTrace();
+            return "Error: " + e.getLocalizedMessage();
+        } catch (Exception e) {
             e.printStackTrace();
             return "Error: " + e.getLocalizedMessage();
         }
@@ -120,17 +139,32 @@ public class BackupRestoreUtil {
 
     /**
      * Import settings from JSON or XML format
-     * Supports both new JSON format and legacy XML format
+     * Supports both new JSON format and legacy XML format.
+     * Uses SimpleStorage (DCIM/PhotonCamera) when available, else legacy File path.
      */
     public static String restorePreferences(Context context, String fileName) {
-        File toRestore = new File(FileManager.sPHOTON_DIR, fileName);
+        try {
+            if (SimpleStorageHelper.hasStorageAccess(context)) {
+                try (InputStream is = SimpleStorageHelper.openInputStream(context, fileName)) {
+                    if (fileName.endsWith(".json")) {
+                        return restoreFromJsonStream(context, is, fileName);
+                    } else if (fileName.endsWith(".xml")) {
+                        return restoreFromXmlStream(context, is, fileName);
+                    } else {
+                        return "Error: Unknown file format. Use .json or .xml";
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e("BackupRestoreUtil", "Restore (SAF) error: " + Log.getStackTraceString(e));
+            return "Error: " + e.getLocalizedMessage();
+        }
         
+        File toRestore = new File(FileManager.sPHOTON_DIR, fileName);
         if (!toRestore.exists()) {
             return "Error: File not found";
         }
-        
         try {
-            // Check if it's JSON or XML format
             if (fileName.endsWith(".json")) {
                 return restoreFromJson(context, toRestore);
             } else if (fileName.endsWith(".xml")) {
@@ -145,103 +179,109 @@ public class BackupRestoreUtil {
     }
     
     /**
+     * Restore from JSON input stream (e.g. from SimpleStorage DocumentFile).
+     */
+    private static String restoreFromJsonStream(Context context, InputStream is, String fileName) throws IOException {
+        TunableSettingsManager.ensureTunableClassesRegistered();
+        try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            applyRestoredJson(context, root);
+            PhotonCamera.restartWithDelay(context, 1000);
+            return "Restored from JSON: " + fileName;
+        }
+    }
+    
+    /**
      * Restore from new JSON format
      */
     private static String restoreFromJson(Context context, File jsonFile) throws IOException {
+        TunableSettingsManager.ensureTunableClassesRegistered();
         try (FileReader reader = new FileReader(jsonFile)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-            
-            String packageName = context.getPackageName();
-            
-            // Check version to determine format
-            String version = "1.0"; // default
-            if (root.has("metadata")) {
-                JsonObject metadata = root.getAsJsonObject("metadata");
-                if (metadata.has("version")) {
-                    version = metadata.get("version").getAsString();
-                }
-            }
-            
-            // Restore main preferences
-            if (root.has("main_preferences")) {
-                SharedPreferences mainPrefs = PreferenceManager.getDefaultSharedPreferences(context);
-                SharedPreferences.Editor editor = mainPrefs.edit();
-                editor.clear();
-                
-                JsonObject mainPrefsObj = root.getAsJsonObject("main_preferences");
-                for (String key : mainPrefsObj.keySet()) {
-                    putJsonValueToEditor(editor, key, mainPrefsObj.get(key));
-                }
-                editor.apply();
-            }
-            
-            // Restore per-lens settings
-            if (root.has("per_lens_settings")) {
-                String perLensFileName = context.getString(R.string._per_lens);
-                SharedPreferences perLensPrefs = context.getSharedPreferences(packageName + perLensFileName, Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = perLensPrefs.edit();
-                editor.clear();
-                
-                com.google.gson.JsonElement perLensElement = root.get("per_lens_settings");
-                
-                if (perLensElement.isJsonArray()) {
-                    // New format (v2.0): array of objects with id and settings
-                    com.google.gson.JsonArray perLensArray = perLensElement.getAsJsonArray();
-                    for (com.google.gson.JsonElement element : perLensArray) {
-                        JsonObject cameraObj = element.getAsJsonObject();
-                        String cameraId = cameraObj.get("id").getAsString();
-                        JsonObject settings = cameraObj.getAsJsonObject("settings");
-                        
-                        // Convert settings back to JSON string for storage
-                        String settingsJson = GSON.toJson(settings);
-                        editor.putString("settings_for_camera_" + cameraId, settingsJson);
-                    }
-                } else if (perLensElement.isJsonObject()) {
-                    // Old format (v1.0): object with keys like "settings_for_camera_0"
-                    JsonObject perLensPrefsObj = perLensElement.getAsJsonObject();
-                    for (String key : perLensPrefsObj.keySet()) {
-                        putJsonValueToEditor(editor, key, perLensPrefsObj.get(key));
-                    }
-                }
-                
-                editor.apply();
-            }
-            
-            // Restore tunable settings if present
-            if (root.has("tunable_settings")) {
-                JsonObject tunableSettingsObj = root.getAsJsonObject("tunable_settings");
-                Map<String, Object> tunableSettingsMap = GSON.fromJson(tunableSettingsObj, 
-                    new com.google.gson.reflect.TypeToken<Map<String, Object>>(){}.getType());
-                TunableSettingsManager.importTunableSettings(context, tunableSettingsMap);
-            }
-            
-            // For backward compatibility: restore old format fields if present
-            if (root.has("cameras_preferences")) {
-                String camerasFileName = context.getString(R.string._cameras);
-                SharedPreferences camerasPrefs = context.getSharedPreferences(packageName + camerasFileName, Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = camerasPrefs.edit();
-                
-                JsonObject camerasPrefsObj = root.getAsJsonObject("cameras_preferences");
-                for (String key : camerasPrefsObj.keySet()) {
-                    putJsonValueToEditor(editor, key, camerasPrefsObj.get(key));
-                }
-                editor.apply();
-            }
-            
-            if (root.has("devices_preferences")) {
-                String devicesFileName = context.getString(R.string._devices);
-                SharedPreferences devicesPrefs = context.getSharedPreferences(packageName + devicesFileName, Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = devicesPrefs.edit();
-                
-                JsonObject devicesPrefsObj = root.getAsJsonObject("devices_preferences");
-                for (String key : devicesPrefsObj.keySet()) {
-                    putJsonValueToEditor(editor, key, devicesPrefsObj.get(key));
-                }
-                editor.apply();
-            }
-            
+            applyRestoredJson(context, root);
             PhotonCamera.restartWithDelay(context, 1000);
             return "Restored from JSON: " + jsonFile.getName();
+        }
+    }
+    
+    private static void applyRestoredJson(Context context, JsonObject root) {
+        String packageName = context.getPackageName();
+        if (root.has("main_preferences")) {
+            SharedPreferences mainPrefs = PreferenceManager.getDefaultSharedPreferences(context);
+            SharedPreferences.Editor editor = mainPrefs.edit();
+            editor.clear();
+            JsonObject mainPrefsObj = root.getAsJsonObject("main_preferences");
+            for (String key : mainPrefsObj.keySet()) {
+                putJsonValueToEditor(editor, key, mainPrefsObj.get(key));
+            }
+            editor.apply();
+        }
+        if (root.has("per_lens_settings")) {
+            String perLensFileName = context.getString(R.string._per_lens);
+            SharedPreferences perLensPrefs = context.getSharedPreferences(packageName + perLensFileName, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = perLensPrefs.edit();
+            editor.clear();
+            com.google.gson.JsonElement perLensElement = root.get("per_lens_settings");
+            if (perLensElement.isJsonArray()) {
+                com.google.gson.JsonArray perLensArray = perLensElement.getAsJsonArray();
+                for (com.google.gson.JsonElement element : perLensArray) {
+                    JsonObject cameraObj = element.getAsJsonObject();
+                    String cameraId = cameraObj.get("id").getAsString();
+                    JsonObject settings = cameraObj.getAsJsonObject("settings");
+                    editor.putString("settings_for_camera_" + cameraId, GSON.toJson(settings));
+                }
+            } else if (perLensElement.isJsonObject()) {
+                JsonObject perLensPrefsObj = perLensElement.getAsJsonObject();
+                for (String key : perLensPrefsObj.keySet()) {
+                    putJsonValueToEditor(editor, key, perLensPrefsObj.get(key));
+                }
+            }
+            editor.apply();
+        }
+        if (root.has("tunable_settings")) {
+            JsonObject tunableSettingsObj = root.getAsJsonObject("tunable_settings");
+            Map<String, Object> tunableSettingsMap = GSON.fromJson(tunableSettingsObj,
+                new com.google.gson.reflect.TypeToken<Map<String, Object>>(){}.getType());
+            TunableSettingsManager.importTunableSettings(context, tunableSettingsMap);
+        }
+        if (root.has("cameras_preferences")) {
+            String camerasFileName = context.getString(R.string._cameras);
+            SharedPreferences camerasPrefs = context.getSharedPreferences(packageName + camerasFileName, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = camerasPrefs.edit();
+            JsonObject camerasPrefsObj = root.getAsJsonObject("cameras_preferences");
+            for (String key : camerasPrefsObj.keySet()) {
+                putJsonValueToEditor(editor, key, camerasPrefsObj.get(key));
+            }
+            editor.apply();
+        }
+        if (root.has("devices_preferences")) {
+            String devicesFileName = context.getString(R.string._devices);
+            SharedPreferences devicesPrefs = context.getSharedPreferences(packageName + devicesFileName, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = devicesPrefs.edit();
+            JsonObject devicesPrefsObj = root.getAsJsonObject("devices_preferences");
+            for (String key : devicesPrefsObj.keySet()) {
+                putJsonValueToEditor(editor, key, devicesPrefsObj.get(key));
+            }
+            editor.apply();
+        }
+    }
+    
+    /**
+     * Restore from XML input stream (e.g. from SimpleStorage). Copies to temp file then restores.
+     */
+    private static String restoreFromXmlStream(Context context, InputStream is, String fileName) throws IOException {
+        File temp = new File(context.getCacheDir(), "restore_prefs.xml");
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(temp)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
+        }
+        try {
+            return restoreFromXml(context, temp);
+        } finally {
+            temp.delete();
         }
     }
     
