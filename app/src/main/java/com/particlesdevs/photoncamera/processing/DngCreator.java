@@ -55,10 +55,15 @@ public class DngCreator {
     private native void setTimeCode(long nativePtr, byte[] timecode);
     private native void setDateTime(long nativePtr, String datetime);
     private native void setNoiseProfile(long nativePtr, double[] noiseProfile);
+    private native void setFrameRate(long nativePtr, double frameRate);
     private native void setCompression(long nativePtr, boolean useCompression);
     private native void setBitsPerSample(long nativePtr, int bps);
+    private native void setBinning(long nativePtr, boolean binning);
     private native void destroy(long nativePtr);
-    private native void writeFile(long nativePtr, ByteBuffer dngBuffer, ByteBuffer raw, String path);
+    private native void writeFile(long nativePtr, ByteBuffer dngBuffer, ByteBuffer raw, String path, int offset);
+    private native void openArchive(long nativePtr, String path);
+    private native void openArchiveByFd(long nativePtr, int fd);
+    private native void closeArchive(long nativePtr);
 
     public DngCreator() {
         nativePtr = create();
@@ -344,6 +349,17 @@ public class DngCreator {
     }
 
     /**
+     * Set the frame rate for video/cinema DNG sequences
+     * @param frameRate Frames per second (e.g., 24.0, 25.0, 29.97, 30.0)
+     */
+    public void setFrameRate(double frameRate) {
+        if (frameRate <= 0.0) {
+            throw new IllegalArgumentException("Frame rate must be positive");
+        }
+        setFrameRate(nativePtr, frameRate);
+    }
+
+    /**
      * Set the compression type for the DNG image
      * @param useCompression true to use compression, false to store uncompressed
      */
@@ -357,6 +373,24 @@ public class DngCreator {
      */
     public void setBitsPerSample(int bps) {
         setBitsPerSample(nativePtr, bps);
+    }
+
+    /**
+     * Enable or disable Bayer 2×2 binning before saving.
+     *
+     * When enabled, same-color pixels from each 4×4 input block are combined into
+     * one output pixel, halving both dimensions.
+     *
+     * Summing mode (white level < 65535): the four same-color values are summed,
+     * so the effective white level and black levels are multiplied by 4.
+     *
+     * Averaging mode (white level ≥ 65535, i.e. already 16-bit full-range): the four
+     * values are averaged, keeping levels unchanged and preventing overflow.
+     *
+     * @param binning true to apply Bayer binning, false for normal output
+     */
+    public void setBinning(boolean binning) {
+        setBinning(nativePtr, binning);
     }
 
     /**
@@ -406,8 +440,8 @@ public class DngCreator {
         }
     }
 
-    public void writeFile(ByteBuffer dngBuffer, ByteBuffer raw, String path) {
-        writeFile(nativePtr, dngBuffer, raw, path);
+    public void writeFile(ByteBuffer dngBuffer, ByteBuffer raw, String path, int offset) {
+        writeFile(nativePtr, dngBuffer, raw, path, offset);
     }
 
     double[] toDouble(float[] array) {
@@ -474,6 +508,41 @@ public class DngCreator {
                    parameters.sensorPix.right,
                    parameters.mapSize.x,
                    parameters.mapSize.y);
+    }
+
+    /**
+     * Open a ZIP archive for writing.  Subsequent calls to {@link #writeFile} will store each DNG
+     * as an uncompressed entry inside this archive instead of writing individual files.  Call
+     * {@link #closeArchive} when all frames have been written to finalise the ZIP.
+     *
+     * @param archivePath Absolute path of the output .zip file (must be writable)
+     */
+    public void openArchive(String archivePath) {
+        if (archivePath == null || archivePath.isEmpty()) {
+            throw new IllegalArgumentException("archivePath must not be null or empty");
+        }
+        openArchive(nativePtr, archivePath);
+    }
+
+    /**
+     * Open an archive for writing via an Android SAF file descriptor.  The file descriptor must
+     * be writable and remain open until {@link #closeArchive} is called.  Subsequent
+     * {@link #writeFile} calls will store each DNG as an archive entry instead of individual files.
+     *
+     * @param fd Writable file descriptor obtained from {@code ParcelFileDescriptor.getFd()}
+     */
+    public void openArchiveByFd(int fd) {
+        if (fd < 0) throw new IllegalArgumentException("fd must be a valid (>= 0) file descriptor");
+        openArchiveByFd(nativePtr, fd);
+    }
+
+    /**
+     * Finalise and close the currently open archive.  Flushes all buffered data and the archive
+     * trailer, then closes the underlying file/fd.  Safe to call even if no archive is open
+     * (no-op in that case).
+     */
+    public void closeArchive() {
+        closeArchive(nativePtr);
     }
 
     /**

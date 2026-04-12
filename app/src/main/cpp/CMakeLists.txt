@@ -17,6 +17,24 @@ file(DOWNLOAD
         https://raw.githubusercontent.com/ParticlesDevs/tinydng/refs/heads/master/tiny_dng_writer.h
         ${CMAKE_CURRENT_SOURCE_DIR}/deps/tiny_dng_writer.h)
 
+if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/deps/technicallyflac.h)
+    file(DOWNLOAD
+            https://raw.githubusercontent.com/jprjr/technicallyflac/main/technicallyflac.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/deps/technicallyflac.h)
+endif()
+
+if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/deps/archive.h)
+    file(DOWNLOAD
+            https://raw.githubusercontent.com/libarchive/libarchive/master/libarchive/archive.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/deps/archive.h)
+endif()
+
+if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/deps/archive_entry.h)
+    file(DOWNLOAD
+            https://raw.githubusercontent.com/libarchive/libarchive/master/libarchive/archive_entry.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/deps/archive_entry.h)
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps)
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -26,6 +44,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 add_library(allocator SHARED
     ${SRC_DIR}/allocator.cpp
 )
+add_library(flacRecorder SHARED
+    ${SRC_DIR}/flacRecorder.cpp
+)
 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
         VERSION_BUILD="${VERSION_BUILD}"
@@ -34,9 +55,14 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
         log
+        dl
 )
 
 target_link_libraries(allocator PRIVATE
+        log
+)
+
+target_link_libraries(flacRecorder PRIVATE
         log
 )
 
