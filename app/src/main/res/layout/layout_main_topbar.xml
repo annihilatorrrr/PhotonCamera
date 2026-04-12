@@ -29,6 +29,9 @@
                 name="timer_visible"
                 type="boolean"/>
         <variable
+                name="quad_visible"
+                type="boolean"/>
+        <variable
                 name="top_bar_click_listener"
                 type="android.view.View.OnClickListener"/>
 
@@ -122,6 +125,7 @@
                     android:textOff=""
                     android:textOn=""
                     android:onClick="@{top_bar_click_listener}"
+                    android:visibility="@{quad_visible ? View.VISIBLE : View.GONE}"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toEndOf="@id/countdown_timer_button"
                     app:layout_constraintEnd_toStartOf="@id/fps_toggle_button"
@@ -135,7 +139,7 @@
                     android:layout_height="wrap_content"
                     app:layout_constraintDimensionRatio="1:1"
                     android:background="@drawable/fps_button"
-                    android:checked="@{PreferenceKeys.isFpsPreviewOn()}"
+                    android:checked="@{PreferenceKeys.getFpsMode() > 0}"
                     android:textOff=""
                     android:textOn=""
                     android:onClick="@{top_bar_click_listener}"

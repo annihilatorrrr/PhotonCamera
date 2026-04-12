@@ -6,6 +6,7 @@
     <bool name="pref_energy_safe_default">false</bool>
     <string name="pref_show_grid_default" translatable="false">0</string>
     <bool name="pref_wide169_default">false</bool>
+    <bool name="pref_binning_default">false</bool>
     <bool name="pref_show_watermark_default">true</bool>
     <bool name="pref_show_afdata_default">false</bool>
     <bool name="pref_show_roundedge_default">true</bool>
@@ -76,4 +77,5 @@
     <bool name="pref_show_gradient_def_value">true</bool>
     <string name="pref_af_mode_default_value" translatable="false">4</string>
     <string name="pref_raw_mode_default_value" translatable="false">0</string>
+    <bool name="pref_hide_gallery_icon_default">false</bool>
 </resources>

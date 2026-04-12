@@ -18,6 +18,14 @@
                 android:icon="@drawable/ic_burst_mode_black_24dp"
                 />
         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:key="@string/pref_binning_key"
+                android:defaultValue="@bool/pref_binning_default"
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/binning"
+                android:summary=""
+                android:icon="@drawable/ic_burst_mode_black_24dp"
+                />
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
             android:key="@string/pref_energy_safe_key"
             android:defaultValue="@bool/pref_energy_safe_default"
             android:layout="@layout/preference_with_margin"
@@ -32,6 +40,14 @@
                 android:title="@string/camera_sounds"
                 android:summary=""
                 android:icon="@drawable/ic_camera_sounds"
+                />
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:key="@string/pref_hide_gallery_icon_key"
+                android:defaultValue="@bool/pref_hide_gallery_icon_default"
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/hide_gallery_icon"
+                android:summary=""
+                android:icon="@drawable/ic_watermark"
                 />
         <ListPreference
                 android:key="@string/pref_show_grid_key"
@@ -114,6 +130,32 @@
                 android:entries="@array/video_resolution_entries"
                 android:entryValues="@array/video_resolution_entryvalues"
                 android:defaultValue="@string/pref_video_resolution_default"/>
+    </PreferenceCategory>
+    <PreferenceCategory
+            android:layout="@layout/preference_category_layout"
+            android:key="@string/pref_category_rawvideo_key"
+            android:title="@string/raw_video_settings">
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:key="@string/pref_rawvideo_downscale_4x_key"
+                android:defaultValue="false"
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/rawvideo_downscale_4x"
+                android:summary=""
+                android:icon="@drawable/ic_burst_mode_black_24dp"/>
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:key="@string/pref_rawvideo_write_zip_key"
+                android:defaultValue="true"
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/rawvideo_write_zip"
+                android:summary=""
+                android:icon="@drawable/ic_save"/>
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:key="@string/pref_rawvideo_crop_169_key"
+                android:defaultValue="true"
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/rawvideo_crop_169"
+                android:summary=""
+                android:icon="@drawable/ic_burst_mode_black_24dp"/>
     </PreferenceCategory>
     <PreferenceCategory
             android:layout="@layout/preference_category_layout"
@@ -377,6 +419,18 @@
             android:icon="@drawable/ic_tune_black_24dp">
         <!-- Tunable preferences will be added here dynamically -->
     </PreferenceScreen>
+    <PreferenceCategory
+            android:layout="@layout/preference_category_layout"
+            android:key="@string/pref_category_device_key"
+            android:title="@string/pref_category_device_key_title">
+        <Preference
+                android:layout="@layout/preference_with_margin"
+                android:key="@string/pref_fetch_configurations_key"
+                android:title="@string/fetch_configurations"
+                android:summary="@string/fetch_configurations_summary"
+                android:icon="@drawable/ic_refresh"
+                android:persistent="false"/>
+    </PreferenceCategory>
     <PreferenceCategory
             android:layout="@layout/preference_category_layout"
             android:key="@string/pref_category_backup_restore"

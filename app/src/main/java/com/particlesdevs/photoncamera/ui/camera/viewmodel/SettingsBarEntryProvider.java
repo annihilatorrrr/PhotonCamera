@@ -80,7 +80,7 @@ public class SettingsBarEntryProvider extends ViewModel {
         updateEntry(timerEntry, PreferenceKeys.getCountdownTimerIndex());
         updateEntry(hdrxEntry, PreferenceKeys.isHdrXOn());
         updateEntry(eisEntry, PreferenceKeys.isEisPhotoOn());
-        updateEntry(fpsEntry, PreferenceKeys.isFpsPreviewOn());
+        updateEntry(fpsEntry, PreferenceKeys.getFpsMode());
         updateEntry(quadEntry, PreferenceKeys.isQuadBayerOn());
         updateEntry(saveRawEntry, PreferenceKeys.isSaveRaw());
         updateEntry(batterySaverEntry, PreferenceKeys.isBatterySaverOn());
@@ -147,16 +147,16 @@ public class SettingsBarEntryProvider extends ViewModel {
     private void createFlashEntry() {
         flashEntry.addSettingsBarButtonModels(
                 SettingsBarButtonModel.newButtonModel(R.id.torch_button, R.drawable.ic_torch, R.string.torch, 0, flashEntry),
-                SettingsBarButtonModel.newButtonModel(R.id.flash_odd_button, R.drawable.ic_flash_off, R.string.off, 1, flashEntry),
-                SettingsBarButtonModel.newButtonModel(R.id.flash_auto_button, R.drawable.ic_flash_auto, R.string.auto, 2, flashEntry),
-                SettingsBarButtonModel.newButtonModel(R.id.flash_on_button, R.drawable.ic_flash_on, R.string.on, 3, flashEntry)
+                SettingsBarButtonModel.newButtonModel(R.id.flash_odd_button, R.drawable.ic_flash_off, R.string.off, 1, flashEntry)
         );
     }
 
     private void createFpsEntry() {
         fpsEntry.addSettingsBarButtonModels(
-                SettingsBarButtonModel.newButtonModel(R.id.fps60_off_button, R.drawable.ic_60fps_off, R.string.off, 0, fpsEntry),
-                SettingsBarButtonModel.newButtonModel(R.id.fps60_on_button, R.drawable.ic_60fps_on, R.string.on, 1, fpsEntry)
+                SettingsBarButtonModel.newButtonModel(R.id.fps_auto_button, R.drawable.autofps_select_24px, R.string.fps_auto, 0, fpsEntry),
+                SettingsBarButtonModel.newButtonModel(R.id.fps24_button, R.drawable.fps24_select_24px, R.string.fps_24, 1, fpsEntry),
+                SettingsBarButtonModel.newButtonModel(R.id.fps30_button, R.drawable.fps30_select_24px, R.string.fps_30, 2, fpsEntry),
+                SettingsBarButtonModel.newButtonModel(R.id.fps60_button, R.drawable.fps60_select_24px, R.string.fps_60, 3, fpsEntry)
         );
     }
 

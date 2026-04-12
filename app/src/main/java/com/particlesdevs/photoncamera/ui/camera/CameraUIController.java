@@ -97,8 +97,8 @@ final class CameraUIController implements CameraUIEventsListener,
                 break;
 
             case R.id.fps_toggle_button:
-                PreferenceKeys.setFpsPreview(!PreferenceKeys.isFpsPreviewOn());
-                cameraFragment.showSnackBar(cameraFragment.getString(R.string.fps_60_toggle_text) + ':' + onOff(PreferenceKeys.isFpsPreviewOn()));
+                PreferenceKeys.setFpsMode((PreferenceKeys.getFpsMode() + 1) % 4);
+                cameraFragment.captureController.applyFpsRange();
                 cameraFragment.updateSettingsBar();
                 break;
 
@@ -124,7 +124,7 @@ final class CameraUIController implements CameraUIEventsListener,
                 break;
 
             case R.id.flash_button:
-                PreferenceKeys.setAeMode((PreferenceKeys.getAeMode() + 1) % 4); //cycles in 0,1,2,3
+                PreferenceKeys.setAeMode((PreferenceKeys.getAeMode() + 1) % 2); //cycles in 0 (torch), 1 (off)
                 ((FlashButton) view).setFlashValueState(PreferenceKeys.getAeMode());
                 cameraFragment.captureController.setPreviewAEModeRebuild(PreferenceKeys.getAeMode());
                 cameraFragment.updateSettingsBar();
@@ -239,7 +239,8 @@ final class CameraUIController implements CameraUIEventsListener,
                         cameraFragment.invalidateSurfaceView();
                         break;
                     case FPS_60:
-                        PreferenceKeys.setFpsPreview(value.equals(1));
+                        PreferenceKeys.setFpsMode((Integer) value);
+                        cameraFragment.captureController.applyFpsRange();
                         break;
                     case TIMER:
                         PreferenceKeys.setCountdownTimerIndex((Integer) value);
