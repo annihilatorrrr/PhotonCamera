@@ -207,6 +207,13 @@ public class SensorSpecifics {
                                 current.profileLookTableData[i] = Float.parseFloat(istr[i]);
                             break;
                         }
+                        case "preferredResolution": {
+                            if (istr.length < 2) break;
+                            current.preferredResolution = new int[2];
+                            for (int i = 0; i < 2; i++)
+                                current.preferredResolution[i] = Integer.parseInt(istr[i]);
+                            break;
+                        }
                         case "overrideRawColors":
                             current.overrideRawColors = Boolean.parseBoolean(valsIn[1]);
                             break;
