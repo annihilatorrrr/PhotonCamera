@@ -257,7 +257,7 @@ public class ImageViewerFragment extends Fragment {
             Uri uri = galleryItem.getFile().getFileUri();
             Intent editIntent = new Intent(Intent.ACTION_EDIT);
             editIntent.setDataAndType(uri, mediaType);
-            String outPutFileUri = galleryItem.getFile().getFileUri().toString().replace(galleryItem.getFile().getDisplayName(), ImagePath.generateNewFileName() + '.' + FileUtils.getExtension(fileName));
+            String outPutFileUri = galleryItem.getFile().getFileUri().toString().replace(galleryItem.getFile().getDisplayName(), ImagePath.generateNewFileName("IMG") + '.' + FileUtils.getExtension(fileName));
             editIntent.putExtra(MediaStore.EXTRA_OUTPUT, outPutFileUri);
             editIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             Intent chooser = Intent.createChooser(editIntent, null);
