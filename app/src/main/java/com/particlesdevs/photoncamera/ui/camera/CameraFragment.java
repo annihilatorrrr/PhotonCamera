@@ -287,6 +287,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         cameraFragmentViewModel.onResume();
         auxButtonsViewModel.setAuxButtonListener(mCameraUIEventsListener);
         captureController.startBackgroundThread();
+        textureView.onResume();
         captureController.resumeCamera();
         initTouchFocus();
         manualModeConsole.onResume();
@@ -307,6 +308,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         PhotonCamera.getGravity().unregister();
         PhotonCamera.getGyro().unregister();
         PhotonCamera.getSettings().saveID();
+        textureView.onPause();
         captureController.closeCamera();
 //        stopBackgroundThread();
         cameraFragmentViewModel.onPause();
@@ -511,6 +513,26 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public void initCameraIDLists(CameraManager cameraManager) {
         CameraManager2 manager2 = new CameraManager2(cameraManager, settingsManager);
         this.mCameraLensDataMap = manager2.getCameraLensDataMap();
+        // Re-anchor sActiveBackCamId / sActiveFrontCamId to real cameras.
+        // The static defaults ("0" / "1") may not exist on every device (e.g. devices
+        // whose camera IDs start at 1).  After a full process restart there is no
+        // savedInstanceState to restore them, so we must derive them from the map here.
+        if (!mCameraLensDataMap.containsKey(sActiveBackCamId)) {
+            for (Map.Entry<String, CameraLensData> entry : mCameraLensDataMap.entrySet()) {
+                if (entry.getValue().getFacing() == CameraCharacteristics.LENS_FACING_BACK) {
+                    sActiveBackCamId = entry.getKey();
+                    break;
+                }
+            }
+        }
+        if (!mCameraLensDataMap.containsKey(sActiveFrontCamId)) {
+            for (Map.Entry<String, CameraLensData> entry : mCameraLensDataMap.entrySet()) {
+                if (entry.getValue().getFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
+                    sActiveFrontCamId = entry.getKey();
+                    break;
+                }
+            }
+        }
     }
 
     public String cycler(String savedCameraID) {
@@ -640,6 +662,14 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
         @Override
         public void onProcessingChanged(Object obj) {
+            if (PhotonCamera.getSettings().selectedMode == CameraMode.RAWVIDEO
+                    && obj instanceof com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats) {
+                com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats stats =
+                        (com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats) obj;
+                timerFrameCountViewModel.setFrameTimeCnt(
+                        new TimerFrameCountViewModel.FrameCntTime(stats.pendingWrites, 0, 0));
+                mCameraUIView.updateVideoRecordingInfo(stats.elapsedMs, stats.estimatedBytes, stats.availableBytes);
+            }
         }
 
         @Override
@@ -688,8 +718,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
         @Override
         public void onCaptureStillPictureStarted(Object o) {
-            mCameraUIView.setCaptureProgressBarOpacity(1.0f);
-            mCameraUIView.lockUIForBurst(true);
+            if (PhotonCamera.getSettings().selectedMode != CameraMode.RAWVIDEO) {
+                mCameraUIView.setCaptureProgressBarOpacity(1.0f);
+                mCameraUIView.lockUIForBurst(true);
+            }
             //textureView.post(() -> textureView.setAlpha(0.8f));
         }
 
@@ -712,12 +744,14 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
         @Override
         public void onFrameCaptureCompleted(Object o) {
-            mCameraUIView.incrementCaptureProgressBar(1);
-            if (PreferenceKeys.isCameraSoundsOn()) {
-                burstPlayer.start();
-            }
-            if (o instanceof TimerFrameCountViewModel.FrameCntTime) {
-                timerFrameCountViewModel.setFrameTimeCnt((TimerFrameCountViewModel.FrameCntTime) o);
+            if (PhotonCamera.getSettings().selectedMode != CameraMode.RAWVIDEO) {
+                mCameraUIView.incrementCaptureProgressBar(1);
+                if (PreferenceKeys.isCameraSoundsOn()) {
+                    burstPlayer.start();
+                }
+                if (o instanceof TimerFrameCountViewModel.FrameCntTime) {
+                    timerFrameCountViewModel.setFrameTimeCnt((TimerFrameCountViewModel.FrameCntTime) o);
+                }
             }
         }
 
@@ -729,6 +763,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             timerFrameCountViewModel.clearFrameTimeCnt();
             mCameraUIView.resetCaptureProgressBar();
             mCameraUIView.lockUIForBurst(false);
+            mCameraUIView.setVideoRecordingInfoVisible(false);
             textureView.post(() -> textureView.setAlpha(1f));
         }
 

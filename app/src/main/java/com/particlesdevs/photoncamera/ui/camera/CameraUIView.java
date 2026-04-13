@@ -58,6 +58,10 @@ public interface CameraUIView {
      */
     void lockUIForBurst(boolean locked);
 
+    void updateVideoRecordingInfo(long elapsedMs, long estimatedBytes, long availableBytes);
+
+    void setVideoRecordingInfoVisible(boolean visible);
+
     void destroy();
 
 
