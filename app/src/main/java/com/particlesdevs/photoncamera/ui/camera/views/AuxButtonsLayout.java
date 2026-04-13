@@ -78,14 +78,18 @@ public class AuxButtonsLayout extends LinearLayout {
     }
 
     private void refresh(String cameraId) {
-        if (!isFront(cameraId))
-            this.setAuxButtons(auxButtonsModel.getBackCameras(), cameraId);
+        if (auxButtonsModel == null) return;
+        List<CameraLensData> front = auxButtonsModel.getFrontCameras();
+        List<CameraLensData> back = auxButtonsModel.getBackCameras();
+        if (front == null || back == null) return;
+        if (!isFront(cameraId, front))
+            this.setAuxButtons(back, cameraId);
         else
-            this.setAuxButtons(auxButtonsModel.getFrontCameras(), cameraId);
+            this.setAuxButtons(front, cameraId);
     }
 
-    private boolean isFront(String cameraId) {
-        return auxButtonsModel.getFrontCameras().stream().anyMatch(cameraLensData -> cameraLensData.getCameraId().equals(cameraId));
+    private boolean isFront(String cameraId, List<CameraLensData> frontCameras) {
+        return frontCameras.stream().anyMatch(cameraLensData -> cameraLensData.getCameraId().equals(cameraId));
     }
 
     private void setAuxButtons(List<CameraLensData> cameraLensDataList, String activeId) {
