@@ -112,6 +112,10 @@ public class Parameters {
             description = "Override black level for all channels -1 is disabled")
     int whiteLevelOverride;
 
+    @Tunable(title = "Disable front mirror", category = "Parameters", defaultValue = 0, min = 0, max = 1, step = 1,
+            description = "Disable front camera mirroring")
+    boolean disableMirror;
+
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
         rawSize = size;
@@ -194,6 +198,9 @@ public class Parameters {
         var facing = characteristics.get(CameraCharacteristics.LENS_FACING);
         if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
             mirror = true;
+        }
+        if(disableMirror){
+            mirror = false;
         }
         //hotPixels = PhotonCamera.getCameraFragment().mHotPixelMap;
     }
