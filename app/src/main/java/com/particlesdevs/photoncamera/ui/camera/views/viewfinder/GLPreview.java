@@ -78,6 +78,7 @@ public class GLPreview extends GLSurfaceView {
 
     @Override
     public void onPause() {
+        available = false;
         fireOnSurfaceTextureDestroyed(getSurfaceTexture());
         //mRenderer.onPause();
         super.onPause();
@@ -135,6 +136,11 @@ public class GLPreview extends GLSurfaceView {
 
     public void setOrientation(int or) {
         mRenderer.setOrientation(or);
+    }
+
+    public void setMirror(boolean mirror) {
+        mRenderer.setMirror(mirror);
+        requestRender();
     }
 
     boolean available = false;
