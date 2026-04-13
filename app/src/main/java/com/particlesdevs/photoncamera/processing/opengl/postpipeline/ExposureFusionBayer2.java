@@ -95,8 +95,14 @@ public class ExposureFusionBayer2 extends Node {
             w+=cnt;
             Log.d(Name,"Overexp pos:"+ind+" val:"+cnt);
         }
+        var gain =  Math.max(128/(avr/w + 1),1.f);
         Log.d(Name,"Overexp pos:"+avr/w);
-        return Math.max(128/(avr/w + 1),1.f);
+        float gainNoiseMax = Math.max((float) (noiseMax / Math.sqrt(basePipeline.noiseS * 0.5 + basePipeline.noiseO)), 1.0f);
+        if(gain > gainNoiseMax) {
+            Log.d(Name, "Clamping gain by noise from " + gain + " to " + gainNoiseMax);
+            gain = gainNoiseMax;
+        }
+        return gain;
         //return mix(avr/w,max, overExposeMaxFusion);
     }
     float autoExposureLow(){
@@ -321,6 +327,9 @@ public class ExposureFusionBayer2 extends Node {
         step = 0.001f
     )
     float fusionExpoFactorMin = 0.01f;
+
+    @Tunable(title = "Noise Max", category = "Exposure Fusion", max = 1.0f, defaultValue = 0.01f)
+    float noiseMax;
     
     float[] toneCurveX;
     float[] toneCurveY;
@@ -498,7 +507,7 @@ public class ExposureFusionBayer2 extends Node {
         //glProg.setTexture("highExpo",highExpo.gauss[ind]);
         glProg.setTexture("normalExpoDiff",normalExpo.gauss[ind]);
         //glProg.setTexture("highExpoDiff",highExpo.gauss[ind]);
-        glProg.setVar("upscaleIn",binnedFuse.mSize);
+        glProg.setVar("upscaleIn",1.0f/binnedFuse.mSize.x,1.0f/binnedFuse.mSize.y);
         glProg.setVar("blendMpy",1.f);
 
         glProg.drawBlocks(binnedFuse,normalExpo.sizes[ind]);

@@ -956,7 +956,8 @@ public class GLUtils {
             for (int i = 0; i < pyramid.laplace.length; i++) {
                 glProg.setTexture("target", pyramid.gauss[i]);
                 glProg.setTexture("base", pyramid.gauss[i + 1]);
-                glProg.setVar("size",pyramid.sizes[i]);
+                //glProg.setVar("size",pyramid.sizes[i]);
+                glProg.setVar("size", 1.0f/pyramid.sizes[i].x, 1.0f/pyramid.sizes[i].y);
                 glProg.setVar("size2", pyramid.gauss[i + 1].mSize);
                 //glProg.setTexture("base", downscaled[i]);
                 //glProg.setTexture("target", upscale[i]);

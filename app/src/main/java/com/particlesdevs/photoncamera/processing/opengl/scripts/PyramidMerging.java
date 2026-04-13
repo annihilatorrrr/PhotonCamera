@@ -427,7 +427,7 @@ public class PyramidMerging extends GLOneScript {
                 points++;
             }
             //points = 9;
-            if (points >= 10) {
+            if (points >= 1) {
                 double denom = sumW * sumWb2 - sumWb * sumWb;
                 if (denom > 1e-20) {
                     double fitS = (sumW * sumWbv - sumWb * sumWv) / denom;
