@@ -80,7 +80,7 @@ public class Demosaic3 extends Node {
         glProg.setDefine("greenmax",greenMax);
         glProg.setLayout(tile,tile,1);
         //glProg.useFileProgram(FileManager.sPHOTON_TUNING_DIR + "demosaicp2ec.glsl",true);
-        glProg.useAssetProgram("demosaic/demosaicp2ed",true);
+        glProg.useAssetProgram("demosaic/demosaicp2ed2",true);
         glProg.setTextureCompute("inTexture", glTexture,false);
         glProg.setTextureCompute("greenTexture", outp,false);
         glProg.setTextureCompute("igTexture", basePipeline.main3,false);
@@ -90,5 +90,6 @@ public class Demosaic3 extends Node {
         glProg.computeManual(WorkingTexture.mSize.x/tile,WorkingTexture.mSize.y/tile,1);
         glProg.close();
         endT("demosaicp2ec");
+        WorkingTexture = basePipeline.swap3();
     }
 }

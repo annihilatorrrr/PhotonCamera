@@ -39,12 +39,12 @@ int getBayerPattern(ivec2 pos) {
 }
 
 float getBayerSample(ivec2 pos) {
-    return imageLoad(inTexture, pos).r;// + EPS2;
+    return imageLoad(inTexture, pos).r;
     //return float(texelFetch(RawBuffer, pos, 0).x);
 }
 
 vec2 gr(ivec2 pos){
-    return imageLoad(greenTexture, pos).rg;// + EPS2;
+    return imageLoad(greenTexture, pos).rg;
     //return texelFetch(GreenBuffer, pos, 0).xy;
 }
 
@@ -67,7 +67,7 @@ float dt(ivec2 pos, ivec2 stp) {
 
 float dxy2(ivec2 pos, ivec2 stp) {
     float c = getBayerSample(pos);
-    /*if (direction == 0){
+/*if (direction == 0){
         stp = ivec2(1,0);
     } else {
         stp = ivec2(0,1);
@@ -79,7 +79,7 @@ float IG(ivec2 pos, int stp) {
     //int pattern = getBayerPattern(pos);
     //float useGreen = (pattern == 1 || pattern == 2) ? -1.0 : 1.0;
     //float useInv = 1.0 - useGreen;
-    /*if (direction == 0) {
+/*if (direction == 0) {
         return 2.0 * dxy2(pos,0) + dxy2(pos + ivec2(0,-1),0) + dxy2(pos + ivec2(0,1),0);
     } else {
         return 2.0 * dxy2(pos,1) + dxy2(pos + ivec2(-1,0),1) + dxy2(pos + ivec2(1,0),1);
@@ -108,7 +108,7 @@ float getC(float greenValue, float model) {
 }
 
 float estimateD(ivec2 pos){
-    /*float sumX = 0.0, sumY = 0.0, sumXX = 0.0, sumXY = 0.0, sumYY = 0.0;
+/*float sumX = 0.0, sumY = 0.0, sumXX = 0.0, sumXY = 0.0, sumYY = 0.0;
     for (int i = -L; i <= L; i++) {
         for (int j = -L; j <= L; j++) {
             float bayerValue = getBayerSample(pos + ivec2(i*2, j*2));
@@ -159,19 +159,29 @@ float estimateD(ivec2 pos){
     float w1 = 1.0-abs(v1 - res0);
     float w2 = 1.0-abs(v2 - res0);
     float w3 = 1.0-abs(v3 - res0);
-    float w4 = 1.0-abs(res0 - res0);
     float w5 = 1.0-abs(resx - res0);
     float w6 = 1.0-abs(resy - res0);
-    //float wm = min(min(min(min(w0,w1),w2),w3),min(w5,w6))*0.999;
-    float wm = min(min(min(w0,w1),w2),w3)*0.999;
+    float wm = min(min(min(min(w0,w1),w2),w3),min(w5,w6))*0.999;
     w0 -= wm;
     w1 -= wm;
     w2 -= wm;
     w3 -= wm;
     w5 -= wm;
     w6 -= wm;
-    float res = (w0*v0 + w1*v1 + w2*v2 + w3*v3)/(w0+w1+w2+w3);
-    return mix(c, res, BETA);
+    if(w0+w1+w2+w3+w5+w6 < EPS){
+        w0 = 1.0;
+        w1 = 1.0;
+        w2 = 1.0;
+        w3 = 1.0;
+        w5 = 1.0;
+        w6 = 1.0;
+    }
+    float res = (w0*v0 + w1*v1 + w2*v2 + w3*v3 + w5*resx + w6*resy)/(w0+w1+w2+w3+w5+w6);
+    float interpolated = res;
+    if (E > THRESHOLD) {
+        interpolated = (dh < dv) ? resx : resy;
+    }
+    return mix(c, interpolated, BETA);
 }
 
 
@@ -180,11 +190,11 @@ float getDtcv(ivec2 pos) {
     ivec2 workgroupStart = ivec2(gl_WorkGroupID.xy) * ivec2(gl_WorkGroupSize.xy);
     //ivec2 workgroupEnd = workgroupStart + ivec2(gl_WorkGroupSize.xy);
     //if (all(greaterThanEqual(pos, workgroupStart)) && all(lessThan(pos, workgroupEnd))) {
-        ivec2 localPos = pos - workgroupStart + ivec2(2, 2);
-        return sharedDtcv[localPos.x][localPos.y];
+    ivec2 localPos = pos - workgroupStart + ivec2(2, 2);
+    return sharedDtcv[localPos.x][localPos.y];
     //} else {
-        // Fallback to global computation if outside the workgroup
-        //return dtcv(pos);
+    // Fallback to global computation if outside the workgroup
+    //return dtcv(pos);
     //}
 }
 
@@ -244,7 +254,7 @@ float dhtg1(ivec2 pos){
 
 void main() {
     //ivec2 pos = ivec2(gl_FragCoord.xy);
-    ivec2 pos = max(ivec2(gl_GlobalInvocationID.xy), ivec2(4));
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     ivec2 localPos = ivec2(gl_LocalInvocationID.xy);
     ivec2 workgroupStart = ivec2(gl_WorkGroupID.xy) * ivec2(gl_WorkGroupSize.xy);
     int fact1 = pos.x%2;
@@ -290,52 +300,59 @@ void main() {
     float maxCol = 0.0;
 
     if(fact1 ==0 && fact2 == 0) {//rggb
-        //outp.g = gr(pos).x;
+         //outp.g = gr(pos).x;
 
-        float grk = gr(pos).x;
-        outp.r = getBayerSample(pos);
-        if (skip) {
-            outp.g = grk;
-            outp.b = getC(grk, (getDtcv(pos+ivec2(1,1)) + getDtcv(pos+ivec2(-1,-1)) + getDtcv(pos+ivec2(1,-1)) + getDtcv(pos+ivec2(-1,1)))/4.0);
-        } else {
-            outp.g = getG(getBayerSample(pos), dtc);
-            outp.b = getC(grk, dhtd(pos));
-        }
+         float grk = gr(pos).x;
+         outp.r = getBayerSample(pos);
+         if (skip) {
+             outp.g = grk;
+             outp.b = getC(grk, (getDtcv(pos+ivec2(1,1)) + getDtcv(pos+ivec2(-1,-1)) + getDtcv(pos+ivec2(1,-1)) + getDtcv(pos+ivec2(-1,1)))/4.0);
+         } else {
+             outp.g = getG(getBayerSample(pos), dtc);
+             outp.b = getC(grk, dhtd(pos));
+         }
     } else
     if(fact1 ==1 && fact2 == 0) {//grbg
-        outp.g = gr(pos).x;
-        float grk = outp.g;
-        if (skip){
-            outp.r = getC(grk, (getDtcv(pos+ivec2(1,0)) + getDtcv(pos+ivec2(-1,0)))/2.0);
-            outp.b = getC(grk, (getDtcv(pos+ivec2(0,1)) + getDtcv(pos+ivec2(0,-1)))/2.0);
-        } else {
-            outp.b = getC(grk, dhtg0(pos));
-            outp.r = getC(grk, dhtg1(pos));
-        }
+         outp.g = gr(pos).x;
+         float grk = outp.g;
+         if (skip){
+             outp.r = getC(grk, (getDtcv(pos+ivec2(1,0)) + getDtcv(pos+ivec2(-1,0)))/2.0);
+             outp.b = getC(grk, (getDtcv(pos+ivec2(0,1)) + getDtcv(pos+ivec2(0,-1)))/2.0);
+         } else {
+             outp.b = getC(grk, dhtg0(pos));
+             outp.r = getC(grk, dhtg1(pos));
+         }
     } else
     if(fact1 ==0 && fact2 == 1) {//gbrg
-        outp.g = gr(pos).x;
-        float grk = outp.g;
-        if (skip){
-            outp.b = getC(grk, (getDtcv(pos+ivec2(1,0)) + getDtcv(pos+ivec2(-1,0)))/2.0);
-            outp.r = getC(grk, (getDtcv(pos+ivec2(0,1)) + getDtcv(pos+ivec2(0,-1)))/2.0);
-        } else {
-            outp.r = getC(grk, dhtg0(pos));
-            outp.b = getC(grk, dhtg1(pos));
-        }
+         outp.g = gr(pos).x;
+         float grk = outp.g;
+         if (skip){
+             outp.b = getC(grk, (getDtcv(pos+ivec2(1,0)) + getDtcv(pos+ivec2(-1,0)))/2.0);
+             outp.r = getC(grk, (getDtcv(pos+ivec2(0,1)) + getDtcv(pos+ivec2(0,-1)))/2.0);
+         } else {
+             outp.r = getC(grk, dhtg0(pos));
+             outp.b = getC(grk, dhtg1(pos));
+         }
     } else  {//bggr
-        outp.b = getBayerSample(pos);
-        float grk = gr(pos).x;
-        if (skip){
-            outp.g = grk;
-            outp.r = getC(grk,(getDtcv(pos+ivec2(1,1)) + getDtcv(pos+ivec2(-1,-1)) + getDtcv(pos+ivec2(1,-1)) + getDtcv(pos+ivec2(-1,1)))/4.0);
-        } else {
-            outp.g = getG(getBayerSample(pos), dtc);
-            outp.r = getC(grk, dhtd(pos));
-        }
+         outp.b = getBayerSample(pos);
+         float grk = gr(pos).x;
+         if (skip){
+             outp.g = grk;
+             outp.r = getC(grk,(getDtcv(pos+ivec2(1,1)) + getDtcv(pos+ivec2(-1,-1)) + getDtcv(pos+ivec2(1,-1)) + getDtcv(pos+ivec2(-1,1)))/4.0);
+         } else {
+             outp.g = getG(getBayerSample(pos), dtc);
+             outp.r = getC(grk, dhtd(pos));
+         }
     }
     outp = clamp(outp,0.0,1.0);
     //outp.rb = vec2(igE, igS);
     imageStore(outTexture, ivec2(gl_GlobalInvocationID.xy), vec4(outp, 1.0));
     //imageStore(outTexture, pos, vec4(gr(pos).x));
 }
+/*
+void main() {
+    //ivec2 pos = ivec2(gl_FragCoord.xy);
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    imageStore(outTexture, pos, vec4(IG(pos, 0), IG(pos, 1), 0.0, 1.0));
+    //imageStore(outTexture, pos, vec4(gr(pos).x));
+}*/
