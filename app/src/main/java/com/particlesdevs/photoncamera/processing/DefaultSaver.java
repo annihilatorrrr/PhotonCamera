@@ -36,7 +36,7 @@ public class DefaultSaver extends SaverImplementation {
         Log.d(TAG, "Acquired:" + IMAGE_BUFFER.size());
         bufferLock = true;
         Log.d(TAG,"Size:"+IMAGE_BUFFER.size());
-        if (PhotonCamera.getSettings().frameCount == 1) {
+        /*if (PhotonCamera.getSettings().frameCount == 1) {
             Path dngFile = ImagePath.newDNGFilePath();
             Log.d(TAG, "Size:" + IMAGE_BUFFER.size());
             boolean imageSaved = ImageSaver.Util.saveSingleRaw(dngFile, IMAGE_BUFFER.get(0),
@@ -46,7 +46,7 @@ public class DefaultSaver extends SaverImplementation {
             IMAGE_BUFFER.clear();
             bufferLock = false;
             return;
-        }
+        }*/
         Path dngFile = ImagePath.newDNGFilePath();
         Path imageFile = ImagePath.newImageFilePath();
         //Remove broken images
@@ -123,7 +123,7 @@ public class DefaultSaver extends SaverImplementation {
                 break;
             case RAWVIDEO:
                 mRawVideoProcessor.videoStart(
-                        ImagePath.getNewImageFolderPath(),
+                        ImagePath.getNewVideoFolderPath(),
                         ParseExif.parse(captureResult, captureRequest),
                         characteristics,
                         captureResult,
