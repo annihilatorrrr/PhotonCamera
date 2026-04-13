@@ -23,8 +23,8 @@
     <string name="contrconst">Constant</string>
     <string name="saturation">Saturation</string>
     <string name="expocompensation">Exposure Compensation</string>
-    <string name="jpg">JPEG</string>
-    <string name="hdrx">HDRX</string>
+    <string name="jpg" translatable="false">JPEG</string>
+    <string name="hdrx" translatable="false">HDRX</string>
     <string name="sharpness">Sharpness</string>
     <string name="turn_on_grid">Show Grid</string>
     <string name="noise_reduction_str">Noise Reduction Strength</string>
@@ -39,7 +39,7 @@
     <string name="sure_delete">Are you sure to delete this image?</string>
     <string name="sure_delete_multiple">Are you sure to delete %1$s image(s)? %2$s will be cleared.</string>
     <string name="cancel">Cancel</string>
-    <string name="yes">Yes</string>
+    <string name="yes" translatable="false">Yes</string>
     <string name="image_deleted">Image Deleted</string>
     <string name="close">Close</string>
     <string name="unknown">Unknown</string>
@@ -67,6 +67,7 @@
     <string name="about">About</string>
     <string name="camera_sounds">Camera Sounds</string>
     <string name="energy_saving">Battery Saver</string>
+    <string name="hide_gallery_icon">Hide Gallery Icon</string>
     <string name="theme">Theme</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
@@ -88,6 +89,10 @@
     <string name="contributors_title">Contributors ↗</string>
     <string name="eis_toggle_text">Image Stabilization</string>
     <string name="fps_60_toggle_text">Frame rate</string>
+    <string name="fps_auto" translatable="false">AUTO</string>
+    <string name="fps_24" translatable="false">24fps</string>
+    <string name="fps_30" translatable="false">30fps</string>
+    <string name="fps_60" translatable="false">60fps</string>
     <string name="quad_bayer_toggle_text">Quad Bayer Res. (48/64 MP)</string>
     <string name="backup_restore">Backup/Restore Settings</string>
     <string name="reset">Reset All</string>
@@ -98,12 +103,15 @@
     <string name="restore">Restore</string>
     <string name="restore_summary_json">Import settings from JSON or XML file</string>
     <string name="empty_file_name_error">File name cannot be an empty string</string>
-    <string name="device_unsupport">Warning: Unsupported device</string>
+    <string name="device_unsupport">Warning: Uncalibrated device</string>
     <string name="af_mode">Auto Focus Mode</string>
     <string name="long_press_to_deselect">Long press button to deselect all</string>
     <string name="multiple_deleted_success">%1$s file(s) deleted! %2$s cleared.</string>
     <string name="supported_devices">Supported Devices</string>
     <string name="list_not_loaded" translatable="false"><![CDATA[<list not loaded>]]></string>
+    <string name="fetch_configurations">Fetch Configurations</string>
+    <string name="fetch_configurations_summary">Download device-specific tuning from the network and update cached settings</string>
+    <string name="pref_category_device_key_title">Device</string>
     <string name="this_device">Your Device - %1$s</string>
     <string name="sync_on">Sync. On</string>
     <string name="sync_off">Sync. Off</string>
@@ -131,24 +139,47 @@
     <string name="processing_processname">Processing %1$s...</string>
     <string name="turn_on_system_nr">System Noise Reduction</string>
     <string name="wide169" translatable="false">16:9</string>
+    <string name="binning">Process 4x lower resolution</string>
     <string name="gallery_folders">Gallery Folders</string>
     <string name="options">Options</string>
-    <string name="session_on_configure_failed">Session configuration failed try changing preview format</string>
+    <string name="session_on_configure_failed">System session configuration failed try changing preview format</string>
     
     <!-- Bracketing mode strings -->
     <string name="exposure_bracketing">Exposure Bracketing</string>
     <string name="bracketing_off">Off (1x)</string>
     <string name="bracketing_normal">Normal (1x, 4x)</string>
     <string name="bracketing_high">High (1x, 8x)</string>
-    <string name="pref_bracketing_key">pref_bracketing_mode_key</string>
+    <string name="pref_bracketing_key" translatable="false">pref_bracketing_mode_key</string>
     
     <!-- Video Settings -->
     <string name="video_settings">Video Settings</string>
+    <string name="raw_video_settings">Raw Video Settings</string>
+    <string name="rawvideo_downscale_4x">Downscale 4x</string>
+    <string name="rawvideo_write_zip">Write ZIP</string>
+    <string name="rawvideo_crop_169">Crop to 16:9</string>
     <string name="photo_settings">Photo Settings</string>
     <string name="video_resolution">Video Resolution</string>
-    <string name="pref_video_resolution_key">pref_video_resolution_key</string>
-    <string name="pref_video_resolution_default">1920x1080</string>
-    <string name="video_res_4k">3840x2160 (4K)</string>
-    <string name="video_res_fhd">1920x1080 (Full HD)</string>
-    <string name="video_res_hd">1280x720 (HD)</string>
+    <string name="pref_video_resolution_key" translatable="false">pref_video_resolution_key</string>
+    <string name="pref_video_resolution_default" translatable="false">1920x1080</string>
+    <string name="video_res_4k" translatable="false">3840x2160 (4K)</string>
+    <string name="video_res_fhd" translatable="false">1920x1080 (Full HD)</string>
+    <string name="video_res_hd" translatable="false">1280x720 (HD)</string>
+    
+    <!-- Storage Access Framework folder picker -->
+    <string name="select_dcim_folder_hint">Select the DCIM folder for saving photos</string>
+
+    <!-- Permission rationale dialogs -->
+    <string name="ok">OK</string>
+    <string name="perm_open_settings">Open Settings</string>
+    <string name="perm_rationale_camera_title">Camera &amp; Microphone Access</string>
+    <string name="perm_rationale_camera_message">PhotonCamera needs access to the camera and microphone to capture photos and record video.</string>
+    <string name="perm_rationale_storage_title">Storage Access</string>
+    <string name="perm_rationale_storage_message">Storage access is required to save your photos and videos.</string>
+    <string name="perm_rationale_media_title">Photo &amp; Video Library Access</string>
+    <string name="perm_rationale_media_message">Access to photos and videos is required to display your media in the gallery.\n\nPlease grant full access — partial selection is not supported by this app.</string>
+    <string name="perm_rationale_media_settings">Full access to photos and videos is required for the gallery. Please open app settings and grant full access.</string>
+    <string name="perm_rationale_audio_title">Microphone Access</string>
+    <string name="perm_rationale_audio_message">Microphone access is required for video recording with audio.</string>
+    <string name="perm_rationale_dcim_title">DCIM Folder Access</string>
+    <string name="perm_rationale_dcim_message">Access to the DCIM folder is required for saving RAW video files and reading device custom configs.</string>
 </resources>

@@ -75,7 +75,6 @@
     <string name="version_title">版本</string>
     <string name="contributors_title">貢獻者 ↗</string>
     <string name="eis_toggle_text">光學防抖</string>
-    <string name="fps_60_toggle_text">60 幀</string>
     <string name="quad_bayer_toggle_text">畫素 (48/64 MP)</string>
     <string name="backup_restore">備份/恢復設定</string>
     <string name="reset">重置全部</string>
