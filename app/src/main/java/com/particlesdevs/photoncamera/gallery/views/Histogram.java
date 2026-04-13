@@ -31,6 +31,11 @@ public class Histogram extends View {
         return t;
     });
 
+    float reinhard_extended(float v, float max_white){
+        float numerator = v * (1.0f + (v / (max_white * max_white)));
+        return numerator / (1.0f + v);
+    }
+
     public Histogram(Context context, AttributeSet attributeSet) {
         super(context, attributeSet);
         wallPaint = new Paint();
@@ -41,7 +46,7 @@ public class Histogram extends View {
     public HistogramModel analyze(Bitmap bitmap) {
         int size = 256;
         int[][][] colorsMap = new int[1][4][size];
-        int maxY = 0;
+
         //colorsMap = HistogramRs.getHistogram(bitmap);
         AtomicBoolean compute = new AtomicBoolean(false);
         histogramExecutor.execute(() -> {
@@ -59,11 +64,17 @@ public class Histogram extends View {
             }
         }
         //Find max
-        for (int i = 0; i < size; i++) {
-            maxY = Math.max(maxY, colorsMap[0][0][i]);
-            maxY = Math.max(maxY, colorsMap[0][1][i]);
-            maxY = Math.max(maxY, colorsMap[0][2][i]);
+        int maxY = 0;
+        for (int i = 1; i < size-1; i++) {
+            int m = Math.max(colorsMap[0][0][i], Math.max(colorsMap[0][1][i], colorsMap[0][2][i]));
+            maxY = Math.max(maxY, m);
         }
+        int m0 = Math.max(colorsMap[0][0][0], Math.max(colorsMap[0][1][0], colorsMap[0][2][0]));
+        int ms = Math.max(colorsMap[0][0][size-1], Math.max(colorsMap[0][1][size-1], colorsMap[0][2][size-1]));
+        if (maxY < Math.max(m0,ms)) {
+            maxY = (maxY + Math.max(m0,ms))/2;
+        }
+
         return new HistogramModel(size, colorsMap[0], maxY);
     }
 
