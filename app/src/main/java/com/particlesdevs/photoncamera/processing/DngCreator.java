@@ -2,17 +2,16 @@ package com.particlesdevs.photoncamera.processing;
 
 import android.media.Image;
 import android.os.Build;
-import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.processing.render.Parameters;
-
-import org.chickenhook.restrictionbypass.BuildConfig;
 
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+
+import de.hdodenhof.circleimageview.BuildConfig;
 
 public class DngCreator {
     private long nativePtr;

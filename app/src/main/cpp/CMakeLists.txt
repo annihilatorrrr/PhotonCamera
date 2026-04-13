@@ -47,6 +47,9 @@ add_library(allocator SHARED
 add_library(flacRecorder SHARED
     ${SRC_DIR}/flacRecorder.cpp
 )
+add_library(
+        camera2native SHARED ${SRC_DIR}/native-engine.cpp
+)
 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
         VERSION_BUILD="${VERSION_BUILD}"
@@ -63,6 +66,11 @@ target_link_libraries(allocator PRIVATE
 )
 
 target_link_libraries(flacRecorder PRIVATE
+        log
+)
+
+target_link_libraries(
+        camera2native
         log
 )
 
