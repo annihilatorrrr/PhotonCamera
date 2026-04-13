@@ -93,7 +93,7 @@ public class IsoExpoSelector {
         double currentManExp = captureController.getParamController().getCurrentExposureValue();
         double currentManISO = captureController.getParamController().getCurrentISOValue();
         pair.exposure = currentManExp != 0 ? (long) currentManExp : pair.exposure;
-        pair.iso = currentManISO != 0 ? (int) currentManISO : pair.iso;
+        pair.iso = currentManISO != 0 ? (int) (currentManISO * 100.0 / pair.isolow) : pair.iso;
         pair.curlayer = ExpoPair.exposureLayer.Normal;
         /*if (step%patternSize == 1 && HDR) {
             pair.ExpoCompensateLower(2.0 / 1.0);
