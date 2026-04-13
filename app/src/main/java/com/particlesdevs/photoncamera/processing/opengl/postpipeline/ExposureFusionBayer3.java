@@ -77,7 +77,7 @@ public class ExposureFusionBayer3 extends Node {
         return tex;
     }
     void getHistogram(GLTexture lowGauss){
-        GLTexture vectored = glUtils.convertVec4(lowGauss,"in1.r*64.0");
+        GLTexture vectored = glUtils.convertVec4(lowGauss,"in1.r*4.0");
         //GLImage sourceh = glUtils.GenerateGLImage(lowGauss.mSize);
         glHistogram = new GLHistogram(basePipeline.glint.glProcessing);
         glHistogram.Rc = true;
@@ -267,12 +267,12 @@ public class ExposureFusionBayer3 extends Node {
         title = "DownScale Per Level",
         description = "Downscaling factor per pyramid level",
         category = "Exposure Fusion",
-        defaultValue = 2.2f,
+        defaultValue = 2.0f,
         min = 1.5f,
         max = 4.0f,
         step = 0.1f
     )
-    float downScalePerLevel = 2.2f;
+    float downScalePerLevel;
     
     /*@Tunable(
         title = "Curve Points Count",
@@ -333,12 +333,12 @@ public class ExposureFusionBayer3 extends Node {
         title = "Fusion Laplace Factor Min",
         description = "Minimum factor for Laplace fusion",
         category = "Exposure Fusion",
-        defaultValue = 0.01f,
+        defaultValue = 0.001f,
         min = 0.001f,
         max = 0.1f,
         step = 0.001f
     )
-    float fusionLaplaceFactorMin = 0.01f;
+    float fusionLaplaceFactorMin = 0.001f;
     
     @Tunable(
         title = "Fusion Expo High Min Step",
