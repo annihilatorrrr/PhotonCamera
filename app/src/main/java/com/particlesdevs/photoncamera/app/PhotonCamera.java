@@ -2,6 +2,7 @@ package com.particlesdevs.photoncamera.app;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -9,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.hardware.SensorManager;
+import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
@@ -35,6 +37,7 @@ import com.particlesdevs.photoncamera.settings.SettingsManager;
 import com.particlesdevs.photoncamera.ui.SplashActivity;
 import com.particlesdevs.photoncamera.util.AssetLoader;
 import com.particlesdevs.photoncamera.util.Log;
+import com.particlesdevs.photoncamera.util.SimpleStorageHelper;
 import com.particlesdevs.photoncamera.util.ObjectLoader;
 import com.particlesdevs.photoncamera.util.log.ActivityLifecycleMonitor;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +66,7 @@ public class PhotonCamera extends Application {
     private AssetLoader mAssetLoader;
     private ObjectLoader objectLoader;
     private Debugger mDebugger;
+    private AudioManager audioManager;
 
     @Nullable
     public static PhotonCamera getInstance(Context context) {
@@ -73,6 +77,10 @@ public class PhotonCamera extends Application {
             }
         }
         return null;
+    }
+
+    public static AudioManager getAudioManager() {
+        return sPhotonCamera.audioManager;
     }
 
     public static Handler getMainHandler() {
@@ -208,7 +216,10 @@ public class PhotonCamera extends Application {
     }
     private void initModules() {
 
+        SimpleStorageHelper.init(this);
+
         SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         mGravity = new Gravity(sensorManager);
 
         mGyro = new Gyro(sensorManager);
@@ -216,8 +227,7 @@ public class PhotonCamera extends Application {
         mVibration = new Vibration(this);
 
         mSettingsManager = new SettingsManager(this);
-        mSupportedDevice = new SupportedDevice(mSettingsManager);
-        mSupportedDevice.loadCheck();
+        mSupportedDevice = new SupportedDevice(mSettingsManager, this);
 
         MigrationManager.migrate(mSettingsManager);
 
@@ -229,7 +239,51 @@ public class PhotonCamera extends Application {
         mPreviewParameters = new PreviewParameters();
         mAssetLoader = new AssetLoader(this);
         mDebugger = new Debugger();
+        
+        // Initialize gallery icon visibility based on preference
+        applyGalleryIconVisibility();
         //test();
+    }
+    
+    /**
+     * Applies the gallery icon visibility setting based on the user preference.
+     * This should be called on app startup to ensure the launcher icon state matches the saved preference.
+     */
+    private void applyGalleryIconVisibility() {
+        try {
+            // Get the hide gallery icon preference
+            boolean hideGalleryIcon = mSettingsManager.getBoolean(
+                    SettingsManager.SCOPE_GLOBAL,
+                    PreferenceKeys.Key.KEY_HIDE_GALLERY_ICON
+            );
+            
+            Log.d("PhotonCamera", "Applying gallery icon visibility: hideGalleryIcon=" + hideGalleryIcon);
+            
+            // Get the ComponentName for the activity-alias using explicit package name
+            String packageName = getPackageName();
+            ComponentName galleryLauncher = new ComponentName(
+                    packageName,
+                    packageName + ".gallery.ui.GalleryActivityLauncher"
+            );
+            
+            // Set the component enabled state based on the preference
+            int newState = hideGalleryIcon ? 
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED : 
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+            
+            Log.d("PhotonCamera", "Setting component " + galleryLauncher + " to state: " + newState);
+            
+            getPackageManager().setComponentEnabledSetting(
+                    galleryLauncher,
+                    newState,
+                    PackageManager.DONT_KILL_APP
+            );
+            
+            Log.d("PhotonCamera", "Gallery icon visibility applied successfully");
+        } catch (Exception e) {
+            Log.e("PhotonCamera", "Error applying gallery icon visibility: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     //  a MemoryInfo object for the device's current memory status.
     /*public ActivityManager.MemoryInfo AvailableMemory() {
