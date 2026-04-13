@@ -95,10 +95,10 @@ public class PostPipeline extends GLBasePipeline {
         noiseS *= noisempy;
         noiseO *= noisempy;
         Log.d("PostPipeline", "NoiseS:" + noiseS + "\n" + "NoiseO:" + noiseO);
-        if (!PhotonCamera.getSettings().hdrxNR) {
+        /*if (!PhotonCamera.getSettings().hdrxNR) {
             noiseO = 0.f;
             noiseS = 0.f;
-        }
+        }*/
         noiseO = Math.max(noiseO, Float.MIN_NORMAL);
         noiseS = Math.max(noiseS, Float.MIN_NORMAL);
         Point rawSliced = parameters.rawSize;
@@ -138,7 +138,7 @@ public class PostPipeline extends GLBasePipeline {
     private void BuildDefaultPipeline() {
         boolean nightMode = PhotonCamera.getSettings().selectedMode == CameraMode.NIGHT;
         add(new Bayer2Float());
-        add(new ExposureFusionBayer3());
+        add(new ExposureFusionBayer2());
         switch (PhotonCamera.getSettings().cfaPattern) {
             case -2: {
                 add(new DemosaicQUAD());
@@ -181,7 +181,7 @@ public class PostPipeline extends GLBasePipeline {
                     }
                 }
                 if (PhotonCamera.getSettings().hdrxNR) {
-                    add(new ESD3D(true));
+                    add(new ESD3D2(true));
                 }
                 //add(new ImpulsePixelFilter());
                 break;
