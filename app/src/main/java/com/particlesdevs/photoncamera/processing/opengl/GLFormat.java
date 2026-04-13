@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.processing.opengl;
 import android.graphics.Bitmap;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
+import static android.opengl.GLES20.GL_LINEAR;
 import static android.opengl.GLES20.GL_NEAREST;
 import static android.opengl.GLES30.GL_BYTE;
 import static android.opengl.GLES30.GL_FLOAT;
@@ -115,6 +116,9 @@ public class GLFormat {
     public GLFormat(DataType format, int channels) {
         mFormat = format;
         mChannels = channels;
+        if(mFormat == DataType.FLOAT_16 || mFormat == DataType.FLOAT_32 || mFormat == DataType.FLOAT_64){
+            filter = GL_LINEAR;
+        }
     }
     public int getGLFormatInternal() {
         switch (mFormat) {
