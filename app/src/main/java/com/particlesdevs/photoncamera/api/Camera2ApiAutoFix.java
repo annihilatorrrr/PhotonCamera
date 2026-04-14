@@ -124,13 +124,34 @@ public class Camera2ApiAutoFix {
             CameraReflectionApi.set(characteristics, SENSOR_INFO_EXPOSURE_TIME_RANGE, nrange);
         }
         var keys = CameraReflectionApi.getCameraCharacteristicsKeys(characteristics, null, true);
+
         for (Object keyObj : keys) {
             try {
                 if (keyObj instanceof CameraCharacteristics.Key<?>) {
+                    int mpy = 1;
                     CameraCharacteristics.Key<?> key = (CameraCharacteristics.Key<?>) keyObj;
-                    if (key.getName().contains("exposureTimeRange") && !key.getName().contains("android")) {
+                    var hw_sensor_exposure_range = key.getName().contains("hw-sensor-exposure-range");
+                    var exposure_time_range = key.getName().contains("exposureTimeRange");
+                    if(hw_sensor_exposure_range){
+                        mpy = 1000;
+                    }
+                    if ((exposure_time_range || hw_sensor_exposure_range) && !key.getName().contains("android")) {
                         Object res = characteristics.get(key);
-                        long[] vals = (long[]) res;
+                        long[] vals = new long[2];
+                        try {
+                            vals = (long[]) res;
+                        } catch (Exception e) {
+                            try {
+                                int[] ival = (int[]) res;
+                                vals[0] = ival[0];
+                                vals[1] = ival[1];
+                            } catch (Exception ex) {
+                                Log.w(TAG, "Unsupported exposureTimeRange type: " + res.getClass().getName());
+                                continue;
+                            }
+                        }
+                        vals[0] *= mpy;
+                        vals[1] *= mpy;
                         if((long)exprange.getUpper() < vals[1]) {
                             Log.d(TAG, "Applied Fix ExposureTime vendor update");
                             Range nrange = new Range(vals[0], vals[1]);
