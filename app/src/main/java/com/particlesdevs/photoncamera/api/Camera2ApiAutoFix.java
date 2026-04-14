@@ -172,7 +172,7 @@ public class Camera2ApiAutoFix {
         CameraReflectionApi.set(CaptureController.mCameraCharacteristics, CONTROL_AE_COMPENSATION_RANGE,nrange);
     }
 
-    public static void patchWL(CameraCharacteristics characteristics,
+    /*public static void patchWL(CameraCharacteristics characteristics,
                                CaptureResult captureResult,
                                int patchWL) {
         if (patchWL != 0) {
@@ -190,7 +190,7 @@ public class Camera2ApiAutoFix {
             BlackLevel(characteristics, captureResult, PhotonCamera.getParameters().blackLevel,
                     1.f);
         }
-    }
+    }*/
 
     public static void WhiteLevel(CaptureResult res, int whitelevel) {
         if (res != null)

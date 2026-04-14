@@ -58,7 +58,7 @@ public class PhotonCamera extends Application {
     private Gravity mGravity;
     private Gyro mGyro;
     private Vibration mVibration;
-    private Parameters mParameters;
+    //private Parameters mParameters;
     private PreviewParameters mPreviewParameters;
     private CaptureController mCaptureController;
     private SupportedDevice mSupportedDevice;
@@ -103,9 +103,9 @@ public class PhotonCamera extends Application {
         return sPhotonCamera.mVibration;
     }
 
-    public static Parameters getParameters() {
+    /*public static Parameters getParameters() {
         return sPhotonCamera.mParameters;
-    }
+    }*/
 
     public static PreviewParameters getPreviewParameters() {
         return sPhotonCamera.mPreviewParameters;
@@ -235,7 +235,7 @@ public class PhotonCamera extends Application {
 
         mSettings = new Settings();
 
-        mParameters = new Parameters();
+        //mParameters = new Parameters();
         mPreviewParameters = new PreviewParameters();
         mAssetLoader = new AssetLoader(this);
         mDebugger = new Debugger();

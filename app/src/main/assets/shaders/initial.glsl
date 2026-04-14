@@ -418,7 +418,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     float noise = sqrt(NOISES + NOISEO + 1e-8);
     //float vignetteFactor = smoothstep(0.0,min(noise, 0.1),br)*VIGNETTE;
     float vignetteFactor = (br*br/(br*br+noise*noise))*VIGNETTE;
-    gainsVal = mix(float(1.0), gainsVal, vignetteFactor);
+    gainsVal = mix(float(1.0), gainsVal, 1.0);
     //br = clamp(reinhard_extended(br*gainsVal,max(1.0,gainsVal)),0.0,1.0);
     //br = clamp(reinhard_extended(br*tonemapGain,max(1.0,tonemapGain)),0.0,1.0);
     pRGB = clamp(pRGB*mix(tonemapGain,1.0,LTMMIX), 0.0,1.0);
@@ -434,7 +434,7 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
 
     pRGB = gammaCorrectPixel2(pRGB);
     pRGB = tonemap(pRGB, mix(1.0,tonemapGain,LTMMIX));
-    pRGB = mix(pRGB*pRGB*pRGB*TONEMAPX3 + pRGB*pRGB*TONEMAPX2 + pRGB*TONEMAPX1,pRGB,min(pRGB*0.8+0.55,1.0));
+    //pRGB = mix(pRGB*pRGB*pRGB*TONEMAPX3 + pRGB*pRGB*TONEMAPX2 + pRGB*TONEMAPX1,pRGB,min(pRGB*0.8+0.55,1.0));
 
     return pRGB;
 }
@@ -580,9 +580,10 @@ void main() {
     //sat2*=br;
     sRGB = saturate(sRGB,SATURATION2,SATURATION);
     sRGB = contrastSin(sRGB,mix(CONTRAST+SHADOWS, CONTRAST, luminocity(sRGB)));
-    float noiseO = (NOISEO*NOISEO)*0.25;
-    noiseO = min(noiseO,0.25);
-    Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
+    //float noiseO = (NOISEO*NOISEO)*0.25;
+    //noiseO = min(noiseO,0.25);
+    //Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
+    Output = clamp(sRGB,0.0,1.0);
     #if POSTLUT == 1
         Output = postlookup(Output);
     #endif

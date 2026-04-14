@@ -93,7 +93,7 @@ public class ExposureFusionBayer2 extends Node {
             float mpy = cnt*(ind);
             avr+=mpy;
             w+=cnt;
-            Log.d(Name,"Overexp pos:"+ind+" val:"+cnt);
+            //Log.d(Name,"Overexp pos:"+ind+" val:"+cnt);
         }
         var gain =  Math.max(128/(avr/w + 1),1.f);
         Log.d(Name,"Overexp pos:"+avr/w);
@@ -328,7 +328,7 @@ public class ExposureFusionBayer2 extends Node {
     )
     float fusionExpoFactorMin = 0.01f;
 
-    @Tunable(title = "Noise Max", category = "Exposure Fusion", max = 1.0f, defaultValue = 0.01f)
+    @Tunable(title = "Noise Max", category = "Exposure Fusion", max = 1.0f, defaultValue = 0.05f)
     float noiseMax;
     
     float[] toneCurveX;

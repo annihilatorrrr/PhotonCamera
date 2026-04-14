@@ -1509,7 +1509,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         Camera2ApiAutoFix.applyPrev(mPreviewRequestBuilder);
                         VendorTagUtils.builderSessionApply(mPreviewRequestBuilder, false, useMaximumResolutionKey);
                         if(isZslMode()){
-                            mPreviewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+                            mPreviewRequestBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
                         }
                         // Finally, we start displaying the camera preview.
                         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
@@ -1547,6 +1547,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 public void onConfigureFailed(
                         @NonNull CameraCaptureSession cameraCaptureSession) {
                     showToast(activity.getString(R.string.session_on_configure_failed));
+                    Log.d(TAG, "CameraCaptureSession onConfigureFailed()");
                 }
             };
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

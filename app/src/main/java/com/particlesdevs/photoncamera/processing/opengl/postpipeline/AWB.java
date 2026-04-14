@@ -242,7 +242,7 @@ public class AWB extends Node {
         short blueVector = 0;
         double maxmpy = 0;
         short minC = 0;
-        Parameters parameters = PhotonCamera.getParameters();
+        Parameters parameters = basePipeline.mParameters;
         short[] starts = new short[3];
         short[] ends = new short[3];
         for (int i = 0; i < starts.length; i++) {
@@ -430,10 +430,10 @@ public class AWB extends Node {
     }
 
     private void PatchPoint(float[] ccv) {
-        Parameters parameters = PhotonCamera.getParameters();
+        Parameters parameters = basePipeline.mParameters;
         //Rational[] neutral = new Rational[3];
         for (int i = 0; i < 3; i++)
-            Log.d(Name, "Before Patch:" + PhotonCamera.getParameters().whitePoint[i]);
+            Log.d(Name, "Before Patch:" + basePipeline.mParameters.whitePoint[i]);
         //float mpy = ccv[1];
         //neutral[0] = new Rational((int)(mpy*1.f/ccv[0])*1024,1024);
         //neutral[1] = new Rational((int)(mpy*1.f/ccv[1])*1024,1024);

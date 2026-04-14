@@ -1,8 +1,6 @@
 //
 // Created by eszdman on 02.06.2025.
 //
-
-#include "dngCreator.h"
 #include <jni.h>
 #include <android/log.h>
 #include <string>
@@ -15,13 +13,15 @@
 #include <cstdio>
 #include <dlfcn.h>
 #include <sys/types.h>
+#define TINY_DNG_WRITER_IMPLEMENTATION
+#include "deps/tiny_dng_writer.h"
+#include "dngCreator.h"
+
 // libarchive public headers — used for opaque types, constants, and function
 // pointer signatures.  The actual symbols come from libarchive-jni.so which is
 // loaded at runtime via dlopen (the library has no prefab / CMake export).
 #include <archive.h>
 #include <archive_entry.h>
-#define TINY_DNG_WRITER_IMPLEMENTATION
-#include "deps/tiny_dng_writer.h"
 
 static const double COMPRESSION_GAMMA = 2.2;
 static const int STORED_LEVELS_10 = 1024;
@@ -171,7 +171,7 @@ public:
         dng_image0->SetPhotometric(tinydngwriter::PHOTOMETRIC_CFA);
         dng_image0->SetPlanarConfig(tinydngwriter::PLANARCONFIG_CONTIG);
         //dng_image0->SetCompression(tinydngwriter::COMPRESSION_NEW_JPEG);
-        dng_image0->SetDNGVersion(1, 0, 2, 5);
+        dng_image0->SetDNGVersion(1, 3, 0, 0);
         dng_image0->SetExifVersion("0220");
         metadata.bps = 16;
     }
@@ -692,6 +692,7 @@ public:
         // Set illuminants
         dng_image0->SetCalibrationIlluminant1(metadata.calibration_illuminant1);
         dng_image0->SetCalibrationIlluminant2(metadata.calibration_illuminant2);
+
         if(metadata.compression && metadata.bps == 16) {
             dng_image0->SetImageDataJpeg(
                     reinterpret_cast<const unsigned short *>(dataToProcess),

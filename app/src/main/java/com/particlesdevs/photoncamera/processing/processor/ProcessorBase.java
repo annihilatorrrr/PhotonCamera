@@ -77,10 +77,6 @@ public abstract class ProcessorBase {
     public void process() {
     }
 
-    public void IncreaseWLBL() {
-        IncreaseWLBL(PhotonCamera.getParameters());
-    }
-
     public void IncreaseWLBL(Parameters parameters) {
         //Increase WL and BL for processing
         for (int i = 0; i < 4; i++) {

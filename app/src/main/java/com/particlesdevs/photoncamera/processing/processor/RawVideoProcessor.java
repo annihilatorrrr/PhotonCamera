@@ -18,6 +18,7 @@ import com.particlesdevs.photoncamera.util.Allocator;
 import com.particlesdevs.photoncamera.util.FlacAudioRecorder;
 import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.util.SimpleStorageHelper;
+import com.particlesdevs.photoncamera.processing.render.Parameters;
 
 import android.os.StatFs;
 
@@ -50,6 +51,7 @@ public class RawVideoProcessor extends ProcessorBase {
     private int frameWidth = 0;
     private int frameHeight = 0;
     private static final int BITS_PER_SAMPLE = 10;
+    private Parameters parameters;
 
     public static class RawVideoStats {
         public final int pendingWrites;
@@ -113,7 +115,7 @@ public class RawVideoProcessor extends ProcessorBase {
                     outputFolder.resolve("RAW_MIC.flac").toString());
         });
         th.start();
-
+        parameters = new Parameters();
         PhotonCamera.getGyro().startVideoRecording(outputFolder, resolveFrameRate());
     }
     int shift = 0;
@@ -151,14 +153,15 @@ public class RawVideoProcessor extends ProcessorBase {
 
             frameWidth = width;
             frameHeight = height;
-            PhotonCamera.getParameters().rawSize = new Point(width, height);
-            PhotonCamera.getParameters().FillConstParameters(characteristics, PhotonCamera.getParameters().rawSize);
-            PhotonCamera.getParameters().FillDynamicParameters(captureResult, captureRequest, 100);
-            PhotonCamera.getParameters().cameraRotation = this.cameraRotation;
-            exifData.IMAGE_DESCRIPTION = PhotonCamera.getParameters().toString();
+
+            parameters.rawSize = new Point(width, height);
+            parameters.FillConstParameters(characteristics, parameters.rawSize);
+            parameters.FillDynamicParameters(captureResult, captureRequest, 100);
+            parameters.cameraRotation = this.cameraRotation;
+            exifData.IMAGE_DESCRIPTION = parameters.toString();
             fillParams = true;
             dngCreator = new DngCreator();
-            dngCreator.setParameters(PhotonCamera.getParameters());
+            dngCreator.setParameters(parameters);
             dngCreator.setBinning(PreferenceKeys.isRawVideoDownscale4x());
             dngCreator.setFrameRate(resolveFrameRate());
             dngCreator.setCompression(false);
@@ -178,7 +181,7 @@ public class RawVideoProcessor extends ProcessorBase {
                 dngCreator.setBitsPerSample(10);
             }*/
             dngCreator.setBitsPerSample(10);
-            dngBuffers[0] = dngCreator.dngBuffer(image.getPlanes()[0].getBuffer(), PhotonCamera.getParameters().rawSize.x, PhotonCamera.getParameters().rawSize.y);
+            dngBuffers[0] = dngCreator.dngBuffer(image.getPlanes()[0].getBuffer(), parameters.rawSize.x, parameters.rawSize.y);
             for (int i = 1; i < writeBufferSize; i++) {
                 dngBuffers[i] = Allocator.allocateAndCopy(dngBuffers[0].capacity(), dngBuffers[0], 0);
                 dngBuffers[i].put(dngBuffers[0]);
