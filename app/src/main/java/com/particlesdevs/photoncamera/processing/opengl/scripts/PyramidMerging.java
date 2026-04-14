@@ -400,10 +400,10 @@ public class PyramidMerging extends GLOneScript {
                     "  }" +
                     "}" +
                     "variance /= 24.0;" +
-                    "float br = sqrt(dot(mean, vec4(0.25)));" +
-                    "float var = dot(variance, vec4(0.25));" +
-                    "uint brBin = uint(min(61.0, br * " + brightnessScale + "));" +
-                    "uint varBin = uint(min(61.0, var * " + varianceScale + "));" +
+                    "float br = sqrt(dot(mean, vec4(0.25)) + 1e-8);" +
+                    "float var = (dot(variance, vec4(0.25)));" +
+                    "uint brBin = uint(min(63.0, br * " + brightnessScale + "));" +
+                    "uint varBin = uint(min(63.0, var * " + varianceScale + "));" +
                     "uint combined = brBin * 64u + varBin;" +
                     "texColorUint = uvec4(combined, 0u, 0u, 0u);";
             int[][] noiseRes = noiseHist.Compute(base);
@@ -414,10 +414,13 @@ public class PyramidMerging extends GLOneScript {
             int points = 0;
             for (int i = 0; i < noiseScanBins; i++) {
                 int count = hist[i];
-                if (count <= 0) continue;
-                double brightness = ((double)(i / numVarianceBins) + 0.5) / ((double)brightnessScale);
+                var bin = i / numVarianceBins;
+                var vin = i % numVarianceBins;
+                if (count <= 0 || bin == numVarianceBins-1 || vin == numVarianceBins-1) continue;
+                double brightness = ((double)(bin) + 0.5) / ((double)brightnessScale);
                 brightness = Math.pow(brightness, 2.0);
-                double variance = (i % numVarianceBins + 0.5) / varianceScale;
+                double variance = (vin + 0.5) / varianceScale;
+                //variance = Math.pow(variance, 2.0);
                 double w = count;
                 sumW += w;
                 sumWb += w * brightness;
