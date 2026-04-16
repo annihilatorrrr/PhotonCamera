@@ -59,7 +59,7 @@ public class Specific {
     ArrayList<String> loadNetwork(String device) throws IOException {
         ArrayList<String> inputStr = new ArrayList<>();
         BufferedReader indevice = HttpLoader.readURL(
-                "https://raw.githubusercontent.com/eszdman/PhotonCamera/dev/app/specific/" + device + "_specificsettings.txt", 100);
+                "https://raw.githubusercontent.com/eszdman/PhotonCamera/dev/app/src/main/assets/specific/" + device + "_specificsettings.txt", 100);
         String str;
         while ((str = indevice.readLine()) != null) {
             Log.d(TAG, "read network:" + str);
