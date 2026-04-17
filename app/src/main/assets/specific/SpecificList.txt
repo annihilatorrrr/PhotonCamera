@@ -25,6 +25,7 @@ oneplus:waffle
 oneplus:cph2581
 oneplus:cph2583
 oneplus:op595dl1
+oneplus:salami
 oppo:op528bl1
 samsung:p3s
 samsung:r0q
