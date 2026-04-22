@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.preference.PreferenceViewHolder;
 import androidx.preference.SwitchPreferenceCompat;
 
+import com.google.android.material.color.MaterialColors;
 import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.util.Log;
@@ -182,12 +183,12 @@ public class TunableCheckBoxPreference extends SwitchPreferenceCompat {
         // Check if there's a persisted value (user set it to non-default at some point)
         SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
         boolean hasPersisted = prefs != null && prefs.contains(getKey());
-        
+        int color = MaterialColors.getColor(getContext(), android.R.attr.textColorPrimary, 0xFFFFFF);
         // Green = persisted (user customized), White = not persisted (default)
         if (hasPersisted) {
             mTitleView.setTextColor(Color.parseColor("#4CAF50")); // Material Green for customized
         } else {
-            mTitleView.setTextColor(Color.parseColor("#FFFFFF")); // White for default
+            mTitleView.setTextColor(color); // White for default
         }
         
         Log.d(TAG, "Color: current=" + currentValue + ", default=" + mDefaultValue + 
