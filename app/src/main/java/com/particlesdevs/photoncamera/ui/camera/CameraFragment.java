@@ -39,6 +39,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
+
+import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.HorizonIndicatorView;
 import com.particlesdevs.photoncamera.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -146,6 +148,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     private SettingsBarEntryProvider settingsBarEntryProvider;
     private ManualModeConsole manualModeConsole;
     public float displayAspectRatio;
+    private HorizonIndicatorView mHorizonIndicatorView;
 
     public CameraFragment() {
         Log.v(TAG, "fragment created");
@@ -226,7 +229,16 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         this.manualModeConsole.addParamObserver(captureController.getParamController());
         PhotonCamera.setCaptureController(captureController);
         captureController.isDualSession = supportedDevice.specific.specificSetting.isDualSessionSupported;
+        mHorizonIndicatorView = cameraFragmentBinding.layoutViewfinder.horizonIndicatorView;
         this.mSwipe = new Swipe(this);
+        var gyro = PhotonCamera.getGyro();
+        if ((mHorizonIndicatorView != null) && (gyro != null)) {
+            mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+            mHorizonIndicatorView.setGyro(gyro);
+        }
+        if (mHorizonIndicatorView != null) {
+            mHorizonIndicatorView.setVisible(PreferenceKeys.isHorizonOn());
+        }
         initSettingsBar();
     }
 
@@ -286,6 +298,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         });
         cameraFragmentViewModel.onResume();
         auxButtonsViewModel.setAuxButtonListener(mCameraUIEventsListener);
+        if (mHorizonIndicatorView != null) {
+            mHorizonIndicatorView.setVisible(PreferenceKeys.isHorizonOn());
+        }
         captureController.startBackgroundThread();
         textureView.onResume();
         captureController.resumeCamera();
@@ -365,6 +380,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     @SuppressLint("DefaultLocale")
     private void updateScreenLog(CaptureResult result) {
         surfaceView.post(() -> {
+            if (mHorizonIndicatorView != null) {
+                mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+            }
             mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
             if (PreferenceKeys.isAfDataOn()) {
                 IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);

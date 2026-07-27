@@ -366,6 +366,14 @@
                 android:entryValues="@array/focuspeakset_entryValues"
                 android:defaultValue="@string/pref_focus_peak_default"
                 />
+        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                android:layout="@layout/preference_with_margin"
+                android:key="@string/pref_horizon"
+                android:title="@string/show_horizon_on_preview"
+                android:summary=""
+                android:defaultValue="false"
+                android:icon="@drawable/ic_tune_black_24dp"
+                />
         <ListPreference
                 android:layout="@layout/preference_with_margin"
                 android:key="@string/pref_preview_format_key"

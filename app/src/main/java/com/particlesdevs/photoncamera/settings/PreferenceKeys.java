@@ -143,7 +143,14 @@ public class PreferenceKeys {
             if (key != null && key.startsWith("pref_tunable_")) {
                 continue;
             }
-            settingsManager.set(SCOPE_GLOBAL, key, e.getValue().toString());
+            Object value = e.getValue();
+            // Normalize boolean values to the "1"/"0" String convention used by
+            // SettingsManager/ManagedSwitchPreference. This also fixes up legacy
+            // data that may have been serialized as a raw Boolean ("true"/"false").
+            if (value instanceof Boolean) {
+                value = ((Boolean) value) ? "1" : "0";
+            }
+            settingsManager.set(SCOPE_GLOBAL, key, value.toString());
         }
     }
 
@@ -179,6 +186,10 @@ public class PreferenceKeys {
      */
     public static boolean isAfDataOn() {
         return preferenceKeys.settingsManager.getBoolean(SCOPE_GLOBAL, Key.KEY_SHOW_AF_DATA);
+    }
+
+    public static boolean isHorizonOn() {
+        return preferenceKeys.settingsManager.getBoolean(SCOPE_GLOBAL, Key.KEY_SHOW_HORIZON);
     }
 
     public static int isSystemNrOn() {
@@ -472,6 +483,7 @@ public class PreferenceKeys {
         KEY_RAWVIDEO_WRITE_ZIP(R.string.pref_rawvideo_write_zip_key),
         KEY_RAWVIDEO_CROP_169(R.string.pref_rawvideo_crop_169_key),
         KEY_SHOW_AF_DATA(R.string.pref_show_afdata_key),
+        KEY_SHOW_HORIZON(R.string.pref_horizon),
         KEY_SAVE_RAW(R.string.pref_save_raw_key),
         KEY_CFA(R.string.pref_cfa_key),
         KEY_REMOSAIC(R.string.pref_remosaic_key),////TODO
