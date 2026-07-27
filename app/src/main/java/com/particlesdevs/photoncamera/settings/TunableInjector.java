@@ -5,7 +5,9 @@ import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
+import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunablePngPreference;
 
+import java.io.File;
 import java.lang.reflect.Field;
 
 /**
@@ -116,7 +118,21 @@ public class TunableInjector {
                             Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + defVal + ")");
                         }
                         field.setBoolean(target, value);
-                        
+
+                    } else if (fieldType == File.class) {
+                        // Read filename from preferences and construct File in private storage
+                        String fileName = settingsManager.getString(
+                            PreferenceKeys.SCOPE_GLOBAL, prefKey, null);
+                        File file = null;
+                        if (fileName != null && !fileName.isEmpty()) {
+                            File pngFile = new File(TunablePngPreference.getPngsDir(settingsManager.getContext()), fileName);
+                            if (pngFile.exists()) {
+                                file = pngFile;
+                            }
+                        }
+                        field.set(target, file);
+                        Log.d(TAG, "Injected File " + prefKey + " = " + file);
+
                     } else {
                         Log.w(TAG, "Unsupported type for field: " + field.getName() + " (" + fieldType + ")");
                     }

@@ -16,6 +16,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
@@ -40,6 +42,7 @@ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
 import com.particlesdevs.photoncamera.settings.TunablePreferenceGenerator;
 import com.particlesdevs.photoncamera.ui.settings.custompreferences.ResetPreferences;
+import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunablePngPreference;
 import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.util.log.FragmentLifeCycleMonitor;
 
@@ -139,6 +142,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         private View mRootView;
         private SupportedDevice supportedDevice;
         private boolean tunablePreferencesGenerated = false;
+        private ActivityResultLauncher<String[]> lutImportLauncher;
 
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -154,6 +158,24 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             supportedDevice = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSupportedDevice();
             Objects.requireNonNull(getPreferenceScreen().getSharedPreferences())
                     .registerOnSharedPreferenceChangeListener(this);
+
+            // Register PNG import launcher for TunablePngPreference
+            // Uses OpenDocument to show the system file picker instead of gallery
+            lutImportLauncher = registerForActivityResult(
+                    new ActivityResultContracts.OpenDocument(),
+                    uri -> {
+                        if (uri != null) {
+                            String error = TunablePngPreference.handleImportResult(mContext, uri);
+                            if (error != null) {
+                                PhotonCamera.showToast("PNG import failed: " + error);
+                            } else {
+                                PhotonCamera.showToast("PNG imported successfully");
+                            }
+                            TunablePngPreference.refreshActivePreference();
+                        }
+                    }
+            );
+            TunablePngPreference.setImportLauncher(lutImportLauncher);
             
             // Check if we're opening the tunable submenu specifically
             String rootKey = getArguments() != null ? getArguments().getString(PreferenceFragmentCompat.ARG_PREFERENCE_ROOT) : null;

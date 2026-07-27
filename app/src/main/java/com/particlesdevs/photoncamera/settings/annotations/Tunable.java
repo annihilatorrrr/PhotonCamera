@@ -64,5 +64,12 @@ public @interface Tunable {
      * If step is whole number (e.g. 1.0), it's treated as integer
      */
     float step() default 0.01f;
+
+    /**
+     * Allowed LUT sizes for File type fields (square PNG LUT dimensions).
+     * Only used when the annotated field type is {@link java.io.File}.
+     * Example: {512, 1000, 1728, 2744, 4096}
+     */
+    int[] allowedPngSizes() default {};
 }
 

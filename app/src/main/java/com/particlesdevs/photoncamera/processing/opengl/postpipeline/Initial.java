@@ -1,17 +1,13 @@
     package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import com.particlesdevs.photoncamera.util.Log;
 
-import com.particlesdevs.photoncamera.R;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
 import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.processing.render.ColorCorrectionTransform;
-import com.particlesdevs.photoncamera.processing.render.Converter;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
 import com.particlesdevs.photoncamera.util.BufferUtils;
@@ -106,7 +102,10 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
     
     @Tunable(title = "LTM Mix", category = "Color & Tone", max = 1.0f, defaultValue = 0.0f)
     float ltmMix = 0.0f;
-    
+
+    @Tunable(title = "LUT png selector", category = "Color & Tone", description = "Select a square CLUT PNG file", allowedPngSizes = {512, 1000, 1728, 2744, 4096})
+    File postlut;
+
     float[] intenseCurveX;
     float[] intenseCurveY;
     float[] intenseHardCurveX;
@@ -212,8 +211,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setDefine("NOISES",  basePipeline.noiseS);
         glProg.setDefine("EPS", eps);
 
-        File postlut = new File(FileManager.sPHOTON_TUNING_DIR,"lut.png");
-        if(postlut.exists()){
+        if(postlut != null && postlut.exists()){
             lutbm = new GLImage(postlut);
             postLut = new GLTexture(lutbm,GL_LINEAR,GL_CLAMP_TO_EDGE,0);
             glProg.setDefine("POSTLUT",true);

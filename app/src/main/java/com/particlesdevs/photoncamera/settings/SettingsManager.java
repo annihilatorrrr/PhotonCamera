@@ -100,6 +100,10 @@ public class SettingsManager {
         mDefaultPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
     }
 
+    public Context getContext() {
+        return mContext;
+    }
+
     /**
      * Package private conversion method to turn ints into preferred
      * String storage format.

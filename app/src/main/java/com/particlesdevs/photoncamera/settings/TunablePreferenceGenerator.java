@@ -6,8 +6,9 @@ import androidx.preference.PreferenceScreen;
 
 import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
-import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunableSeekBarPreference;
 import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunableCheckBoxPreference;
+import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunablePngPreference;
+import com.particlesdevs.photoncamera.ui.settings.custompreferences.TunableSeekBarPreference;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -175,66 +176,82 @@ public class TunablePreferenceGenerator {
             info.fieldType == double.class || info.fieldType == Double.class ||
             info.fieldType == int.class || info.fieldType == Integer.class ||
             info.fieldType == boolean.class || info.fieldType == Boolean.class) {
-            
+
             // Use checkbox for boolean-like tunables (min=0, max=1, step=1)
             if (isCheckbox) {
                 TunableCheckBoxPreference checkBox = new TunableCheckBoxPreference(context);
                 checkBox.setKey(prefKey);
                 checkBox.setTitle(annotation.title());
-                
+
                 if (!annotation.description().isEmpty()) {
                     checkBox.setSummary(annotation.description());
                 }
-                
+
                 // Get default value and convert to int (0 or 1)
                 float defaultValue = getFieldDefaultValue(info);
                 int intDefault = (defaultValue != 0.0f) ? 1 : 0;
                 checkBox.setDefaultValue(intDefault);
-                
+
                 category.addPreference(checkBox);
-                
+
                 Log.d(TAG, "Added checkbox preference: " + prefKey + " with default: " + intDefault);
             } else {
                 // Create seekbar preference for other numeric types
                 TunableSeekBarPreference seekBar = new TunableSeekBarPreference(context);
                 seekBar.setKey(prefKey);
                 seekBar.setTitle(annotation.title());
-                
+
                 if (!annotation.description().isEmpty()) {
                     seekBar.setSummary(annotation.description());
                 }
-                
+
                 // Set min/max/step
                 seekBar.setMinValue(annotation.min());
                 seekBar.setMaxValue(annotation.max());
-                
+
                 // Auto-detect if float based on step value
                 // If step has decimals (not a whole number), treat as float
                 boolean isFloat = (step != Math.floor(step));
-                
+
                 // IMPORTANT: Set isFloat BEFORE setDefaultValue so precision is calculated correctly
                 seekBar.setIsFloat(isFloat);
-                
+
                 // Calculate step per unit (for seekbar)
                 float range = annotation.max() - annotation.min();
                 int stepsPerUnit = (int) (1.0f / step);
                 seekBar.setStepPerUnit(Math.max(1, stepsPerUnit));
-                
+
                 //Log.d(TAG, "Field " + info.fieldName + " - step: " + step + ", isFloat: " + isFloat + ", stepsPerUnit: " + stepsPerUnit);
-                
+
                 // Get default value from the actual field
                 float defaultValue = getFieldDefaultValue(info);
-                
+
                 // Set default value AFTER isFloat and stepPerUnit are set
                 seekBar.setDefaultValue(defaultValue);
                 //Log.d(TAG, "Set default value for " + prefKey + ": " + defaultValue);
-                
+
                 // No icons for tunable preferences - keep UI clean and simple
-                
+
                 category.addPreference(seekBar);
-                
+
                 //Log.d(TAG, "Added seekbar preference: " + prefKey + " with default: " + defaultValue);
             }
+        } else if (info.fieldType == java.io.File.class) {
+            // Create PNG preference for File type fields
+            TunablePngPreference pngPref = new TunablePngPreference(context);
+            pngPref.setKey(prefKey);
+            pngPref.setTitle(annotation.title());
+            pngPref.setAllowedPngSizes(annotation.allowedPngSizes());
+
+            if (!annotation.description().isEmpty()) {
+                pngPref.setSummary(annotation.description());
+            } else {
+                pngPref.setSummary("None selected");
+            }
+
+            category.addPreference(pngPref);
+
+            Log.d(TAG, "Added PNG preference: " + prefKey);
         }
     }
     
