@@ -1293,7 +1293,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     String[] ids = PhotonCamera.getSettings().mCameraID.split("-");
                     logicalID = ids[0];
                     physicalID = ids[1];
-                    isDualSession = true;
+                    //isDualSession = true;
                 }
                 
                 this.mCameraManager.openCamera(logicalID, mStateCallback, mBackgroundHandler);
@@ -1507,14 +1507,14 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         // Flash is automatically enabled when necessary.
                         resetPreviewAEMode();
                         Camera2ApiAutoFix.applyPrev(mPreviewRequestBuilder);
-                        VendorTagUtils.builderSessionApply(mPreviewRequestBuilder, false, useMaximumResolutionKey);
-                        if(isZslMode()){
+                        VendorTagUtils.builderSessionApply(mPreviewRequestBuilder, false, useMaximumResolutionKey, physicalID);
+                        //if(isZslMode()){
                             try {
                                 mPreviewRequestBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
                             } catch (Exception e) {
                                 Log.d(TAG, "Failed to set LENS_SHADING_MAP_MODE_ON for ZSL mode:" + Log.getStackTraceString(e));
                             }
-                        }
+                        //}
                         // Finally, we start displaying the camera preview.
                         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
                                 getSelectedFpsRange());
@@ -2028,7 +2028,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             //setAutoFlash(captureBuilder);
             //int rotation = Interface.getGravity().getCameraRotation();//activity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, PhotonCamera.getGravity().getCameraRotation(mSensorOrientation));
-            VendorTagUtils.builderSessionApply(captureBuilder, true, useMaximumResolutionKey);
+            VendorTagUtils.builderSessionApply(captureBuilder, true, useMaximumResolutionKey, physicalID);
+            try {
+                captureBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
+            } catch (Exception e) {
+                Log.d(TAG, "Failed to set LENS_SHADING_MAP_MODE_ON:" + Log.getStackTraceString(e));
+            }
 
             captures = new ArrayList<>();
             BurstShakiness = new ArrayList<>();
@@ -2174,7 +2179,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                         mImageSaver.processStart(mCameraCharacteristics, result, request, cameraRotation);
                         unlimitedStarted = true;
                     }
-                    if(frameCount == 0)
+                    //if(frameCount == 0)
                         mCaptureResult = result;
                     if (maxFrameCount[0] != -1) PhotonCamera.getGyro().CaptureGyroBurst();
                 }
