@@ -41,7 +41,7 @@ public class SupportedDevice {
         specific = new Specific(mSettingsManager);
     }
     public void loadCheck() {
-        new Thread(() -> {
+        //new Thread(() -> {
             if (checkedCount < 1) {
                 checkedCount++;
                 specific.loadSpecific(mContext);
@@ -55,9 +55,10 @@ public class SupportedDevice {
                     Log.e(TAG, "Failed to load supported devices from assets: " + e.toString());
                 }
             }
-        }).start();
+        //}).start();
         Log.d(TAG, "Checked count:" + checkedCount);
-        new Thread(() -> sensorSpecifics.loadSpecifics(mSettingsManager, mContext)).start();
+        //new Thread(() -> sensorSpecifics.loadSpecifics(mSettingsManager, mContext)).start();
+        sensorSpecifics.loadSpecifics(mSettingsManager, mContext); // No need for thread with assets
     }
 
     public void fetchFromNetwork() {
