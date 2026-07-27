@@ -341,19 +341,6 @@ public class PyramidMerging extends GLOneScript {
                 analogBalance[3] = 1.0f/parameters.whitePoint[0];
                 break;
         }
-        //GLUtils glUtils = new GLUtils(glOne.glProcessing);
-        int tile = 8;
-        glProg.setLayout(tile,tile,1);
-        glProg.useAssetProgram("merge/merge00",true);
-        glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
-        glProg.setVar("blackLevel", blackLevel);
-        glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
-        glProg.setVar("createDiff", 0);
-        glProg.setVar("cfaPattern", parameters.cfaPattern);
-        glProg.setTexture("inTexture",inputBase);
-        glProg.setTextureCompute("outTexture",base, true);
-        glProg.computeAuto(new Point(base.mSize.x, base.mSize.y), 1);
-
         NoiseModeler modeler = parameters.noiseModeler;
         noiseS = modeler.baseModel[0].first.floatValue() +
                 modeler.baseModel[1].first.floatValue() +
@@ -363,6 +350,27 @@ public class PyramidMerging extends GLOneScript {
                 modeler.baseModel[2].second.floatValue();
         noiseS /= 3.f;
         noiseO /= 3.f;
+        //GLUtils glUtils = new GLUtils(glOne.glProcessing);
+        int tile = 8;
+        glProg.setLayout(tile,tile,1);
+        glProg.useAssetProgram("merge/merge00",true);
+        glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
+        glProg.setVar("blackLevel", blackLevel);
+        glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
+        glProg.setVar("createDiff", 0);
+        glProg.setVar("cfaPattern", parameters.cfaPattern);
+        glProg.setVar("analogBalance", analogBalance);
+        glProg.setVar("randF", (float)Math.random(), (float)Math.random());
+        glProg.setVar("noiseS", 0.0013796629f);
+        glProg.setVar("noiseO", 8.3751265E-6f);
+        glProg.setTexture("inTexture",inputBase);
+        glProg.setTextureCompute("outTexture",base, true);
+        glProg.computeAuto(new Point(base.mSize.x, base.mSize.y), 1);
+        //glUtils.convertVec4(base, "vec4(0.5)", base);
+        //var buff = glUtils.GenerateGLImage(base.mSize, 4);
+        //Log.d(Name, "Buffer first:" + buff.byteBuffer.get(0) + " " + buff.byteBuffer.get(1));
+        //glUtils.Result(base.mSize, "noiseInput", buff.byteBuffer);
+
         double adaptiveNMpy = 1.0;
         if (enableAdaptiveNoise) {
             // 2D histogram: (brightness_bin * NUM_VARIANCE_BINS + variance_bin) -> count
@@ -371,8 +379,8 @@ public class PyramidMerging extends GLOneScript {
             final int numVarianceBins = 64;
             final int noiseScanBins = numBrightnessBins * numVarianceBins; // 1024
             // Variance scale: max variance ~(numVarianceBins-0.5)/scale. Use 160 so we cover up to ~0.2 for noisy sensors.
-            final float varianceScale = 64.0f * 2.5f;
-            final float brightnessScale = 64.0f * 3.0f;
+            final float varianceScale = 64.0f * 10.0f;
+            final float brightnessScale = 64.0f * 2.0f;
 
             GLHistogram noiseHist = new GLHistogram(glProg, noiseScanBins);
             noiseHist.Custom = true;
@@ -384,44 +392,60 @@ public class PyramidMerging extends GLOneScript {
             noiseHist.exposure[1] = 1.0f;
             noiseHist.exposure[2] = 1.0f;
             noiseHist.exposure[3] = 1.0f;
-            noiseHist.CustomProgram =
-                    "vec4 mean = vec4(0.0);" +
-                    "for (int i = -2; i <= 2; i++) {" +
-                    "  for (int j = -2; j <= 2; j++) {" +
-                    "    mean += texture(inTexture,(vec2(storePos + ivec2(i,j)) + 0.5)/vec2(imgsize));" +
-                    "  }" +
-                    "}" +
-                    "mean /= 25.0;" +
-                    "vec4 variance = vec4(0.0);" +
-                    "for (int i = -2; i <= 2; i++) {" +
-                    "  for (int j = -2; j <= 2; j++) {" +
-                    "    vec4 diff = texture(inTexture,(vec2(storePos + ivec2(i,j)) + 0.5)/vec2(imgsize));" +
-                    "    variance += (diff - mean) * (diff - mean);" +
-                    "  }" +
-                    "}" +
-                    "variance /= 24.0;" +
-                    "float br = sqrt(dot(mean, vec4(0.25)) + 1e-8);" +
-                    "float var = (dot(variance, vec4(0.25)));" +
-                    "uint brBin = uint(min(63.0, br * " + brightnessScale + "));" +
-                    "uint varBin = uint(min(63.0, var * " + varianceScale + "));" +
-                    "uint combined = brBin * 64u + varBin;" +
-                    "texColorUint = uvec4(combined, 0u, 0u, 0u);";
+            noiseHist.CustomShader = "merge/noisehist";
+            noiseHist.input1 = brightnessScale;
+            noiseHist.input2 = varianceScale;
             int[][] noiseRes = noiseHist.Compute(base);
             int[] hist = noiseRes[0];
-
-            // Weighted linear regression: variance = NoiseS * brightness + NoiseO
-            double sumW = 0, sumWb = 0, sumWv = 0, sumWb2 = 0, sumWbv = 0;
-            int points = 0;
+            int varCnt = 0;
+            float[] weights = new float[numVarianceBins];
+            float wSum = 0.0f;
+            float minBr = 0.0f;
             for (int i = 0; i < noiseScanBins; i++) {
                 int count = hist[i];
                 var bin = i / numVarianceBins;
                 var vin = i % numVarianceBins;
-                if (count <= 0 || bin == numVarianceBins-1 || vin == numVarianceBins-1) continue;
+                if(vin == 0) {
+                    varCnt = 0;
+                }
+                if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > 45) continue;
+                varCnt++;
+                if(minBr == 0.0f) {
+                    minBr = ((float)bin + 0.5f) / brightnessScale;
+                    minBr = (float) Math.pow(minBr, 2.0);
+                }
+                double w = count;
+                weights[vin] += (float) w;
+                wSum += w;
+            }
+            float wWindow = Math.max(weights[0], weights[1]);
+            for (int i = 0; i < numVarianceBins; i++) {
+                wWindow = Math2.mix(Math.max(wWindow, weights[i]), weights[i], 0.025f);
+                weights[i] = 0.5f + wWindow / wSum;
+                Log.d("DynamicNoise", "Variance weight: " + weights[i]);
+            }
+            // Weighted linear regression: variance = NoiseS * brightness + NoiseO
+            double sumW = 0, sumWb = 0, sumWv = 0, sumWb2 = 0, sumWbv = 0;
+            int points = 0;
+            varCnt = 0;
+            for (int i = 0; i < noiseScanBins; i++) {
+                int count = hist[i];
+                var bin = i / numVarianceBins;
+                var vin = i % numVarianceBins;
+                if(vin == 0) {
+                    varCnt = 0;
+                }
+                if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > 45) continue;
+                varCnt++;
                 double brightness = ((double)(bin) + 0.5) / ((double)brightnessScale);
                 brightness = Math.pow(brightness, 2.0);
+                brightness = (brightness - minBr)/(1.0 - minBr);
                 double variance = (vin + 0.5) / varianceScale;
-                //variance = Math.pow(variance, 2.0);
-                double w = count;
+                variance *= 1.4826;
+                variance = Math.pow(variance, 2.0);
+
+                Log.d("DynamicNoise", "vin:"+ vin + " bin: " + bin + " Variance raw: " + variance + " brightness: " + brightness + " count: " + count);
+                double w = count * 1.0f;
                 sumW += w;
                 sumWb += w * brightness;
                 sumWv += w * variance;
@@ -436,12 +460,16 @@ public class PyramidMerging extends GLOneScript {
                     double fitS = (sumW * sumWbv - sumWb * sumWv) / denom;
                     double fitO = (sumWv - fitS * sumWb) / sumW;
                     fitS = Math.max(fitS, 1e-10);
+                    Log.d("DynamicNoise",  "Fit S:" + fitS + " O:" + fitO);
                     // Keep at least 5% of original read noise so we don't collapse to zero on noisy sensors
                     double minO = 0.05 * noiseO;
                     fitO = Math.max(fitO, minO);
+                    fitO = Math.max(fitO, fitS/7);
+                    fitS = Math.max(fitS, parameters.noiseModeler.SPlace(parameters.iso));
+                    fitO = Math.max(fitO, parameters.noiseModeler.OPlace(parameters.iso)*3.0f);
                     noiseS = (float) fitS;
                     noiseO = (float) fitO;
-                    Log.d(Name, "Fitted noise model: NoiseS=" + noiseS + " NoiseO=" + noiseO + " (points=" + points + ")");
+                    Log.d("DynamicNoise",  "Fitted noise model: NoiseS=" + noiseS + " NoiseO=" + noiseO + " Half=" + Math.sqrt(noiseS * 0.5 + noiseO) + " (points=" + points + ")");
                     parameters.noiseModeler.baseModel = new Pair[] {
                             new Pair<>((double) noiseS, (double) noiseO),
                             new Pair<>((double) noiseS, (double) noiseO),
@@ -449,7 +477,7 @@ public class PyramidMerging extends GLOneScript {
                 }
                 adaptiveNMpy = 1.0;
             } else {
-                // Fallback: scale original model to match observed noise at mid-gray (same as before)
+                // Fallback: scale original model to match observed at mid-gray (same as before)
                 double modelSigmaMid = Math.sqrt(noiseS * 0.5 + noiseO);
                 if (modelSigmaMid > 1e-10) {
                     double sumWeightedSigma = 0, sumWeightedCount = 0;
@@ -467,7 +495,7 @@ public class PyramidMerging extends GLOneScript {
                         adaptiveNMpy = Math2.clamp(adaptiveNMpy, noiseMpyLow, noiseMpyHigh);
                     }
                 }
-                Log.d(Name, "Adaptive Mpy (fallback): " + adaptiveNMpy + " (insufficient points=" + points + ")");
+                Log.d("DynamicNoise", "Adaptive Mpy (fallback): " + adaptiveNMpy + " (insufficient points=" + points + ")");
             }
         }
         parameters.noiseModeler.setAdaptiveMpy(adaptiveNMpy);
