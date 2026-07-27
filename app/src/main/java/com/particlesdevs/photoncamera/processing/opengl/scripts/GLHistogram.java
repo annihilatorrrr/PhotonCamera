@@ -27,6 +27,8 @@ public class GLHistogram implements AutoCloseable{
     public int resize = 3;
     public float[] exposure = new float[4];
     public String CustomProgram = "";
+    public String CustomShader = "";
+    public float input1, input2;
     public GLHistogram(int size) {
         this(new GLContext(1,1),size);
     }
@@ -83,10 +85,16 @@ public class GLHistogram implements AutoCloseable{
         glProg.setDefine("CUSTOM_PROGRAM", CustomProgram);
 
         glProg.setLayout(tile,tile,1);
-        glProg.useAssetProgram("histogram",true);
+        if(CustomShader.isEmpty())
+            glProg.useAssetProgram("histogram",true);
+        else {
+            glProg.useAssetProgram(CustomShader, true);
+        }
         glProg.setTexture("inTexture",input);
         float histMpy = (float)(histSize-1);
         glProg.setVar("exposure", exposure[0] * histMpy, exposure[1] * histMpy, exposure[2] * histMpy, exposure[3] * histMpy);
+        glProg.setVar("input1", input1);
+        glProg.setVar("input2", input2);
         glProg.setBufferCompute("histogramRed",buffers[0]);
         glProg.setBufferCompute("histogramGreen",buffers[1]);
         glProg.setBufferCompute("histogramBlue",buffers[2]);
