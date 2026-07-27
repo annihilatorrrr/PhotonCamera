@@ -195,7 +195,7 @@ public class ImageSaver {
                                             ByteBuffer buffer, Parameters parameters) {
             DngCreator dngCreator = new DngCreator();
             dngCreator.setParameters(parameters);
-            dngCreator.setCompression(true);
+            dngCreator.setCompression(false);
             //dngCreator.setBinning(true);
             try {
                 OutputStream outputStream = Files.newOutputStream(dngFilePath);
