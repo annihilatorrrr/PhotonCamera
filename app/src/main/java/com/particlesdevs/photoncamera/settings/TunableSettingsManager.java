@@ -7,6 +7,7 @@ import androidx.preference.PreferenceManager;
 import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -124,29 +125,40 @@ public class TunableSettingsManager {
                         defaultValue = annotation.min();
                     }
                     
-                    // Auto-detect if float based on step value
-                    float step = annotation.step();
-                    boolean isFloat = (step != Math.floor(step));
-                    
-                    // Get current value as native type
-                    float currentValue;
-                    boolean hasValue;
-                    if (isFloat) {
-                        hasValue = prefs.contains(prefKey);
-                        currentValue = prefs.getFloat(prefKey, defaultValue);
+                    Class<?> fieldType = field.getType();
+
+                    if (fieldType == File.class) {
+                        // File type: export filename string if set
+                        String currentValue = prefs.getString(prefKey, null);
+                        if (currentValue != null && !currentValue.isEmpty()) {
+                            tunableSettings.put(settingKey, currentValue);
+                            Log.d(TAG, "Exporting tunable File: " + settingKey + " = " + currentValue);
+                        }
                     } else {
-                        hasValue = prefs.contains(prefKey);
-                        currentValue = (float) prefs.getInt(prefKey, (int) defaultValue);
-                    }
-                    
-                    // Only export if value differs from default
-                    if (hasValue && Math.abs(currentValue - defaultValue) > 0.0001f) {
-                        tunableSettings.put(settingKey, currentValue);
-                        Log.d(TAG, "Exporting tunable: " + settingKey + " = " + currentValue + 
-                            " (default: " + defaultValue + ")");
-                    } else {
-                        Log.d(TAG, "Skipping default: " + settingKey + " (current: " + currentValue + 
-                            ", default: " + defaultValue + ")");
+                        // Auto-detect if float based on step value
+                        float step = annotation.step();
+                        boolean isFloat = (step != Math.floor(step));
+
+                        // Get current value as native type
+                        float currentValue;
+                        boolean hasValue;
+                        if (isFloat) {
+                            hasValue = prefs.contains(prefKey);
+                            currentValue = prefs.getFloat(prefKey, defaultValue);
+                        } else {
+                            hasValue = prefs.contains(prefKey);
+                            currentValue = (float) prefs.getInt(prefKey, (int) defaultValue);
+                        }
+
+                        // Only export if value differs from default
+                        if (hasValue && Math.abs(currentValue - defaultValue) > 0.0001f) {
+                            tunableSettings.put(settingKey, currentValue);
+                            Log.d(TAG, "Exporting tunable: " + settingKey + " = " + currentValue +
+                                " (default: " + defaultValue + ")");
+                        } else {
+                            Log.d(TAG, "Skipping default: " + settingKey + " (current: " + currentValue +
+                                ", default: " + defaultValue + ")");
+                        }
                     }
                 }
             }
@@ -194,14 +206,24 @@ public class TunableSettingsManager {
                     Field field = targetClass.getDeclaredField(fieldName);
                     if (field.isAnnotationPresent(Tunable.class)) {
                         Tunable annotation = field.getAnnotation(Tunable.class);
-                        float step = annotation.step();
-                        boolean isFloat = (step != Math.floor(step));
-                        
-                        // Store as native type
-                        if (isFloat) {
-                            editor.putFloat(prefKey, ((Number) value).floatValue());
+                        Class<?> fieldType = field.getType();
+
+                        if (fieldType == File.class) {
+                            // File type: store filename string
+                            String fileName = value != null ? value.toString() : "";
+                            if (!fileName.isEmpty()) {
+                                editor.putString(prefKey, fileName);
+                            }
                         } else {
-                            editor.putInt(prefKey, ((Number) value).intValue());
+                            float step = annotation.step();
+                            boolean isFloat = (step != Math.floor(step));
+
+                            // Store as native type
+                            if (isFloat) {
+                                editor.putFloat(prefKey, ((Number) value).floatValue());
+                            } else {
+                                editor.putInt(prefKey, ((Number) value).intValue());
+                            }
                         }
                         importedCount++;
                         Log.d(TAG, "Imported tunable: " + settingKey + " = " + value);
