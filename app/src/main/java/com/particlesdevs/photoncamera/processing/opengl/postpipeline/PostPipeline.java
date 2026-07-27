@@ -99,7 +99,7 @@ public class PostPipeline extends GLBasePipeline {
             noiseO = 0.f;
             noiseS = 0.f;
         }*/
-        noiseO = Math.max(noiseO, Float.MIN_NORMAL);
+        noiseO = Math.max(noiseO, 1.0f/4096.0f);
         noiseS = Math.max(noiseS, Float.MIN_NORMAL);
         Point rawSliced = parameters.rawSize;
         cropSize = new Point(parameters.rawSize);
