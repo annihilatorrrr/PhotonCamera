@@ -361,6 +361,7 @@ public class PyramidMerging extends GLOneScript {
         glProg.setVar("cfaPattern", parameters.cfaPattern);
         glProg.setVar("analogBalance", analogBalance);
         glProg.setVar("randF", (float)Math.random(), (float)Math.random());
+        // Test value if enabled in shader
         glProg.setVar("noiseS", 0.0013796629f);
         glProg.setVar("noiseO", 8.3751265E-6f);
         glProg.setTexture("inTexture",inputBase);
