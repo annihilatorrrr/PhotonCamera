@@ -362,8 +362,10 @@ public class PyramidMerging extends GLOneScript {
         glProg.setVar("analogBalance", analogBalance);
         glProg.setVar("randF", (float)Math.random(), (float)Math.random());
         // Test value if enabled in shader
-        glProg.setVar("noiseS", 0.0013796629f);
-        glProg.setVar("noiseO", 8.3751265E-6f);
+        //glProg.setVar("noiseS", 0.0013796629f);
+        //glProg.setVar("noiseO", 8.3751265E-6f);
+        //glProg.setVar("noiseS", 0.05f);
+        //glProg.setVar("noiseO", 0.0f);
         glProg.setTexture("inTexture",inputBase);
         glProg.setTextureCompute("outTexture",base, true);
         glProg.computeAuto(new Point(base.mSize.x, base.mSize.y), 1);
@@ -380,9 +382,8 @@ public class PyramidMerging extends GLOneScript {
             final int numVarianceBins = 64;
             final int noiseScanBins = numBrightnessBins * numVarianceBins; // 1024
             // Variance scale: max variance ~(numVarianceBins-0.5)/scale. Use 160 so we cover up to ~0.2 for noisy sensors.
-            final float varianceScale = 64.0f * 10.0f;
-            final float brightnessScale = 64.0f * 2.0f;
-
+            final float varianceScale = 64.0f * (float)Math.sqrt(5.0f);
+            final float brightnessScale = 64.0f * (float)Math.sqrt(3.0f);
             GLHistogram noiseHist = new GLHistogram(glProg, noiseScanBins);
             noiseHist.Custom = true;
             noiseHist.Rc = true;
@@ -442,6 +443,7 @@ public class PyramidMerging extends GLOneScript {
                 brightness = Math.pow(brightness, 2.0);
                 brightness = (brightness - minBr)/(1.0 - minBr);
                 double variance = (vin + 0.5) / varianceScale;
+                variance *= 1.4826;
                 variance *= 1.4826;
                 variance = Math.pow(variance, 2.0);
 

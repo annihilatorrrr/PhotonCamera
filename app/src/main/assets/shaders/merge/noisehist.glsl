@@ -69,7 +69,7 @@ if (storePos.x < imgsize.x && storePos.y < imgsize.y) {
 vec4 texColor = texture(inTexture,(vec2(storePos) + 0.5)/vec2(imgsize));
 uvec4 texColorUint = clamp(uvec4(exposure * texColor), uvec4(0), uvec4(HISTSIZE - 1));
 #if COL_CUSTOM == 1
-        vec4 med[9];
+        /*vec4 med[9];
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 med[(i+1)*3+(j+1)] = texture(inTexture,(vec2(storePos + ivec2(i, j)) + 0.5)/vec2(imgsize));
@@ -83,7 +83,70 @@ uvec4 texColorUint = clamp(uvec4(exposure * texColor), uvec4(0), uvec4(HISTSIZE 
                 med[(i+1)*3+(j+1)] = sqDiff;
             }
         }
-        vec4 variance = median9(med);
+        vec4 variance = median9(med);*/
+
+        // ------------------------------------------------------------
+        // 1. Gather a 5x5 neighbourhood
+        // ------------------------------------------------------------
+        vec4 pixels[5][5];
+        for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+        pixels[i+2][j+2] = texture(inTexture,
+        (vec2(storePos + ivec2(i, j)) + 0.5) / vec2(imgsize));
+        }
+        }
+
+        // ------------------------------------------------------------
+        // 2. Compute median of 5x5 using overlapping 3x3 blocks
+        //    (9 blocks, top‑left corners at offsets -2..0 in both axes)
+        // ------------------------------------------------------------
+        vec4 blockMedians[9];
+        int idx = 0;
+        for (int bi = 0; bi < 3; bi++) {          // top‑left row offset: -2, -1, 0
+        for (int bj = 0; bj < 3; bj++) {      // top‑left col offset: -2, -1, 0
+        vec4 block[9];
+        int k = 0;
+        for (int di = 0; di < 3; di++) {
+        for (int dj = 0; dj < 3; dj++) {
+        block[k++] = pixels[bi + di][bj + dj];
+        }
+        }
+        blockMedians[idx++] = median9(block);
+        }
+        }
+        vec4 medK = median9(blockMedians);   // approximate 5x5 median
+
+        // ------------------------------------------------------------
+        // 3. Compute squared deviations from medK
+        // ------------------------------------------------------------
+        vec4 sqDiff[5][5];
+        for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 5; j++) {
+                        vec4 diff = pixels[i][j] - medK;
+                        sqDiff[i][j] = diff * diff;
+                }
+        }
+
+        // ------------------------------------------------------------
+        // 4. Median of squared deviations (again via 3x3 blocks)
+        // ------------------------------------------------------------
+        vec4 varBlockMedians[9];
+        idx = 0;
+        for (int bi = 0; bi < 3; bi++) {
+                for (int bj = 0; bj < 3; bj++) {
+                        vec4 block[9];
+                        int k = 0;
+                        for (int di = 0; di < 3; di++) {
+                                for (int dj = 0; dj < 3; dj++) {
+                                block[k++] = sqDiff[bi + di][bj + dj];
+                                }
+                        }
+                        varBlockMedians[idx++] = median9(block);
+                }
+        }
+
+        vec4 variance = median9(varBlockMedians);   // approximate median of squared diffs
+
         float vmed[5];
         vmed[0] = variance.r;
         vmed[1] = variance.g;
