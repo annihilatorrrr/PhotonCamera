@@ -91,6 +91,9 @@ public class Parameters {
     public float[] ForwardTransform2 = new float[9];
 
     public boolean mirror = false;
+    public String cameraID = PhotonCamera.getSettings().mCameraID;
+    public int physicalID = 0;
+    public int logicalID = 0;
 
     @Tunable(title = "Use Dynamic Black Level", category = "Parameters", defaultValue = 0, min = 0, max = 1, step = 1,
             description = "Use dynamic black level from the camera2api capture result if available (may cause instability on some devices)"
@@ -118,6 +121,17 @@ public class Parameters {
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
+        cameraID = PhotonCamera.getSettings().mCameraID;
+        physicalID = Integer.parseInt(cameraID);
+        logicalID = Integer.parseInt(cameraID);
+        // Split x-y, x - logical, y - physical
+        if(cameraID.contains("-")){
+            String[] ids = cameraID.split("-");
+            logicalID = Integer.parseInt(ids[0]);
+            physicalID = Integer.parseInt(ids[1]);
+            //isDualSession = true;
+        }
+
         rawSize = size;
         alignmentSize = new Point((size.x / (tile)) + 1, (size.y / (tile)) + 1);
         tilesX = (rawSize.x / 800) + 1;
@@ -600,7 +614,7 @@ public class Parameters {
         return "parameters:\n" +
                 "\n hasGainMap=" + hasGainMap +
                 "\n FrameCount=" + FrameNumberSelector.frameCount +
-                "\n CameraID=" + PhotonCamera.getSettings().mCameraID +
+                "\n CameraID=" + cameraID +
                 "\n DenoiseOn=" + PhotonCamera.getSettings().hdrxNR +
                 "\n Sharp=" + FltFormat(PreferenceKeys.getSharpnessValue()) +
                 "\n Sat=" + FltFormat(PreferenceKeys.getSaturationValue()) +
