@@ -1,9 +1,12 @@
 package com.particlesdevs.photoncamera.processing.parameters;
 
+import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import com.particlesdevs.photoncamera.util.Log;
 import android.util.Range;
+import android.util.SizeF;
 
 import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
@@ -11,6 +14,7 @@ import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class IsoExpoSelector {
     public static final int baseFrame = 1;
@@ -21,6 +25,34 @@ public class IsoExpoSelector {
     public static ArrayList<ExpoPair> pairs = new ArrayList<>();
     public static ArrayList<ExpoPair> fullpairs = new ArrayList<>();
     public static long lastSelectedExposure = 0;
+
+    // ---- Shutter-Priority / Dynamic Low-Light AE Curve ----
+    // Instead of letting stock 3A pick a fast shutter + high ISO, we keep the SAME
+    // total exposure the platform metered (exposure_time * iso is still a valid
+    // brightness target) and re-split it: push shutter time up first - more real
+    // photons land on the sensor per frame, which is a genuine shot-noise SNR win
+    // even at identical brightness - and only fall back to ISO once a per-frame
+    // time cap is hit. That cap is not one fixed number: it slides between a
+    // "start extending here" value and a darker-scene "ceiling" as metered scene
+    // darkness increases (see ExpoPair#applyShutterPriorityCurve), so behavior
+    // changes smoothly with light level instead of jumping between presets.
+    //
+    // These are tuned starting points, not measured hardware limits - adjust to taste.
+    private static final int MIN_ISO_NORMALIZED = 100; // floor we always try first (ISO-100 basis)
+    private static final double CAP_RAMP_STOPS = 4.0;  // stops of extra darkness to slide *_START -> *_END
+    private static final double CLEAN_ISO_STEP_FACTOR = 2.0; // hardware analog gain stages are conventionally doublings of the base ISO
+
+    private static final long PHOTO_HANDHELD_CAP_START = ExposureIndex.sec / 30; // 1/30s
+    private static final long PHOTO_HANDHELD_CAP_END   = ExposureIndex.sec / 15; // 1/15s
+
+    private static final long MOTION_HANDHELD_CAP_START = ExposureIndex.sec / 250; // 1/250s
+    private static final long MOTION_HANDHELD_CAP_END   = ExposureIndex.sec / 125; // 1/125s
+
+    private static final long NIGHT_HANDHELD_CAP_START = ExposureIndex.sec / 8;  // 1/8s
+    private static final long NIGHT_HANDHELD_CAP_END   = ExposureIndex.sec / 3;  // 1/3s
+
+    private static final long TRIPOD_CAP_START = ExposureIndex.sec / 4;          // 1/4s
+    private static final long TRIPOD_CAP_END   = ExposureIndex.sec * 2;          // 2s
 
     public static void setExpo(CaptureRequest.Builder builder, int step, CaptureController captureController) {
         Log.v(TAG, "InputParams: " +
@@ -66,28 +98,51 @@ public class IsoExpoSelector {
             }*/
             mpy1 = 3000.0;
         }
-        if(PhotonCamera.getSettings().selectedMode == CameraMode.MOTION || PhotonCamera.getSettings().selectedMode == CameraMode.RAWVIDEO){
+        if(PhotonCamera.getSettings().selectedMode == CameraMode.RAWVIDEO){
             //mpy1 = 0.0;
             pair.denormalizeSystem();
             return pair;
         }
-        /*if (pair.exposure < ExposureIndex.sec / 40 && pair.normalizedIso() > 90.0/mpy1) {
-            pair.ReduceIso();
+
+        // Shutter-Priority / Dynamic Low-Light AE Curve - PHOTO and NIGHT only.
+        // MOTION/RAWVIDEO already returned above, so framerate-sensitive capture is
+        // never affected. Tripod overrides mode when active since it removes the
+        // handshake concern that motivates the (shorter) handheld ceilings below.
+        long capStart, capEnd;
+        if (useTripod) {
+            capStart = TRIPOD_CAP_START;
+            capEnd = TRIPOD_CAP_END;
+        } else if (PhotonCamera.getSettings().selectedMode == CameraMode.NIGHT) {
+            capStart = NIGHT_HANDHELD_CAP_START;
+            capEnd = NIGHT_HANDHELD_CAP_END;
+        } else if (PhotonCamera.getSettings().selectedMode == CameraMode.MOTION) {
+            capStart = MOTION_HANDHELD_CAP_START;
+            capEnd = MOTION_HANDHELD_CAP_END;
+        } else {
+            capStart = PHOTO_HANDHELD_CAP_START;
+            capEnd = PHOTO_HANDHELD_CAP_END;
         }
-        if (pair.exposure < ExposureIndex.sec / 13 && pair.normalizedIso() > 750.0/mpy1) {
-            pair.ReduceIso();
+
+        double dynamicFactor = getDynamicScalingFactor();
+        capStart = (long) (capStart * dynamicFactor);
+        capEnd = (long) (capEnd * dynamicFactor);
+
+        if (PhotonCamera.getSettings().selectedMode == CameraMode.PHOTO && !useTripod) {
+            capEnd = Math.min(capEnd, ExposureIndex.sec / 15);
+            capStart = Math.min(capStart, capEnd);
         }
-        if (pair.exposure < ExposureIndex.sec / 8 && pair.normalizedIso() > 1500.0/mpy1) {
-            if (step != baseFrame || !PhotonCamera.getSettings().eisPhoto) pair.ReduceIso();
+        if (PhotonCamera.getSettings().selectedMode == CameraMode.MOTION && !useTripod) {
+            capEnd = Math.min(capEnd, ExposureIndex.sec / 60);
+            capStart = Math.min(capStart, capEnd);
         }
-        if (pair.exposure < ExposureIndex.sec / 8 && pair.normalizedIso() > 1500.0/mpy1) {
-            if (step != baseFrame || !PhotonCamera.getSettings().eisPhoto) pair.ReduceIso(1.25);
-        }*/
+
+        pair.applyShutterPriorityCurve(capStart, capEnd, CAP_RAMP_STOPS);
+
         if (pair.normalizedIso() >= 12700.0/mpy1) {
             pair.ReduceIso();
         }
         if (useTripod) {
-            pair.UseIso(Math.max(pair.isoanalog/6.0,101));
+            // pair.UseIso(Math.max(pair.isoanalog/6.0,101)); // Replaced by applyShutterPriorityCurve
         }
 
         double currentManExp = captureController.getParamController().getCurrentExposureValue();
@@ -114,7 +169,7 @@ public class IsoExpoSelector {
                 // High bracketing (1x, 8x)
                 pair.layerMpy = 8.f;
             }
-            
+
             if (pair.layerMpy > 1.f) {
                 pair.curlayer = ExpoPair.exposureLayer.High;
                 if (pair.ExpoCompensateLowerExpo2(1.0 / pair.layerMpy)) {
@@ -139,20 +194,7 @@ public class IsoExpoSelector {
         if (pair.exposure < ExposureIndex.sec / 90 && PhotonCamera.getSettings().eisPhoto) {
             //HDR = true;
         }
-        if (step%patternSize != 0 && HDR) {
-            if (pair.normalizedIso() <= 240.0/mpy1 && pair.exposure > ExposureIndex.sec / 70.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
-                pair.ReduceExpo();
-            }
-            if (pair.normalizedIso() <= 500.0/mpy1 && pair.exposure > ExposureIndex.sec / 50.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
-                pair.ReduceExpo();
-            }
-            if (pair.exposure < ExposureIndex.sec * 3.00 && pair.exposure > ExposureIndex.sec / 3 && pair.normalizedIso() < 3200.0/mpy1 && PhotonCamera.getSettings().eisPhoto) {
-                pair.FixedExpo(1.0 / 8);
-                if (pair.exposure > ExposureIndex.sec / 3) pair.ReduceExpo();
-                if (pair.normalizeCheck())
-                    PhotonCamera.showToast("Wrong parameters: iso:" + pair.iso + " exp:" + pair.exposure);
-            }
-        }
+
         if(step != -1) {
             if (step == 0) pairs.clear();
             if (pairs.size() < patternSize) {
@@ -217,6 +259,63 @@ public class IsoExpoSelector {
         else {
             return (long) ((Range) (key)).getLower();
         }
+    }
+
+    private static double getDynamicScalingFactor() {
+        // 1. Focal Length Scaling
+        double focalLength35mm = 24.0;
+        CameraCharacteristics characteristics = CaptureController.mCameraCharacteristics;
+        if (characteristics != null) {
+            float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            if (focalLengths != null && focalLengths.length > 0 && sensorSize != null) {
+                // Approximate 35mm equivalent: (36mm / sensorWidth) * focalLength
+                focalLength35mm = (36.0f / sensorSize.getWidth()) * focalLengths[0];
+            }
+        }
+
+        // Digital zoom factor
+        float zoom = 1.0f;
+        CaptureResult result = CaptureController.mPreviewCaptureResult;
+        if (result != null) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                Float zoomRatio = result.get(CaptureResult.CONTROL_ZOOM_RATIO);
+                if (zoomRatio != null) zoom = zoomRatio;
+            } else {
+                Rect crop = result.get(CaptureResult.SCALER_CROP_REGION);
+                Rect activeArray = characteristics != null ? characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) : null;
+                if (crop != null && activeArray != null && crop.width() > 0) {
+                    zoom = (float) activeArray.width() / crop.width();
+                }
+            }
+        }
+        double effectiveFocalLength = focalLength35mm * zoom;
+        // Reciprocal rule baseline (24mm wide). Longer focal length -> smaller factor -> faster shutter.
+        double focalFactor = 24.0 / Math.max(effectiveFocalLength, 10.0);
+
+        // 2. Stability Scaling (only if not on a tripod)
+        double stabilityFactor = 1.0;
+        if (!useTripod && PhotonCamera.getGyro() != null) {
+            int shakiness = PhotonCamera.getGyro().getFilteredShakiness();
+            if (shakiness > 0) {
+                // Steady hands (shakiness ~25) -> up to 4x factor.
+                // Shaky hands (shakiness ~400) -> down to 0.25x factor.
+                stabilityFactor = 100.0 / Math.max(shakiness, 25);
+
+                // For Motion mode, we must be conservative to avoid subject blur.
+                if (PhotonCamera.getSettings().selectedMode == CameraMode.MOTION) {
+                    stabilityFactor = Math.min(stabilityFactor, 1.2);
+                }
+            }
+        }
+
+        double combined = focalFactor * stabilityFactor;
+        // Clamp total scaling to [0.2x, 2.5x] range to avoid extreme/impossible shutter speeds.
+        double finalFactor = Math.max(0.2, Math.min(combined, 2.5));
+        Log.v(TAG, "Dynamic AE Factor: " + String.format(Locale.US, "%.2f", finalFactor) +
+                " (Focal=" + String.format(Locale.US, "%.2f", effectiveFocalLength) + "mm, " +
+                "Stability=" + (PhotonCamera.getGyro() != null ? PhotonCamera.getGyro().getFilteredShakiness() : "N/A") + ")");
+        return finalFactor;
     }
 
 
@@ -314,6 +413,126 @@ public class IsoExpoSelector {
                 }
             }
         }
+
+        /**
+         * Shutter-Priority / Dynamic Low-Light AE curve.
+         *
+         * Keeps the platform's own metered brightness target (exposure * iso stays
+         * constant) but re-splits it between shutter time and ISO gain: ISO is tried
+         * at its minimum first, and only raised once the per-frame shutter time would
+         * need to exceed a cap. That cap itself is not fixed - it slides from capStart
+         * up to capEnd as the metered scene gets darker (rampStops controls how many
+         * stops of extra darkness the full slide takes), which is what makes this a
+         * *dynamic* low-light strategy rather than a single handheld/night/tripod
+         * threshold switch. The per-mode+tripod shutter ceiling is never exceeded,
+         * even in extreme edge cases (e.g. large +exposure compensation in near-total
+         * darkness) - if max ISO still isn't enough at that point, the frame comes out
+         * a little short of the requested brightness rather than surprising the user
+         * with a handheld shot far slower than the active mode calls for.
+         *
+         * When ISO does need to rise above minimum, it's snapped to the nearest "clean"
+         * hardware gain point at or above the bare minimum required - see
+         * {@link #snapToCleanIso} - rather than left at whatever continuous value the
+         * arithmetic produces, since an off-grid ISO is frequently not pure analog gain
+         * on the sensor and reads noisier than a clean stage for no benefit. The trade-off
+         * is a slightly shorter exposure than the theoretical maximum (a clean rung is
+         * never below the continuous optimum, only ever a bit above it), in exchange for
+         * a real, hardware-backed SNR win at whatever ISO we actually land on.
+         *
+         * @param capStart  per-frame shutter time where we start extending past minimum ISO
+         * @param capEnd    per-frame shutter time ceiling in the darkest scenes
+         * @param rampStops how many stops darker than capStart's "just enough" point it
+         *                  takes to reach capEnd
+         */
+        public void applyShutterPriorityCurve(long capStart, long capEnd, double rampStops) {
+            double totalExposureEnergy = (double) exposure * iso; // proxy for scene darkness: bigger = darker
+
+            // Energy capStart can already deliver at minimum ISO - past this point,
+            // minimum ISO alone is no longer enough to hit the metered brightness.
+            double energyAtCapStart = (double) capStart * MIN_ISO_NORMALIZED;
+
+            long dynamicCap;
+            if (totalExposureEnergy <= energyAtCapStart) {
+                dynamicCap = capStart; // plenty of light, no need to extend the shutter at all
+            } else {
+                double stopsPastStart = log2(totalExposureEnergy / energyAtCapStart);
+                double t = Math.max(0.0, Math.min(1.0, stopsPastStart / rampStops));
+                dynamicCap = (long) (capStart * Math.pow((double) capEnd / capStart, t)); // geometric slide
+            }
+            long effectiveCap = Math.min(dynamicCap, exposurehigh); // never ask for more than the sensor allows either
+
+            // Smallest (continuous) ISO that still hits the metered brightness within effectiveCap.
+            double isoMinToFit = totalExposureEnergy / effectiveCap;
+
+            if (isoMinToFit <= MIN_ISO_NORMALIZED) {
+                iso = MIN_ISO_NORMALIZED; // plenty of light, minimum ISO alone already fits under the cap
+            } else {
+                long cleanIso = snapToCleanIso(isoMinToFit);
+                double shutterAtCleanIso = totalExposureEnergy / cleanIso;
+
+                // If snapping up to a "clean" hardware gain stage would drop our shutter time
+                // by more than 5% below the cap, prioritize the photon collection (shutter duration)
+                // and use the exact ISO required instead.
+                if (shutterAtCleanIso < effectiveCap * 0.95) {
+                    iso = (int) Math.ceil(isoMinToFit);
+                } else {
+                    iso = (int) cleanIso;
+                }
+            }
+            exposure = (long) (totalExposureEnergy / iso);
+
+            // Safety clamp, done by hand in normalized-ISO-100 units. Deliberately NOT
+            // calling normalize()/normalizeISO() here: those assign the raw isohigh bound
+            // straight into this normalized field, which only happens to be unit-correct
+            // when the sensor's isolow is exactly 100. Bounding exposure by effectiveCap
+            // (not just exposurehigh) keeps the "never exceed the policy cap" guarantee
+            // even when snapToCleanIso has to fall back to the sensor's true ISO ceiling.
+            if (exposure > effectiveCap) exposure = effectiveCap;
+            if (exposure < exposurelow) exposure = exposurelow;
+            double isoHighNormalized = isohigh * (100.0 / isolow);
+            if (iso > isoHighNormalized) iso = (int) Math.round(isoHighNormalized);
+            if (iso < MIN_ISO_NORMALIZED) iso = MIN_ISO_NORMALIZED;
+
+            Log.v(TAG, "ShutterPriorityCurve: energy=" + (long) totalExposureEnergy +
+                    " dynamicCap=" + ExposureIndex.sec2string(ExposureIndex.time2sec(dynamicCap)) +
+                    " -> exposure=" + ExposureIndex.sec2string(ExposureIndex.time2sec(exposure)) +
+                    " iso=" + iso);
+        }
+
+        /**
+         * Snaps up to the nearest ISO the sensor can realize as a clean hardware gain
+         * step at or above {@code isoMinToFit} (normalized ISO-100 basis): the base ISO
+         * doubled some number of times, plus the sensor's own reported max-pure-analog
+         * gain point ({@code isoanalog} / SENSOR_MAX_ANALOG_SENSITIVITY) inserted as an
+         * extra rung even when it doesn't fall on a doubling, since that boundary is
+         * real hardware data rather than an assumption about gain-stage spacing.
+         * Falls back to the sensor's true ISO ceiling if nothing smaller fits.
+         */
+        private long snapToCleanIso(double isoMinToFit) {
+            double isoHighNormalized = isohigh * (100.0 / isolow);
+            double isoAnalogNormalized = isoanalog * (100.0 / isolow);
+
+            double[] ladder = new double[16];
+            int n = 0;
+            for (double rung = MIN_ISO_NORMALIZED; rung <= isoHighNormalized && n < 14; rung *= CLEAN_ISO_STEP_FACTOR) {
+                ladder[n++] = rung;
+            }
+            if (isoAnalogNormalized > MIN_ISO_NORMALIZED && isoAnalogNormalized < isoHighNormalized) {
+                ladder[n++] = isoAnalogNormalized;
+            }
+            ladder[n++] = isoHighNormalized; // true sensor ceiling, always available as a last resort
+            java.util.Arrays.sort(ladder, 0, n);
+
+            for (int i = 0; i < n; i++) {
+                if (ladder[i] >= isoMinToFit) return Math.round(ladder[i]);
+            }
+            return Math.round(isoHighNormalized);
+        }
+
+        private static double log2(double x) {
+            return Math.log(x) / Math.log(2.0);
+        }
+
         public void ExpoCompensateLowerExpo(double k) {
             iso /= k;
             if (normalizeCheck()) {
@@ -350,7 +569,7 @@ public class IsoExpoSelector {
         }
 
         public void MinIso() {
-            UseIso(101);
+            UseIso(100);
         }
 
         public void UseIso(double isoUsed) {
