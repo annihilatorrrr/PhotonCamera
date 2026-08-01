@@ -73,8 +73,8 @@ void main() {
     vec3 final_colour = vec3(0.0);
     vec3 final_colour2 = vec3(0.0);
     float sigX = 2.5;
-    //float sigY = (noisefactor*noisefactor*NOISES + NOISEO + 0.0000001);
-    float sigY = max(NOISES*noisefactor + NOISES*NOISES * 3.0/8.0 + noiseO, 0.0000001);
+    float sigY = max(NOISES*noisefactor + NOISEO, 0.0000001);
+    //float sigY = max(NOISES*noisefactor + NOISES*NOISES * 3.0/8.0 + NOISEO, 0.0000001);
     vec3 chromaDiff = (abs(cavg-cinX)+abs(cavg-cinY)+abs(cavg-cinXY)+abs(cavg-cin))/4.0;
     //chromaDiff *= (length(chromaDiff)/(length(chromaDiff)+sigY*64.0));
     chromaDiff *= max(abs(xDelta),abs(yDelta));
