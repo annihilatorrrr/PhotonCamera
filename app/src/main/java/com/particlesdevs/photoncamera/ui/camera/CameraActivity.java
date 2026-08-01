@@ -8,7 +8,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.DisplayMetrics;
 import com.particlesdevs.photoncamera.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -72,6 +71,8 @@ public class CameraActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d("CameraActivity", "Called onCreate()");
+        // Hide system UI immediately to prevent flickering (like gallery view)
+        hideSystemUI();
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         setContentView(R.layout.activity_camera);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -285,6 +286,8 @@ public class CameraActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Apply hideSystemUI in onResume to prevent flickering when returning to the camera
+        hideSystemUI();
         // Ensure portrait orientation is enforced every time activity resumes
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
@@ -317,11 +320,7 @@ public class CameraActivity extends BaseActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            DisplayMetrics dm = getResources().getDisplayMetrics();
-            float displayAspectRatio = (float) Math.max(dm.heightPixels, dm.widthPixels) / Math.min(dm.heightPixels, dm.widthPixels);
-            if (displayAspectRatio <= (16f / 9) || dm.densityDpi > 440) {
-                hideSystemUI();
-            }
+            hideSystemUI();
         }
     }
 
