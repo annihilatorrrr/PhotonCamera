@@ -560,9 +560,10 @@ public class HorizontalPicker extends View {
         // set color of text
         int color = textColor.getDefaultColor();
         int itemWithPadding = (int) (itemWidth + dividerSize);
-        if (scrollX > itemWithPadding * item - itemWithPadding / 2 &&
-                scrollX < itemWithPadding * (item + 1) - itemWithPadding / 2) {
-            int position = scrollX - itemWithPadding / 2;
+        int center = (int) (itemWithPadding * item + getItemCenterBias());
+        if (scrollX > center - itemWithPadding / 2 &&
+                scrollX < center + itemWithPadding / 2) {
+            int position = scrollX - (center - itemWithPadding / 2);
             color = getColor(position, item);
         } else if (item == pressedItem) {
             color = textColor.getColorForState(new int[]{android.R.attr.state_pressed}, color);
@@ -618,7 +619,7 @@ public class HorizontalPicker extends View {
                     }
 
                     final float pulledToX = getScrollX() + deltaMoveX;
-                    if (pulledToX < 0) {
+                    if (pulledToX < (int) getItemCenterBias()) {
                         if (leftEdgeEffect != null) {
                             leftEdgeEffect.onPull((float) deltaMoveX / getWidth());
                             if (!rightEdgeEffect.isFinished()) {
@@ -687,7 +688,7 @@ public class HorizontalPicker extends View {
                     if (!scrollingX) {
 
                         int itemPos = getPositionOnScreen(positionX);
-                        int relativePos = itemPos - sideItems;
+                        int relativePos = itemPos - getSelectedItem();
 
                         if (relativePos == 0) {
                             selectItem();
@@ -926,7 +927,8 @@ public class HorizontalPicker extends View {
         super.scrollTo(scrollX, scrollY);
 
         if (!flingScrollerX.isFinished() && clampedX) {
-            flingScrollerX.springBack(scrollX, scrollY, 0, getScrollRange(), 0, 0);
+            flingScrollerX.springBack(scrollX, scrollY,
+                    (int) getItemCenterBias(), getScrollRange(), 0, 0);
         }
     }
 
@@ -936,7 +938,9 @@ public class HorizontalPicker extends View {
     }
 
     private int getPositionFromTouch(float x) {
-        return getPositionFromCoordinates((int) (getScrollX() - (itemWidth + dividerSize) * (sideItems + .5f) + x));
+        float itemWithPadding = itemWidth + dividerSize;
+        float content = x + getScrollX() - itemWithPadding * (sideItems + 0.5f);
+        return Math.round(content / itemWithPadding);
     }
 
     private void computeScrollX() {
@@ -956,7 +960,8 @@ public class HorizontalPicker extends View {
             }
 
             int range = getScrollRange();
-            if (previousScrollerX >= 0 && currentScrollerX < 0) {
+            int minX = (int) getItemCenterBias();
+            if (previousScrollerX >= minX && currentScrollerX < minX) {
                 if (leftEdgeEffect != null)//Vibhor
                     leftEdgeEffect.onAbsorb((int) scroller.getCurrVelocity());
             } else if (previousScrollerX <= range && currentScrollerX > range) {
@@ -980,8 +985,10 @@ public class HorizontalPicker extends View {
     private void flingX(int velocityX) {
 
         previousScrollerX = Integer.MIN_VALUE;
-        flingScrollerX.fling(getScrollX(), getScrollY(), -velocityX, 0, 0,
-                (int) (itemWidth + dividerSize) * (values.length - 1), 0, 0, getWidth() / 2, 0);
+        int minX = (int) getItemCenterBias();
+        int maxX = minX + (int) (itemWidth + dividerSize) * (values.length - 1);
+        flingScrollerX.fling(getScrollX(), getScrollY(), -velocityX, 0, minX, maxX,
+                0, 0, getWidth() / 2, 0);
 
         invalidate();
     }
@@ -989,12 +996,12 @@ public class HorizontalPicker extends View {
     private void adjustToNearestItemX() {
 
         int x = getScrollX();
-        int item = Math.round(x / (itemWidth + dividerSize));
+        int item = getPositionFromCoordinates(x);
 
         if (item < 0) {
             item = 0;
-        } else if (item > values.length) {
-            item = values.length;
+        } else if (item > values.length - 1) {
+            item = values.length - 1;
         }
 
         selectedItem = item;
@@ -1005,7 +1012,7 @@ public class HorizontalPicker extends View {
             vibration.Tick();
         }
 
-        int itemX = (itemWidth + (int) dividerSize) * item;
+        int itemX = (int) ((itemWidth + dividerSize) * item + getItemCenterBias());
 
         int deltaX = itemX - x;
 
@@ -1018,7 +1025,9 @@ public class HorizontalPicker extends View {
 
         int items = sideItems * 2 + 1;
         int totalPadding = ((int) dividerSize * (items - 1));
-        itemWidth = (w - totalPadding) / items;
+        int sizeBasedWidth = (w - totalPadding) / items;
+
+        itemWidth = Math.max(sizeBasedWidth, computeRequiredItemWidth());
 
         itemClipBounds = new RectF(0, 0, itemWidth, h);
         itemClipBoundsOffset = new RectF(itemClipBounds);
@@ -1028,6 +1037,44 @@ public class HorizontalPicker extends View {
         remakeLayout();
         startMarqueeIfNeeded();
 
+    }
+
+    /**
+     * Computes the minimum item (bubble) width required to fully render the
+     * widest value, so text is never truncated by ellipsis/clipping even at high
+     * DPI. Measurement mirrors the drawing state (fake bold included) and adds
+     * breathing room so the bubble stays slightly larger than the text.
+     */
+    private int computeRequiredItemWidth() {
+        if (values == null || values.length == 0) {
+            return 0;
+        }
+        textPaint.setFakeBoldText(true);
+        float maxTextWidth = 0f;
+        for (CharSequence value : values) {
+            maxTextWidth = Math.max(maxTextWidth,
+                    textPaint.measureText(value, 0, value.length()));
+        }
+        textPaint.setFakeBoldText(false);
+        float density = getResources().getDisplayMetrics().density;
+        return (int) Math.ceil(maxTextWidth + 12f * density);
+    }
+
+    /**
+     * Scroll offset that must be added to {@code index * itemWithPadding} so the
+     * bubble of item {@code index} sits exactly in the middle of the view. This is
+     * zero only when the item grid exactly fills the view width
+     * ({@code itemWidth * (2 * sideItems + 1) == width}); once items are sized to
+     * fit their text and are wider than the per-slot width, the resting scroll
+     * position needs this offset to keep the selected bubble centered.
+     */
+    private float getItemCenterBias() {
+        int width = getWidth();
+        if (width <= 0) {
+            return 0f;
+        }
+        float itemWithPadding = itemWidth + dividerSize;
+        return itemWithPadding * (sideItems + 0.5f) - width / 2f;
     }
 
     private void onScrollerFinishedX(OverScroller scroller) {
@@ -1074,7 +1121,7 @@ public class HorizontalPicker extends View {
     }
 
     private int getPositionOnScreen(float x) {
-        return (int) (x / (itemWidth + dividerSize));
+        return getPositionFromTouch(x);
     }
 
     private void smoothScrollBy(int i) {
@@ -1140,7 +1187,7 @@ public class HorizontalPicker extends View {
      * @return Selected item from scrolling position in {param x}
      */
     private int getPositionFromCoordinates(int x) {
-        return Math.round(x / (itemWidth + dividerSize));
+        return Math.round((x - getItemCenterBias()) / (itemWidth + dividerSize));
     }
 
     /**
@@ -1149,7 +1196,7 @@ public class HorizontalPicker extends View {
      * @param index Index of an item to scroll to
      */
     private void scrollToItem(int index) {
-        scrollTo((itemWidth + (int) dividerSize) * index, 0);
+        scrollTo((int) ((itemWidth + dividerSize) * index + getItemCenterBias()), 0);
         // invalidate() not needed because scrollTo() already invalidates the view
     }
 
@@ -1175,10 +1222,13 @@ public class HorizontalPicker extends View {
      */
     private int getInBoundsX(int x) {
 
-        if (x < 0) {
-            x = 0;
-        } else if (x > ((itemWidth + (int) dividerSize) * (values.length - 1))) {
-            x = ((itemWidth + (int) dividerSize) * (values.length - 1));
+        int minX = (int) getItemCenterBias();
+        int maxX = minX + (int) ((itemWidth + dividerSize) * (values.length - 1));
+
+        if (x < minX) {
+            x = minX;
+        } else if (x > maxX) {
+            x = maxX;
         }
         return x;
     }
@@ -1186,7 +1236,8 @@ public class HorizontalPicker extends View {
     private int getScrollRange() {
         int scrollRange = 0;
         if (values != null && values.length != 0) {
-            scrollRange = Math.max(0, ((itemWidth + (int) dividerSize) * (values.length - 1)));
+            scrollRange = (int) getItemCenterBias()
+                    + (int) ((itemWidth + dividerSize) * (values.length - 1));
         }
         return scrollRange;
     }
