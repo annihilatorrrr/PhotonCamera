@@ -84,6 +84,7 @@
                     setAuxButtonModel="@{auxmodel}"
                     setActiveId="@{auxmodel.currentCameraId}"
                     bindViewGroupChildrenRotate="@{uimodel}"
+                    hideAuxButtons="@{uimodel.settingsBarVisibility}"
                     android:layout_marginBottom="6dp" />
 
             <!--    Block 1.4-->
@@ -166,8 +167,7 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/arrow_top"
                 android:src="@drawable/chevron_up"
-                android:background="@drawable/aux_container_background"
-                android:backgroundTint="@color/panel_transparency"
+                android:background="@null"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 android:layout_marginTop="16dp"

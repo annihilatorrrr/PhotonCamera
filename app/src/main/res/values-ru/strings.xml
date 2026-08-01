@@ -98,6 +98,7 @@
     <string name="theme_accent_pink">Розовый</string>
     <string name="theme_accent_cyan">Голубой</string>
     <string name="theme_accent_teal">Бирюзовый</string>
+    <string name="theme_accent_white">Белый</string>
     <string name="on">Вкл.</string>
     <string name="t_3s">3 сек.</string>
     <string name="t_10s">10 сек.</string>

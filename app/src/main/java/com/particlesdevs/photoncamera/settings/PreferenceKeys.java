@@ -165,6 +165,7 @@ public class PreferenceKeys {
         map.put("pink", R.style.PinkTheme);
         map.put("cyan", R.style.CyanTheme);
         map.put("teal", R.style.TealTheme);
+        map.put("white", R.style.WhiteTheme);
 
         SettingsManager sm = preferenceKeys.settingsManager;
 

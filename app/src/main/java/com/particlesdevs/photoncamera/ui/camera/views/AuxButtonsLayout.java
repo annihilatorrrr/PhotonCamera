@@ -54,6 +54,7 @@ public class AuxButtonsLayout extends LinearLayout {
     private final LinearLayout.LayoutParams buttonParams;
     private AuxButtonListener auxButtonListener;
     private AuxButtonsModel auxButtonsModel;
+    private boolean hiddenBySettings;
 
     public AuxButtonsLayout(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -111,7 +112,18 @@ public class AuxButtonsLayout extends LinearLayout {
     }
 
     private void updateVisibility() {
-        setVisibility(getChildCount() > 1 ? View.VISIBLE : View.INVISIBLE);
+        setVisibility(hiddenBySettings || getChildCount() <= 1 ? View.INVISIBLE : View.VISIBLE);
+    }
+
+    public void setAuxButtonsHidden(boolean hidden) {
+        hiddenBySettings = hidden;
+        if (hidden) {
+            animate().setDuration(200).alpha(0).scaleX(0).scaleY(0)
+                    .withEndAction(() -> setVisibility(View.INVISIBLE)).start();
+        } else {
+            updateVisibility();
+            animate().setDuration(200).alpha(1).scaleX(1).scaleY(1).start();
+        }
     }
 
     private void onAuxButtonClick(View view) {

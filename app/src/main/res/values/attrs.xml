@@ -40,6 +40,10 @@
 
     <attr name="cameraFragmentBackground" format="reference"/>
 
+    <attr name="modeSelectedTextColor" format="color"/>
+
+    <attr name="processingProgressColor" format="color"/>
+
     <declare-styleable name="FlashButtonStates">
         <attr name="flash_off" format="boolean"/>
         <attr name="flash_on" format="boolean"/>

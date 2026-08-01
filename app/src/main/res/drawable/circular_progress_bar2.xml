@@ -11,7 +11,7 @@
                     android:shape="ring"
                     android:useLevel="false"
                     android:thicknessRatio="40">
-                <solid android:color="@android:color/white"/>
+                <solid android:color="@color/white_theme_background"/>
             </shape>
         </rotate>
     </item>
@@ -23,8 +23,10 @@
                 android:toDegrees="720">
             <shape
                     android:shape="ring"
-                    android:thicknessRatio="40">
-                <solid android:color="?colorAccent"/>
+                    android:useLevel="true"
+                    android:innerRadiusRatio="3.02"
+                    android:thicknessRatio="30">
+                <solid android:color="?attr/processingProgressColor"/>
             </shape>
         </rotate>
     </item>

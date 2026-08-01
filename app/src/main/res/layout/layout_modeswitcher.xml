@@ -14,11 +14,11 @@
             >
 
         <com.particlesdevs.photoncamera.ui.camera.views.modeswitcher.wefika.horizontalpicker.HorizontalPicker
-                android:layout_width="500dp"
+                android:layout_width="match_parent"
                 android:padding="@dimen/mode_switcher_padding"
                 android:layout_height="wrap_content"
                 android:textColor="@color/White"
-                app:selectedColor="?colorControlActivated"
+                app:selectedColor="?attr/modeSelectedTextColor"
                 android:textSize="@dimen/mode_chip_text_size"
                 app:sideItems="2"
                 android:marqueeRepeatLimit="-1"

@@ -21,4 +21,5 @@
     <color name="white">#FFFFFF</color>
     <color name="aux_container_color">#99000000</color>
     <color name="grid_thumbnail_background">#AAAAAA</color>
+    <color name="white_theme_background">#F0EEE9</color>
 </resources>
