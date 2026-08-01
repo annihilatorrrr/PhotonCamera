@@ -18,6 +18,7 @@ import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.GLUtils;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
+import com.particlesdevs.photoncamera.settings.DynamicNoiseStore;
 import com.particlesdevs.photoncamera.util.Math2;
 
 import java.util.ArrayList;
@@ -470,6 +471,28 @@ public class PyramidMerging extends GLOneScript {
                     fitO = Math.max(fitO, fitS/7);
                     fitS = Math.max(fitS, parameters.noiseModeler.SPlace(parameters.iso));
                     fitO = Math.max(fitO, parameters.noiseModeler.OPlace(parameters.iso)*3.0f);
+                    // Commit the fitted S/O to the multisample noise map, then read
+                    // back the blended (moving-average) value. Committing before
+                    // reading makes the current estimation participate in the
+                    // average, while the store's measurement-list guard skips
+                    // duplicate scenes (same exposure/iso) to avoid bias. Using the
+                    // blended output smooths per-capture estimator fluctuations.
+                    double commitS = fitS;
+                    double commitO = fitO;
+                    DynamicNoiseStore.NoiseEstimate blended = DynamicNoiseStore.dynamicNoiseStore.commitAndGet(
+                            parameters.physicalID, parameters.iso,
+                            parameters.noiseModeler.AnalogueISO,
+                            commitS, commitO, parameters.exposureTime);
+                    if (blended != null) {
+                        fitS = blended.s;
+                        fitO = blended.o;
+                        // Re-apply floors defensively on the blended result.
+                        //fitS = Math.max(fitS, parameters.noiseModeler.SPlace(parameters.iso));
+                        //fitO = Math.max(fitO, parameters.noiseModeler.OPlace(parameters.iso));
+                        fitO += fitS*fitS * 3.0/8.0; // Correction factor
+                        Log.d("DynamicNoise", "Blended noise model from store: S=" + fitS
+                                + " O=" + fitO + " for iso=" + parameters.iso);
+                    }
                     noiseS = (float) fitS;
                     noiseO = (float) fitO;
                     Log.d("DynamicNoise",  "Fitted noise model: NoiseS=" + noiseS + " NoiseO=" + noiseO + " Half=" + Math.sqrt(noiseS * 0.5 + noiseO) + " (points=" + points + ")");
