@@ -122,14 +122,15 @@ public class Parameters {
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
         cameraID = PhotonCamera.getSettings().mCameraID;
-        physicalID = Integer.parseInt(cameraID);
-        logicalID = Integer.parseInt(cameraID);
         // Split x-y, x - logical, y - physical
         if(cameraID.contains("-")){
             String[] ids = cameraID.split("-");
             logicalID = Integer.parseInt(ids[0]);
             physicalID = Integer.parseInt(ids[1]);
             //isDualSession = true;
+        } else {
+            physicalID = Integer.parseInt(cameraID);
+            logicalID = Integer.parseInt(cameraID);
         }
 
         rawSize = size;
