@@ -50,7 +50,9 @@ public class SettingsBarLayout extends RelativeLayout implements SettingsBarList
 
     public SettingsBarLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        vibration = PhotonCamera.getVibration();
+        // In the layout editor (isInEditMode) the PhotonCamera Application instance
+        // is never created, so the static sPhotonCamera is null.
+        vibration = isInEditMode() ? null : PhotonCamera.getVibration();
         setBackgroundResource(R.drawable.exif_background);
 
         ScrollView scrollView = new ScrollView(context);
