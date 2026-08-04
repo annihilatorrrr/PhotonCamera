@@ -12,7 +12,7 @@
                 type="com.particlesdevs.photoncamera.ui.camera.model.AuxButtonsModel" />
     </data>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <com.particlesdevs.photoncamera.ui.camera.CameraLayout
             android:id="@+id/textureHolder"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -70,8 +70,6 @@
                     android:id="@+id/aux_buttons_container"
                     android:orientation="vertical"
                     android:background="@drawable/aux_container_background"
-                    tools:layout_height="100dp"
-                    tools:layout_width="50dp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="@dimen/aux_container_margin"
@@ -149,8 +147,6 @@
                     android:layout_marginBottom="16dp" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!--    Block 2-->
-        <!--    includes the Layout resource of TopBar-->
         <include
                 android:id="@+id/layout_topbar"
                 layout="@layout/layout_main_topbar"
@@ -160,6 +156,7 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 android:visibility="@{uimodel.settingsBarVisibility ? View.INVISIBLE : View.VISIBLE}"
+                tools:visibility="visible"
                 app:layout_constraintTop_toTopOf="parent" />
 
         <ImageButton
@@ -176,6 +173,7 @@
                 android:onClick="@{()-> uimodel.setSettingsBarVisibility(!uimodel.settingsBarVisibility)}"
                 app:layout_constraintTop_toBottomOf="@+id/layout_topbar"
                 android:visibility="@{uimodel.settingsBarVisibility ? View.INVISIBLE : View.VISIBLE}"
+                tools:visibility="visible"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintVertical_bias="0" />
 
@@ -197,5 +195,5 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.particlesdevs.photoncamera.ui.camera.CameraLayout>
 </layout>
