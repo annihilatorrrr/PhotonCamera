@@ -41,12 +41,14 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.customview.widget.ExploreByTouchHelper;
 
 import com.particlesdevs.photoncamera.R;
+import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.control.Vibration;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -123,7 +125,8 @@ public class HorizontalPicker extends View {
         super(context, attributeSet, defStyle);
 
         ViewConfiguration configuration = ViewConfiguration.get(context);
-        vibration = PhotonCamera.getVibration();
+        // In the layout editor the PhotonCamera Application instance is never created.
+        vibration = isInEditMode() ? null : PhotonCamera.getVibration();
         touchSlop = configuration.getScaledTouchSlop();
         mMinimumFlingVelocity = configuration.getScaledMinimumFlingVelocity();
         maximumFlingVelocity = configuration.getScaledMaximumFlingVelocity()
@@ -175,6 +178,15 @@ public class HorizontalPicker extends View {
         adjustScrollerX = new OverScroller(context, new DecelerateInterpolator(2.5f));
 
         initializeConstants(context, values, sideItems);
+
+        // The layout editor can't run the fragment, so populate the picker with the
+        // same camera mode names that CameraUIViewImpl.initModeSwitcher() sets at runtime.
+        if (isInEditMode()) {
+            setValues(Arrays.stream(CameraMode.nameIds())
+                    .map(getContext()::getString)
+                    .toArray(String[]::new));
+            setSelectedItem(CameraMode.PHOTO.ordinal());
+        }
     }
 
     private static TextPaint getTextPaint(Context context) {
@@ -443,7 +455,7 @@ public class HorizontalPicker extends View {
     /**
      * Width (in item units) of the edge fade band on each side.
      */
-    private static final float EDGE_FADE_ITEMS = 1.5f;
+    private static final float EDGE_FADE_ITEMS = 0.7f;
 
     /**
      * Fraction of the picker width that is interactive (touch zone). The faded
@@ -1100,7 +1112,7 @@ public class HorizontalPicker extends View {
 
         int item = getSelectedItem();
 
-        if (layouts != null && layouts.length > item) {
+        if (layouts != null && layouts.length > item && item >= 0) {
             Layout layout = layouts[item];
             if (ellipsize == TextUtils.TruncateAt.MARQUEE
                     && itemWidth < layout.getLineWidth(0)) {
