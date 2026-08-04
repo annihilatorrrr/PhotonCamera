@@ -1,7 +1,10 @@
 package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLSurfaceView;
@@ -19,6 +22,9 @@ public class GLPreview extends GLSurfaceView {
     public Point cameraSize;
     private TextureView.SurfaceTextureListener surfaceTextureListener;
     private Handler handler;
+    private boolean isPlaceholder;
+    private final Paint placeholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint placeholderFramePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public GLPreview(Context context) {
         super(context);
@@ -31,12 +37,50 @@ public class GLPreview extends GLSurfaceView {
     }
 
     private void init() {
+        // In the layout editor there is no EGL context and the PhotonCamera singleton
+        // is never created, so skip GL/OpenGL setup and render a static placeholder.
+        if (isInEditMode()) {
+            isPlaceholder = true;
+            setBackgroundColor(Color.rgb(24, 24, 24));
+            return;
+        }
         handler = new Handler(Looper.getMainLooper());
         mRenderer = new MainRenderer(this);
 
         setEGLContextClientVersion(2);
         setRenderer(mRenderer);
         setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+    }
+
+    @Override
+    public void draw(Canvas canvas) {
+        if (isPlaceholder) {
+            drawPlaceholder(canvas);
+            return;
+        }
+        super.draw(canvas);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        if (isPlaceholder) {
+            drawPlaceholder(canvas);
+            return;
+        }
+        super.onDraw(canvas);
+    }
+
+    private void drawPlaceholder(Canvas canvas) {
+        int w = canvas.getWidth();
+        int h = canvas.getHeight();
+        placeholderPaint.setColor(Color.rgb(24, 24, 24));
+        canvas.drawRect(0, 0, w, h, placeholderPaint);
+        // A framed rectangle standing in for the camera viewfinder.
+        placeholderFramePaint.setColor(Color.rgb(58, 58, 58));
+        placeholderFramePaint.setStyle(Paint.Style.STROKE);
+        placeholderFramePaint.setStrokeWidth(Math.max(2f, h / 150f));
+        canvas.drawRect(0, 0, w, h, placeholderFramePaint);
+        canvas.drawRect(0, 0, w * 3f / 4f, h * 3f / 4f, placeholderFramePaint);
     }
 
     public void fireOnSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int w, int h) {

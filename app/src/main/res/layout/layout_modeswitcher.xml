@@ -28,6 +28,6 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                tools:background="@color/GreyDis"/>
+                tools:background="@android:color/black"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

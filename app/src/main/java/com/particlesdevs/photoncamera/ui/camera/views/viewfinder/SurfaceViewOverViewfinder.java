@@ -50,6 +50,8 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        // PreferenceKeys is uninitialized in the layout editor, skip overlay drawing there.
+        if (isInEditMode()) return;
         drawGrid(canvas);
         drawRoundEdges(canvas);
     }

@@ -21,7 +21,10 @@ public class TimerButton extends AppCompatButton {
 
     public TimerButton(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setTimerIconState(PreferenceKeys.getCountdownTimerIndex());
+        // In the layout editor PreferenceKeys is not initialised yet.
+        if (!isInEditMode()) {
+            setTimerIconState(PreferenceKeys.getCountdownTimerIndex());
+        }
     }
 
     @Override

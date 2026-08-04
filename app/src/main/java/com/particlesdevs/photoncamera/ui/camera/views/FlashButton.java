@@ -16,7 +16,10 @@ public class FlashButton extends AppCompatButton {
 
     public FlashButton(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setFlashValueState(PreferenceKeys.getAeMode());
+        // In the layout editor PreferenceKeys is not initialised yet.
+        if (!isInEditMode()) {
+            setFlashValueState(PreferenceKeys.getAeMode());
+        }
     }
 
     @Override
