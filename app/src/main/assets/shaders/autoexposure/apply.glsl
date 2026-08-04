@@ -50,4 +50,5 @@ void main() {
     //Output.rgb = reinhard_extended(inp.rgb * mpy, mpy);
     Output.rgb = tonemap(mix(inp.rgb,sqrt(inp.rgb), applyGammaMix), mpy);
     Output.rgb = mix(Output.rgb,Output.rgb * Output.rgb, applyGammaMix);
+    Output.rgb = clamp(Output.rgb, 0.0, 1.0);
 }
