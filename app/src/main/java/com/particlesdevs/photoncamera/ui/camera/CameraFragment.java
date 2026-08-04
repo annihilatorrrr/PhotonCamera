@@ -81,6 +81,7 @@ import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
+import com.particlesdevs.photoncamera.ui.camera.binding.CustomBinding;
 import com.particlesdevs.photoncamera.ui.camera.data.CameraLensData;
 import com.particlesdevs.photoncamera.ui.camera.viewmodel.*;
 import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.GLPreview;
@@ -219,6 +220,50 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         cameraFragmentBinding.layoutViewfinder.setTimermodel(timerFrameCountViewModel.getTimerFrameCountModel());
         // associating AuxButtonsModel with layout
         cameraFragmentBinding.setAuxmodel(auxButtonsViewModel.getAuxButtonsModel());
+    }
+
+    /**
+     * Applies the same default layout configuration that the data-binding pipeline
+     * applies at runtime via {@link #setModelsToLayout()} and the adapters in
+     * {@link CustomBinding}:
+     * <ul>
+     * <li>{@code uimodel.dummyAspectRatio} -&gt; {@code dummy_reference_view} aspect ratio</li>
+     * <li>{@code uimodel.settingsBarVisibility == false} -&gt; settings bar hidden</li>
+     * <li>{@code uimodel.screenAspectRatio} -&gt; topbar notch margin and camera container anchor</li>
+     * </ul>
+     * The layout editor preview never runs fragments, viewmodels or data binding,
+     * so {@link com.particlesdevs.photoncamera.ui.camera.CameraLayout} invokes this
+     * during inflation to render the same UI. No logic is duplicated; it reuses the
+     * exact binding adapters used at runtime.
+     *
+     * @param rootLayout the inflated camera_fragment root view
+     */
+    static void preparePreviewLayout(View rootLayout) {
+        // The bottom-bar anchor uses a portrait 3:4 ratio in photo mode (CameraUIViewImpl).
+        CustomBinding.setAspectRatio(rootLayout.findViewById(R.id.dummy_reference_view), "3:4");
+        // The viewfinder is a 3:4 portrait block on the phone; the layout editor can't
+        // measure it from the camera, so give it the same ratio for the preview.
+        View viewfinder = rootLayout.findViewById(R.id.layout_viewfinder);
+        if (viewfinder != null && viewfinder.getLayoutParams() instanceof ConstraintLayout.LayoutParams) {
+            ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) viewfinder.getLayoutParams();
+            params.height = 0;
+            params.dimensionRatio = "3:4";
+            viewfinder.setLayoutParams(params);
+        }
+        // settingsBarVisibility defaults to false -> the settings bar is hidden
+        View settingsBar = rootLayout.findViewById(R.id.settings_bar);
+        if (settingsBar != null) {
+            settingsBar.setVisibility(View.INVISIBLE);
+        }
+        // screenAspectRatio (the device display ratio) drives the topbar notch
+        // margin and the camera container's top anchor via the same binding
+        // adapters used at runtime. The layout editor exposes the preview device
+        // metrics, so compute it the same way as CameraFragment#onViewCreated.
+        DisplayMetrics dm = rootLayout.getResources().getDisplayMetrics();
+        float displayAspectRatio = (float) Math.max(dm.heightPixels, dm.widthPixels)
+                / Math.min(dm.heightPixels, dm.widthPixels);
+        CustomBinding.adjustTopBar(rootLayout.findViewById(R.id.layout_topbar), displayAspectRatio);
+        CustomBinding.adjustCameraContainer(rootLayout.findViewById(R.id.camera_container), displayAspectRatio);
     }
     @Override
     public void onViewCreated(@NonNull final View view, Bundle savedInstanceState) {
