@@ -59,11 +59,17 @@ public class TunableInjector {
                     // Determine if stored as float or int based on step (same logic as TunablePreferenceGenerator)
                     float step = annotation.step();
                     boolean isStoredAsFloat = (step != Math.floor(step));
+                    boolean isFreeText = (step == 0f);
+                    String freeText = isFreeText
+                            ? SettingsManagerExtensions.getString(settingsManager, PreferenceKeys.SCOPE_GLOBAL, prefKey, null)
+                            : null;
                     
                     // Inject value based on type (using annotation default)
                     if (fieldType == float.class || fieldType == Float.class) {
                         float value;
-                        if (isStoredAsFloat) {
+                        if (isFreeText) {
+                            value = (freeText == null || freeText.trim().isEmpty()) ? annotationDefault : Float.parseFloat(freeText);
+                        } else if (isStoredAsFloat) {
                             value = SettingsManagerExtensions.getFloat(settingsManager, 
                                 PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
                         } else {
@@ -75,14 +81,21 @@ public class TunableInjector {
                         Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + annotationDefault + ")");
                         
                     } else if (fieldType == int.class || fieldType == Integer.class) {
-                        int value = SettingsManagerExtensions.getInteger(settingsManager, 
-                            PreferenceKeys.SCOPE_GLOBAL, prefKey, (int) annotationDefault);
+                        int value;
+                        if (isFreeText) {
+                            value = (freeText == null || freeText.trim().isEmpty()) ? (int) annotationDefault : Integer.parseInt(freeText);
+                        } else {
+                            value = SettingsManagerExtensions.getInteger(settingsManager, 
+                                PreferenceKeys.SCOPE_GLOBAL, prefKey, (int) annotationDefault);
+                        }
                         field.setInt(target, value);
                         Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + (int) annotationDefault + ")");
                         
                     } else if (fieldType == double.class || fieldType == Double.class) {
                         double value;
-                        if (isStoredAsFloat) {
+                        if (isFreeText) {
+                            value = (freeText == null || freeText.trim().isEmpty()) ? annotationDefault : Double.parseDouble(freeText);
+                        } else if (isStoredAsFloat) {
                             // Stored as float
                             value = (double) SettingsManagerExtensions.getFloat(settingsManager, 
                                 PreferenceKeys.SCOPE_GLOBAL, prefKey, annotationDefault);
@@ -104,7 +117,12 @@ public class TunableInjector {
                         boolean isCheckbox = (min == 0.0f && max == 1.0f && step == 1.0f);
                         
                         boolean value;
-                        if (isCheckbox) {
+                        if (isFreeText) {
+                            value = (freeText == null || freeText.trim().isEmpty())
+                                    ? defVal
+                                    : (Boolean.parseBoolean(freeText) || freeText.equals("1"));
+                            Log.d(TAG, "Injected free text " + prefKey + " = " + value + " (default: " + defVal + ")");
+                        } else if (isCheckbox) {
                             // Read as int (0 or 1) and convert to boolean
                             int intDefault = defVal ? 1 : 0;
                             int intValue = SettingsManagerExtensions.getInteger(settingsManager, 
@@ -118,6 +136,12 @@ public class TunableInjector {
                             Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + defVal + ")");
                         }
                         field.setBoolean(target, value);
+
+                    } else if (fieldType == String.class && isFreeText) {
+                        String value = (freeText == null || freeText.trim().isEmpty())
+                                ? String.valueOf((int) annotationDefault) : freeText;
+                        field.set(target, value);
+                        Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + (int) annotationDefault + ")");
 
                     } else if (fieldType == File.class) {
                         // Read filename from preferences and construct File in private storage

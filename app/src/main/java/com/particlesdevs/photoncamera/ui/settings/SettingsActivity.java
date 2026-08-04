@@ -142,6 +142,7 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
         private View mRootView;
         private SupportedDevice supportedDevice;
         private boolean tunablePreferencesGenerated = false;
+        private boolean sensorConfigPreferencesGenerated = false;
         private ActivityResultLauncher<String[]> lutImportLauncher;
 
         @Override
@@ -184,6 +185,11 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             if ("pref_tunable_submenu".equals(rootKey)) {
                 Log.d("SettingsFragment", "This is the tunable submenu fragment, generating preferences now");
                 generateTunablePreferences();
+            }
+
+            if ("pref_sensor_config_submenu".equals(rootKey)) {
+                Log.d("SettingsFragment", "This is the sensor config submenu fragment, generating preferences now");
+                generateSensorConfigPreferences();
             }
             
             filterPreferencesByMode();
@@ -242,6 +248,76 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             }
         }
         
+        private void generateSensorConfigPreferences() {
+            // Only generate once per fragment instance
+            if (sensorConfigPreferencesGenerated) {
+                Log.d("SettingsActivity", "Sensor config preferences already generated, skipping");
+                return;
+            }
+            sensorConfigPreferencesGenerated = true;
+            Log.d("SettingsActivity", "=== generateSensorConfigPreferences called ===");
+            Log.d("SettingsActivity", "Context: " + (mContext != null ? "OK" : "NULL"));
+            Log.d("SettingsActivity", "PreferenceScreen: " + (getPreferenceScreen() != null ? "OK" : "NULL"));
+
+            try {
+                PreferenceScreen screen = getPreferenceScreen();
+                if (screen == null) {
+                    Log.w("SettingsActivity", "PreferenceScreen is null, cannot generate sensor config preferences");
+                    return;
+                }
+                Log.d("SettingsActivity", "Target PreferenceScreen: " + screen.getKey() + " (count before: " + screen.getPreferenceCount() + ")");
+
+                com.particlesdevs.photoncamera.settings.SensorConfigPreferenceGenerator.generatePreferences(mContext, screen);
+
+                Log.d("SettingsActivity", "Generated sensor config preferences (count after: " + screen.getPreferenceCount() + ")");
+                addSensorConfigResetButton();
+                Log.d("SettingsActivity", "=== generateSensorConfigPreferences completed (final count: " + screen.getPreferenceCount() + ") ===");
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "ERROR in generateSensorConfigPreferences", e);
+                e.printStackTrace();
+            }
+        }
+
+        private void addSensorConfigResetButton() {
+            try {
+                PreferenceScreen submenu = getPreferenceScreen();
+                if (submenu == null) {
+                    Log.w("SettingsActivity", "PreferenceScreen is null, cannot add sensor config reset button");
+                    return;
+                }
+
+                Preference resetButton = new Preference(mContext);
+                resetButton.setKey("pref_reset_sensor_config_settings");
+                resetButton.setTitle("Reset All to Defaults");
+                resetButton.setSummary("Reset all sensor configuration parameters to their default values");
+                resetButton.setIcon(android.R.drawable.ic_menu_revert);
+                resetButton.setOrder(9999); // Force to the end
+
+                resetButton.setOnPreferenceClickListener(preference -> {
+                    SharedPreferences prefs = mSettingsManager.getDefaultPreferences();
+                    SharedPreferences.Editor editor = prefs.edit();
+                    int resetCount = 0;
+                    for (String key : prefs.getAll().keySet()) {
+                        if (key != null && key.startsWith("pref_sensorconfig_")) {
+                            editor.remove(key);
+                            resetCount++;
+                        }
+                    }
+                    editor.apply();
+                    if (getActivity() != null) {
+                        getActivity().recreate();
+                    }
+                    PhotonCamera.showToast("Sensor config settings reset to defaults (" + resetCount + ")");
+                    return true;
+                });
+
+                submenu.addPreference(resetButton);
+                Log.d("SettingsActivity", "Added sensor config reset button (preferenceCount after: " + submenu.getPreferenceCount() + ")");
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "Error adding sensor config reset button", e);
+            }
+        }
+
         private void addTunableResetButton() {
             try {
                 // When we're inside the tunable submenu fragment, getPreferenceScreen() IS the tunable submenu
@@ -638,8 +714,8 @@ public class SettingsActivity extends BaseActivity implements PreferenceFragment
             Log.d("SettingsFragment", "onPreferenceTreeClick: " + preference.getKey());
             
             // Handle tunable submenu click manually to ensure proper navigation
-            if ("pref_tunable_submenu".equals(preference.getKey())) {
-                Log.d("SettingsFragment", "Tunable submenu clicked, navigating...");
+            if ("pref_tunable_submenu".equals(preference.getKey()) || "pref_sensor_config_submenu".equals(preference.getKey())) {
+                Log.d("SettingsFragment", "Submenu clicked, navigating: " + preference.getKey());
                 
                 // Navigate to the submenu (preferences will be generated in the new fragment's onCreate)
                 if (preference instanceof PreferenceScreen) {

@@ -69,6 +69,25 @@ public class SettingsManagerExtensions {
             preferences.edit().putBoolean(key, value).apply();
         }
     }
+
+    /**
+     * Get string value with dynamic string key.
+     * Tolerates values stored as native numbers (e.g. by a previous seekbar) so
+     * free-text fields can read values regardless of storage type.
+     */
+    public static String getString(SettingsManager manager, String scope, String key, String defaultValue) {
+        SharedPreferences preferences = manager.getDefaultPreferences();
+        if (scope.equals(SettingsManager.SCOPE_GLOBAL)) {
+            Object value = preferences.getAll().get(key);
+            if (value instanceof String) {
+                return (String) value;
+            } else if (value instanceof Number) {
+                return String.valueOf(value);
+            }
+            return defaultValue;
+        }
+        return defaultValue;
+    }
 }
 
 

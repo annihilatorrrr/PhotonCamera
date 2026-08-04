@@ -1,6 +1,8 @@
 package com.particlesdevs.photoncamera.settings;
 
 import android.content.Context;
+import android.text.InputType;
+import androidx.preference.EditTextPreference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 
@@ -164,7 +166,13 @@ public class TunablePreferenceGenerator {
     private static void addPreference(Context context, PreferenceCategory category, TunableFieldInfo info) {
         Tunable annotation = info.annotation;
         String prefKey = "pref_tunable_" + info.className.toLowerCase() + "_" + info.fieldName.toLowerCase();
-        
+
+        // step == 0 means plain text input without a slider
+        if (annotation.step() == 0f) {
+            addFreeTextPreference(context, category, prefKey, info);
+            return;
+        }
+
         // Check if this should be a checkbox (min=0, max=1, step=1)
         float min = annotation.min();
         float max = annotation.max();
@@ -255,6 +263,60 @@ public class TunablePreferenceGenerator {
         }
     }
     
+    /**
+     * Creates a plain text input preference (no slider) when the annotation step is 0.
+     * The value is stored as a String and parsed back to the field type on injection.
+     */
+    private static void addFreeTextPreference(Context context, PreferenceCategory category, String prefKey, TunableFieldInfo info) {
+        Tunable annotation = info.annotation;
+        float defaultValue = getFieldDefaultValue(info);
+        Class<?> fieldType = info.fieldType;
+
+        EditTextPreference editText = new EditTextPreference(context);
+        editText.setKey(prefKey);
+        editText.setTitle(annotation.title());
+        editText.setDialogTitle(annotation.title());
+        editText.setIconSpaceReserved(false);
+
+        int inputType;
+        if (fieldType == float.class || fieldType == Float.class
+                || fieldType == double.class || fieldType == Double.class) {
+            inputType = InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED | InputType.TYPE_NUMBER_FLAG_DECIMAL;
+        } else if (fieldType == int.class || fieldType == Integer.class
+                || fieldType == long.class || fieldType == Long.class
+                || fieldType == short.class || fieldType == Short.class
+                || fieldType == byte.class || fieldType == Byte.class) {
+            inputType = InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED;
+        } else {
+            inputType = InputType.TYPE_CLASS_TEXT;
+        }
+
+        editText.setOnBindEditTextListener(edit -> {
+            edit.setInputType(inputType);
+            if (editText.getText() == null) {
+                edit.setText(formatDefault(defaultValue, fieldType));
+            }
+        });
+
+        String description = annotation.description();
+        editText.setSummaryProvider(preference -> {
+            String value = editText.getText();
+            String display = value != null ? value : formatDefault(defaultValue, fieldType);
+            return description.isEmpty() ? display : description + "\n" + display;
+        });
+
+        category.addPreference(editText);
+        Log.d(TAG, "Added free text preference: " + prefKey);
+    }
+
+    private static String formatDefault(float defaultValue, Class<?> fieldType) {
+        if (fieldType == float.class || fieldType == Float.class
+                || fieldType == double.class || fieldType == Double.class) {
+            return String.valueOf(defaultValue);
+        }
+        return String.valueOf((int) defaultValue);
+    }
+
     private static float getFieldDefaultValue(TunableFieldInfo info) {
         // Check if default value is specified in annotation
         float annotationDefault = info.annotation.defaultValue();

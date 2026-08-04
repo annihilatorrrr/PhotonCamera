@@ -419,14 +419,27 @@
                 android:icon="@drawable/ic_gradient_black_24dp"
                 android:defaultValue="@bool/pref_show_gradient_def_value"/>
     </PreferenceCategory>
-    <PreferenceScreen
-            android:layout="@layout/preference_with_margin"
-            android:title="Tunable Settings"
-            android:summary="Advanced tunable parameters"
-            android:key="pref_tunable_submenu"
-            android:icon="@drawable/ic_tune_black_24dp">
-        <!-- Tunable preferences will be added here dynamically -->
-    </PreferenceScreen>
+    <PreferenceCategory
+            android:layout="@layout/preference_category_layout"
+            android:key="@string/pref_category_advanced_key"
+            android:title="@string/advanced">
+        <PreferenceScreen
+                android:layout="@layout/preference_with_margin"
+                android:title="Tunable Settings"
+                android:summary="Advanced tunable parameters"
+                android:key="pref_tunable_submenu"
+                android:icon="@drawable/ic_tune_black_24dp">
+            <!-- Tunable preferences will be added here dynamically -->
+        </PreferenceScreen>
+        <PreferenceScreen
+                android:layout="@layout/preference_with_margin"
+                android:title="@string/sensor_configurations"
+                android:summary="@string/sensor_configurations_summary"
+                android:key="pref_sensor_config_submenu"
+                android:icon="@drawable/ic_bayer">
+            <!-- Sensor config preferences will be added here dynamically -->
+        </PreferenceScreen>
+    </PreferenceCategory>
     <PreferenceCategory
             android:layout="@layout/preference_category_layout"
             android:key="@string/pref_category_device_key"

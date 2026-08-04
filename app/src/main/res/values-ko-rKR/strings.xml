@@ -34,6 +34,7 @@
     <string name="turn_on_round_edges">라운드 엣지 활성화</string>
     <string name="enable_remosaic">리모자이크(Remosaic) 활성화</string>
     <string name="general">일반</string>
+    <string name="advanced">고급</string>
     <string name="telegram">텔레그램 그룹 ↗</string>
     <string name="hdrxNR">노이즈 감소</string>
     <string name="turn_on_watermark">워터마크</string>

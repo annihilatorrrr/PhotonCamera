@@ -84,6 +84,8 @@ import com.particlesdevs.photoncamera.processing.parameters.FrameNumberSelector;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.processing.parameters.ResolutionSolution;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+import com.particlesdevs.photoncamera.settings.SensorConfigInjector;
+import com.particlesdevs.photoncamera.settings.annotations.SensorConfig;
 import com.particlesdevs.photoncamera.ui.camera.CameraFragment;
 import com.particlesdevs.photoncamera.ui.camera.viewmodel.TimerFrameCountViewModel;
 import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.AutoFitPreviewView;
@@ -216,6 +218,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     public static CaptureRequest mPreviewCaptureRequest;
     public static int mPreviewTargetFormat = ImageFormat.JPEG;
     public boolean isDualSession = false;
+
+    @SensorConfig(title = "Session Type",
+            defaultValue = 0, min = 0, max = 65535, step = 0,
+            description = "Camera capture session type (0 = regular)")
+    public int sessionType = 0;
     private static int mTargetFormat = RAW_FORMAT;
     private final ParamController paramController;
     public TouchFocus mTouchFocus;
@@ -1456,6 +1463,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     Surface surface;
     public void createCameraPreviewSession(boolean isBurstSession) {
         try {
+            SensorConfigInjector.applyToSensor(physicalID, this);
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
             if (texture == null) {
                 Log.w(TAG, "createCameraPreviewSession(): SurfaceTexture not ready, waiting for surface");
@@ -1556,7 +1564,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             };
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 SessionConfiguration configuration = new SessionConfiguration(
-                        SessionConfiguration.SESSION_REGULAR,
+                        sessionType,
                         outputConfigurations,
                         processExecutor,
                         stateCallback

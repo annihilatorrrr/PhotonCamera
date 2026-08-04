@@ -12,6 +12,7 @@ import android.hardware.camera2.params.LensShadingMap;
 import android.os.Build;
 import android.os.Environment;
 
+import com.particlesdevs.photoncamera.settings.annotations.SensorConfig;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
 import com.particlesdevs.photoncamera.util.Log;
 import android.util.Rational;
@@ -101,23 +102,24 @@ public class Parameters {
     boolean useDynamicBlackLevel;
 
     @Tunable(title = "Use Dynamic White Level", category = "Parameters", defaultValue = 1, min = 0, max = 1, step = 1,
-            description = "Use dynamic black level from the camera2api capture result if available (may cause instability on some devices)"
+            description = "Use dynamic white level from the camera2api capture result if available (may cause instability on some devices)"
     )
     boolean useDynamicWhiteLevel;
 
-    @Tunable(title = "Black Level Override", category = "Parameters",
-            defaultValue = -1.0f, min = -1.0f, max = 65535.f, step = 1.0f,
-            description = "Override black level for all channels -1 is disabled")
-    float blackLevelOverride;
-
-    @Tunable(title = "White Level Override", category = "Parameters",
+    @SensorConfig(title = "White Level Override",
             defaultValue = -1, min = -1, max = 65535, step = 1,
-            description = "Override black level for all channels -1 is disabled")
+            description = "Override white level for all channels -1 is disabled")
     int whiteLevelOverride;
 
     @Tunable(title = "Disable front mirror", category = "Parameters", defaultValue = 0, min = 0, max = 1, step = 1,
             description = "Disable front camera mirroring")
     boolean disableMirror;
+
+    @SensorConfig(title = "Black Level Override",
+            description = "Override black level for this sensor (-1 = auto)",
+            min = -1.0f, max = 8192.0f, step = 1.0f, defaultValue = -1.0f
+    )
+    float blackLevelOverride;
 
     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
@@ -132,6 +134,7 @@ public class Parameters {
             physicalID = Integer.parseInt(cameraID);
             logicalID = Integer.parseInt(cameraID);
         }
+        com.particlesdevs.photoncamera.settings.SensorConfigInjector.applyToSensor(String.valueOf(physicalID), this);
 
         rawSize = size;
         alignmentSize = new Point((size.x / (tile)) + 1, (size.y / (tile)) + 1);

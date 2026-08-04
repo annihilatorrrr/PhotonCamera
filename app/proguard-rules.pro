@@ -54,5 +54,35 @@
     public *;
 }
 
+# ===== Sensor Config Annotation System Rules =====
+# Keep the @SensorConfig annotation
+-keep @interface com.particlesdevs.photoncamera.settings.annotations.SensorConfig
+
+# Keep all classes with @SensorConfig annotated fields
+-keep class * {
+    @com.particlesdevs.photoncamera.settings.annotations.SensorConfig <fields>;
+}
+
+# Keep field names for @SensorConfig annotated fields (needed for reflection)
+-keepclassmembers class * {
+    @com.particlesdevs.photoncamera.settings.annotations.SensorConfig <fields>;
+}
+
+# Keep the SensorConfig system classes
+-keep class com.particlesdevs.photoncamera.settings.SensorConfigInjector { *; }
+-keep class com.particlesdevs.photoncamera.settings.SensorConfigPreferenceGenerator { *; }
+-keep class com.particlesdevs.photoncamera.settings.SensorConfigPreferenceGenerator$* { *; }
+-keep class com.particlesdevs.photoncamera.settings.SensorConfigRegistry { *; }
+-keep class com.particlesdevs.photoncamera.settings.TunableKeyManager { *; }
+-keep class com.particlesdevs.photoncamera.ui.settings.custompreferences.TunableKeyPreference { *; }
+-keep class com.particlesdevs.photoncamera.ui.settings.custompreferences.TunableKeyDialog { *; }
+
+# Keep VendorTagUtils and the nested TunableKey class with field names for GSON JSON round-trip
+-keep class com.particlesdevs.photoncamera.api.VendorTagUtils { *; }
+-keep class com.particlesdevs.photoncamera.api.VendorTagUtils$TunableKey { *; }
+-keepclassmembers class com.particlesdevs.photoncamera.api.VendorTagUtils$TunableKey {
+    <fields>;
+}
+
 # Missing class rules
 -dontwarn org.apache.commons.lang.functor.Predicate
