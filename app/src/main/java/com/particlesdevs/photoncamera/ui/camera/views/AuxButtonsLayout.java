@@ -56,13 +56,23 @@ public class AuxButtonsLayout extends LinearLayout {
     private AuxButtonsModel auxButtonsModel;
     private boolean hiddenBySettings;
 
-    public AuxButtonsLayout(Context context, @Nullable AttributeSet attrs) {
+public AuxButtonsLayout(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
 
         int margin = (int) context.getResources().getDimension(R.dimen.aux_button_internal_margin);
         int size = (int) context.getResources().getDimension(R.dimen.aux_button_size);
         buttonParams = new LinearLayout.LayoutParams(size, size);
         buttonParams.setMargins(margin, margin, margin, margin);
+
+        // The layout editor runs this constructor but not the data-binding adapters,
+        // so populate a few sample buttons so the host preview shows the aux palette.
+        if (isInEditMode()) {
+            addNewButton("0", "1x");
+            addNewButton("1", "2x");
+            addNewButton("2", "5x");
+            setListenerAndSelected("0");
+            updateVisibility();
+        }
     }
 
     private static String getAuxButtonName(float zoomFactor) {
