@@ -6,7 +6,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 
-import com.particlesdevs.photoncamera.processing.opengl.scripts.PyramidMerging;
+import com.particlesdevs.photoncamera.processing.opengl.scripts.ESD4D;
 import com.particlesdevs.photoncamera.util.Log;
 import com.particlesdevs.photoncamera.api.Camera2ApiAutoFix;
 import com.particlesdevs.photoncamera.api.CameraMode;
@@ -260,11 +260,11 @@ public class HdrxProcessor extends ProcessorBase {
         //WrapperAl.packImages();
         Log.d(TAG, "Packed");
         if(images.size() > 1) {
-            PyramidMerging pyramidMerging = new PyramidMerging(new Point(width, height), images);
-            pyramidMerging.parameters = processingParameters;
-            pyramidMerging.Run();
-            pyramidMerging.close();
-            output = pyramidMerging.Output;
+            ESD4D esd4d = new ESD4D(new Point(width, height), images);
+            esd4d.parameters = processingParameters;
+            esd4d.Run();
+            esd4d.close();
+            output = esd4d.Output;
             for (int i = 0; i < images.size(); i++) {
                 images.get(i).close();
             }

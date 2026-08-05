@@ -93,8 +93,7 @@ void main() {
         }
     }*/
     //vec4 w = weightSum;
-    //vec4 w = weightSum;
-    noise /= integralNorm*integralNorm;
+    noise /= integralNorm;
     variance = (max(variance - noise*noise, vec4(0.0)));
     vec4 w = (noise*noise) / (noise * noise + variance);
     w = ((clamp(w, MINWEIGHT, MAXWEIGHT)-MINWEIGHT)/(MAXWEIGHT-MINWEIGHT));

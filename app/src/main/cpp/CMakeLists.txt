@@ -40,6 +40,37 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps)
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+# ---------------------------------------------------------------------------
+# ncnn (prebuilt Vulkan static libs under ncnn/<ABI>/)
+#
+# The prebuilt package ships a CMake package config per ABI. Point ncnn_DIR at
+# the config for the current ANDROID_ABI; find_package() pulls in the glslang
+# targets and link flags automatically.
+# ---------------------------------------------------------------------------
+set(NCNN_ANDROID_PKG "${CMAKE_CURRENT_SOURCE_DIR}/ncnn/${ANDROID_ABI}")
+if(EXISTS "${NCNN_ANDROID_PKG}/lib/cmake/ncnn/ncnnConfig.cmake")
+    set(ncnn_DIR "${NCNN_ANDROID_PKG}/lib/cmake/ncnn")
+    find_package(ncnn REQUIRED)
+    message(STATUS "ncnn enabled for ${ANDROID_ABI}")
+else()
+    message(WARNING "ncnn prebuilt package not found for ${ANDROID_ABI}; KernelNetNCNNProcessor disabled")
+endif()
+
+add_library(kernelnetNcnn SHARED
+    ${SRC_DIR}/kernelnetNcnn.cpp
+)
+if(TARGET ncnn)
+    target_link_libraries(kernelnetNcnn PRIVATE
+        ncnn
+        log
+    )
+else()
+    target_link_libraries(kernelnetNcnn PRIVATE
+        log
+    )
+endif()
+
 add_library(${CMAKE_PROJECT_NAME} SHARED
     ${SRC_DIR}/dngCreator.cpp
 )
