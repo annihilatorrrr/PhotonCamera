@@ -22,9 +22,11 @@ import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
 import java.util.Observer;
 
 /**
- * Responsible for initialising and updating {@link KnobModel} and {@link ManualModeModel}
+ * Responsible for initialising and updating {@link KnobModel} and
+ * {@link ManualModeModel}
  * <p>
- * This class also manages the attaching/detaching of {@link ManualModel} subclasses to {@link KnobView}
+ * This class also manages the attaching/detaching of {@link ManualModel}
+ * subclasses to {@link KnobView}
  * and setting listeners to models
  * <p>
  * Authors - Vibhor, KillerInk
@@ -124,11 +126,16 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
         CameraProperties cameraProperties = new CameraProperties(cameraCharacteristics);
         manualParamModel.reset();
         Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-        mfModel = new FocusModel(context, cameraCharacteristics, cameraProperties.focusRange, manualParamModel, manualModeModel::setFocusText,v);
-        evModel = new EvModel(context, cameraCharacteristics, cameraProperties.evRange, manualParamModel, manualModeModel::setEvText,v);
-        ((EvModel) evModel).setEvStep((cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP).floatValue()));
-        isoModel = new IsoModel(context, cameraCharacteristics, cameraProperties.isoRange, manualParamModel, manualModeModel::setIsoText,v);
-        expoTimeModel = new ShutterModel(context, cameraCharacteristics, cameraProperties.expRange, manualParamModel, manualModeModel::setExposureText,v);
+        mfModel = new FocusModel(context, cameraCharacteristics, cameraProperties.focusRange, manualParamModel,
+                manualModeModel::setFocusText, v);
+        evModel = new EvModel(context, cameraCharacteristics, cameraProperties.evRange, manualParamModel,
+                manualModeModel::setEvText, v);
+        ((EvModel) evModel).setEvStep(
+                (cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP).floatValue()));
+        isoModel = new IsoModel(context, cameraCharacteristics, cameraProperties.isoRange, manualParamModel,
+                manualModeModel::setIsoText, v);
+        expoTimeModel = new ShutterModel(context, cameraCharacteristics, cameraProperties.expRange, manualParamModel,
+                manualModeModel::setExposureText, v);
         knobModel.setKnobVisible(false);
         manualModeModel.setCheckedTextViewId(-1);
     }
@@ -175,13 +182,13 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
     }
 
     private void setAutoText() {
-        if(evModel != null)
+        if (evModel != null)
             evModel.setAutoTxt();
-        if(mfModel != null)
+        if (mfModel != null)
             mfModel.setAutoTxt();
-        if(expoTimeModel != null)
+        if (expoTimeModel != null)
             expoTimeModel.setAutoTxt();
-        if(isoModel != null)
+        if (isoModel != null)
             isoModel.setAutoTxt();
     }
 
@@ -190,15 +197,30 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
         knobModel.setKnobVisible(false);
         knobModel.setKnobResetCalled(true);
         selectedModel = null;
-        if(mfModel != null)
+        if (mfModel != null)
             mfModel.resetModel();
-        if(expoTimeModel != null)
+        if (expoTimeModel != null)
             expoTimeModel.resetModel();
-        if(isoModel != null)
+        if (isoModel != null)
             isoModel.resetModel();
-        if(evModel != null)
+        if (evModel != null)
             evModel.resetModel();
         manualModeModel.setCheckedTextViewId(-1);
+    }
+
+    @Override
+    public boolean isFocusParameterSelected() {
+        return selectedModel instanceof FocusModel;
+    }
+
+    @Override
+    public boolean isManualFocusModeActive() {
+        if (mfModel == null) {
+            return false;
+        }
+        com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo currentInfo = mfModel
+                .getCurrentInfo();
+        return currentInfo != null && currentInfo.value != ManualParamModel.FOCUS_AUTO;
     }
 
     private void setModelToKnob(int viewId, ManualModel<?> modelToKnob) {
