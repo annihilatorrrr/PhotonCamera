@@ -145,4 +145,5 @@
     <string name="gallery_folders">Папки галереи</string>
     <string name="color_method">Цветовой метод</string>
     <string name="focus_peaking">Пик фокуса</string>
+    <string name="focus_peaking_auto">Авто</string>
 </resources>

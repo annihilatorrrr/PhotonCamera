@@ -30,6 +30,7 @@
     <string-array name="focuspeakset_entries">
         <item>Off</item>
         <item>On</item>
+        <item>@string/focus_peaking_auto</item>
     </string-array>
     <string-array name="preview_format_entries">
         <item>YUV_420_888</item>
@@ -53,6 +54,7 @@
     <string-array name="focuspeakset_entryValues">
         <item>0</item>
         <item>1</item>
+        <item>2</item>
     </string-array>
     <string-array name="preview_format_entryValues">
         <item>35</item>
