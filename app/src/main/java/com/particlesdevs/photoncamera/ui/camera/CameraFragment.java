@@ -106,14 +106,17 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
      * Tag for the {@link Log}.
      */
     private static final String TAG = CameraFragment.class.getSimpleName();
-    private static final String ACTIVE_BACKCAM_ID = "ACTIVE_BACKCAM_ID"; //key for savedInstanceState
-    private static final String ACTIVE_FRONTCAM_ID = "ACTIVE_FRONTCAM_ID"; //key for savedInstanceState
+    private static final String ACTIVE_BACKCAM_ID = "ACTIVE_BACKCAM_ID"; // key for savedInstanceState
+    private static final String ACTIVE_FRONTCAM_ID = "ACTIVE_FRONTCAM_ID"; // key for savedInstanceState
     private static final String NOTIFICATION_CHANNEL_ID = "NOTIFICATION_CHANNEL_ID";
     /**
      * sActiveBackCamId is either
-     * = 0 or camera_id stored in SharedPreferences in case of fresh application Start; or
-     * = camera id set from {@link CameraFragment#onViewStateRestored(Bundle)} if Activity re-created due to configuration change.
-     * it will NEVER be = 1 *assuming* that 1 is the id of Front Camera on most devices
+     * = 0 or camera_id stored in SharedPreferences in case of fresh application
+     * Start; or
+     * = camera id set from {@link CameraFragment#onViewStateRestored(Bundle)} if
+     * Activity re-created due to configuration change.
+     * it will NEVER be = 1 *assuming* that 1 is the id of Front Camera on most
+     * devices
      */
     public static String sActiveBackCamId = "0";
     public static String sActiveFrontCamId = "1";
@@ -121,11 +124,13 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     private final Field[] metadataFields = CameraReflectionApi.getAllMetadataFields();
     private final int NOTIFICATION_ID = 1;
     /*
-    private final ExecutorService processExecutorService = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ProcessingThread");
-        t.setPriority(Thread.MIN_PRIORITY);
-        return t;
-    });*/
+     * private final ExecutorService processExecutorService =
+     * Executors.newSingleThreadExecutor(r -> {
+     * Thread t = new Thread(r, "ProcessingThread");
+     * t.setPriority(Thread.MIN_PRIORITY);
+     * return t;
+     * });
+     */
     private final ExecutorService processExecutorService = Executors.newFixedThreadPool(2);
     public SurfaceViewOverViewfinder surfaceView;
     public Map<String, CameraLensData> mCameraLensDataMap;
@@ -173,6 +178,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public CameraFragmentViewModel getCameraFragmentViewModel() {
         return cameraFragmentViewModel;
     }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -183,22 +189,25 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         settingsManager = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSettingsManager();
         supportedDevice = Objects.requireNonNull(PhotonCamera.getInstance(activity)).getSupportedDevice();
     }
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        //create the ui binding
+            Bundle savedInstanceState) {
+        // create the ui binding
         this.cameraFragmentBinding = DataBindingUtil.inflate(inflater, R.layout.camera_fragment, container, false);
         Log.d(TAG, "onCreateView: ");
         initMembers();
         setModelsToLayout();
         return cameraFragmentBinding.getRoot();
     }
+
     private void initMembers() {
-        //create the viewmodel which updates the model
+        // create the viewmodel which updates the model
         cameraFragmentViewModel = new ViewModelProvider(this).get(CameraFragmentViewModel.class);
         DisplayMetrics dm = getResources().getDisplayMetrics();
         logDisplayProperties(dm);
-        displayAspectRatio = (float) Math.max(dm.heightPixels, dm.widthPixels) / Math.min(dm.heightPixels, dm.widthPixels);
+        displayAspectRatio = (float) Math.max(dm.heightPixels, dm.widthPixels)
+                / Math.min(dm.heightPixels, dm.widthPixels);
         cameraFragmentViewModel.setScreenAspectRatio(displayAspectRatio);
 
         timerFrameCountViewModel = new ViewModelProvider(this).get(TimerFrameCountViewModel.class);
@@ -210,31 +219,38 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     }
 
     private void setModelsToLayout() {
-        //bind the model to the ui, it applies changes when the model values get changed
+        // bind the model to the ui, it applies changes when the model values get
+        // changed
         cameraFragmentBinding.setUimodel(cameraFragmentViewModel.getCameraFragmentModel());
         cameraFragmentBinding.layoutTopbar.setUimodel(cameraFragmentViewModel.getCameraFragmentModel());
-        cameraFragmentBinding.layoutBottombar.bottomButtons.setUimodel(cameraFragmentViewModel.getCameraFragmentModel());
+        cameraFragmentBinding.layoutBottombar.bottomButtons
+                .setUimodel(cameraFragmentViewModel.getCameraFragmentModel());
         // associating timer model with layouts
-        cameraFragmentBinding.layoutBottombar.bottomButtons.setTimermodel(timerFrameCountViewModel.getTimerFrameCountModel());
+        cameraFragmentBinding.layoutBottombar.bottomButtons
+                .setTimermodel(timerFrameCountViewModel.getTimerFrameCountModel());
         cameraFragmentBinding.layoutViewfinder.setTimermodel(timerFrameCountViewModel.getTimerFrameCountModel());
         // associating AuxButtonsModel with layout
         cameraFragmentBinding.setAuxmodel(auxButtonsViewModel.getAuxButtonsModel());
     }
+
     @Override
     public void onViewCreated(@NonNull final View view, Bundle savedInstanceState) {
         this.mCameraUIView = new CameraUIViewImpl(this);
         this.mCameraUIEventsListener = new CameraUIController(this);
         this.mCameraUIView.setCameraUIEventsListener(mCameraUIEventsListener);
-        this.captureController = new CaptureController(activity, processExecutorService, new CameraEventsListenerImpl());
+        this.captureController = new CaptureController(activity, processExecutorService,
+                new CameraEventsListenerImpl());
         this.captureController.setManualModeConsole(manualModeConsole);
         this.manualModeConsole.addParamObserver(captureController.getParamController());
+        this.textureView.setManualModeConsole(manualModeConsole);
         PhotonCamera.setCaptureController(captureController);
         captureController.isDualSession = supportedDevice.specific.specificSetting.isDualSessionSupported;
         mHorizonIndicatorView = cameraFragmentBinding.layoutViewfinder.horizonIndicatorView;
         this.mSwipe = new Swipe(this);
         var gyro = PhotonCamera.getGyro();
         if ((mHorizonIndicatorView != null) && (gyro != null)) {
-            mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+            mHorizonIndicatorView
+                    .updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
             mHorizonIndicatorView.setGyro(gyro);
         }
         if (mHorizonIndicatorView != null) {
@@ -249,7 +265,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         settingsBarEntryProvider.addEntries(cameraFragmentBinding.settingsBar);
     }
 
-    public void updateSettingsBar(){
+    public void updateSettingsBar() {
         settingsBarEntryProvider.updateAllEntries();
         settingsBarEntryProvider.addEntries(cameraFragmentBinding.settingsBar);
         this.mCameraUIView.refresh(CaptureController.isProcessing);
@@ -266,7 +282,8 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
         super.onViewStateRestored(savedInstanceState);
         if (PhotonCamera.DEBUG)
-            Log.d("FragmentMonitor", "[" + getClass().getSimpleName() + "] : onViewStateRestored(), savedInstanceState = [" + savedInstanceState + "]");
+            Log.d("FragmentMonitor", "[" + getClass().getSimpleName()
+                    + "] : onViewStateRestored(), savedInstanceState = [" + savedInstanceState + "]");
         if (savedInstanceState != null) {
             sActiveBackCamId = savedInstanceState.getString(ACTIVE_BACKCAM_ID);
             sActiveFrontCamId = savedInstanceState.getString(ACTIVE_FRONTCAM_ID);
@@ -275,7 +292,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+            @NonNull int[] grantResults) {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             if (grantResults.length != 1 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 showErrorDialog(R.string.request_permission);
@@ -284,6 +301,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -294,7 +312,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             PhotonCamera.getGyro().register();
             PhotonCamera.getGravity().register();
             burstPlayer = MediaPlayer.create(activity, R.raw.sound_burst2);
-            endPlayer = MediaPlayer.create(activity,R.raw.sound_end);
+            endPlayer = MediaPlayer.create(activity, R.raw.sound_end);
             cameraFragmentViewModel.updateGalleryThumb(null);
         });
         cameraFragmentViewModel.onResume();
@@ -313,7 +331,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         if (cameraFragmentBinding != null && captureController != null) {
             View focusCircle = cameraFragmentBinding.layoutViewfinder.touchFocus;
             textureView.post(() -> {
-                mTouchFocus = new TouchFocus(captureController,focusCircle,textureView);
+                mTouchFocus = new TouchFocus(captureController, focusCircle, textureView);
                 captureController.mTouchFocus = mTouchFocus;
             });
         }
@@ -326,7 +344,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         PhotonCamera.getSettings().saveID();
         textureView.onPause();
         captureController.closeCamera();
-//        stopBackgroundThread();
+        // stopBackgroundThread();
         cameraFragmentViewModel.onPause();
         mCameraUIEventsListener.onPause();
         auxButtonsViewModel.setAuxButtonListener(null);
@@ -354,7 +372,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     @Override
     public void onDestroy() {
         super.onDestroy();
-//        Log.d(TAG, "onDestroy() called");
+        // Log.d(TAG, "onDestroy() called");
         try {
             captureController.stopBackgroundThread();
         } catch (Exception e) {
@@ -363,7 +381,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         getParentFragmentManager().beginTransaction().remove(CameraFragment.this).commitAllowingStateLoss();
         for (Future<?> taskResult : captureController.taskResults) {
             try {
-                taskResult.get(); //wait for all tasks to complete
+                taskResult.get(); // wait for all tasks to complete
             } catch (ExecutionException | InterruptedException ignored) {
             }
         }
@@ -382,22 +400,30 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     private void updateScreenLog(CaptureResult result) {
         surfaceView.post(() -> {
             if (mHorizonIndicatorView != null) {
-                mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+                mHorizonIndicatorView
+                        .updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
             }
             mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
             if (PreferenceKeys.isAfDataOn()) {
                 IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
                 LinkedHashMap<String, String> stringMap = new LinkedHashMap<>();
-                stringMap.put("AF_MODE", getResultFieldName("CONTROL_AF_MODE_", result.get(CaptureResult.CONTROL_AF_MODE)));
-                stringMap.put("AF_TRIGGER", getResultFieldName("CONTROL_AF_TRIGGER_", result.get(CaptureResult.CONTROL_AF_TRIGGER)));
-                stringMap.put("AF_STATE", getResultFieldName("CONTROL_AF_STATE_", result.get(CaptureResult.CONTROL_AF_STATE)));
-                stringMap.put("AE_MODE", getResultFieldName("CONTROL_AE_MODE_", result.get(CaptureResult.CONTROL_AE_MODE)));
+                stringMap.put("AF_MODE",
+                        getResultFieldName("CONTROL_AF_MODE_", result.get(CaptureResult.CONTROL_AF_MODE)));
+                stringMap.put("AF_TRIGGER",
+                        getResultFieldName("CONTROL_AF_TRIGGER_", result.get(CaptureResult.CONTROL_AF_TRIGGER)));
+                stringMap.put("AF_STATE",
+                        getResultFieldName("CONTROL_AF_STATE_", result.get(CaptureResult.CONTROL_AF_STATE)));
+                stringMap.put("AE_MODE",
+                        getResultFieldName("CONTROL_AE_MODE_", result.get(CaptureResult.CONTROL_AE_MODE)));
                 stringMap.put("FLASH_MODE", getResultFieldName("FLASH_MODE_", result.get(CaptureResult.FLASH_MODE)));
                 stringMap.put("FOCUS_DISTANCE", String.valueOf(result.get(CaptureResult.LENS_FOCUS_DISTANCE)));
                 stringMap.put("EXPOSURE_TIME", expoPair.ExposureString() + "s");
-//            stringMap.put("EXPOSURE_TIME_CR", String.format(Locale.ROOT,"%.5f",result.get(CaptureResult.SENSOR_EXPOSURE_TIME).doubleValue()/1E9)+ "s");
+                // stringMap.put("EXPOSURE_TIME_CR",
+                // String.format(Locale.ROOT,"%.5f",result.get(CaptureResult.SENSOR_EXPOSURE_TIME).doubleValue()/1E9)+
+                // "s");
                 stringMap.put("ISO", String.valueOf(expoPair.iso));
-//            stringMap.put("ISO_CR", String.valueOf(result.get(CaptureResult.SENSOR_SENSITIVITY)));
+                // stringMap.put("ISO_CR",
+                // String.valueOf(result.get(CaptureResult.SENSOR_SENSITIVITY)));
                 stringMap.put("Shakiness", String.valueOf(PhotonCamera.getGyro().getShakiness()));
                 stringMap.put("TripodShakiness", String.valueOf(PhotonCamera.getGyro().tripodShakiness));
                 stringMap.put("Tripod", String.valueOf(PhotonCamera.getGyro().getTripod()));
@@ -436,28 +462,31 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     }
 
     private RectF getScreenRectFromMeteringRect(MeteringRectangle meteringRectangle) {
-        if (captureController.mImageReaderPreview == null) return new RectF();
+        if (captureController.mImageReaderPreview == null)
+            return new RectF();
         Size size = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE);
         if (size == null) {
-            size = new Size(captureController.mImageReaderPreview.getWidth(), captureController.mImageReaderPreview.getHeight());
+            size = new Size(captureController.mImageReaderPreview.getWidth(),
+                    captureController.mImageReaderPreview.getHeight());
         }
         float left = (((float) meteringRectangle.getY() / size.getHeight()) * (textureView.getWidth()));
         float top = (((float) meteringRectangle.getX() / size.getWidth()) * (textureView.getHeight()));
         float width = (((float) meteringRectangle.getHeight() / size.getHeight()) * (textureView.getWidth()));
         float height = (((float) meteringRectangle.getWidth() / size.getWidth()) * (textureView.getHeight()));
-        //left = textureView.getWidth() - left;
+        // left = textureView.getWidth() - left;
         return new RectF(
-                //meteringRectangle.getY()-left, //Left
-                textureView.getWidth()-left-width,//Right
-                top,  //Top
-                //meteringRectangle.getY() - (left + width),//Right
-                textureView.getWidth()-left,
-                top + height //Bottom
+                // meteringRectangle.getY()-left, //Left
+                textureView.getWidth() - left - width, // Right
+                top, // Top
+                // meteringRectangle.getY() - (left + width),//Right
+                textureView.getWidth() - left,
+                top + height // Bottom
         );
     }
 
     private String getResultFieldName(String prefix, Integer value) {
-        if(value == null) return "";
+        if (value == null)
+            return "";
         for (Field f : this.metadataFields)
             if (f.getName().startsWith(prefix)) {
                 try {
@@ -489,25 +518,31 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     }
 
     /**
-     * Returns the ConstraintLayout object after adjusting the LayoutParams of Views contained in it.
-     * Adjusts the relative position of layout_top-bar and camera_container (= viewfinder + rest of the buttons excluding layout_topbar)
+     * Returns the ConstraintLayout object after adjusting the LayoutParams of Views
+     * contained in it.
+     * Adjusts the relative position of layout_top-bar and camera_container (=
+     * viewfinder + rest of the buttons excluding layout_topbar)
      * depending on the aspect ratio of device.
-     * This is done in order to re-organise the camera layout for long displays (having aspect ratio > 16:9)
+     * This is done in order to re-organise the camera layout for long displays
+     * (having aspect ratio > 16:9)
      *
-     * @param aspectRatio     the aspect ratio of device display given by (height in pixels / width in pixels)
+     * @param aspectRatio     the aspect ratio of device display given by (height in
+     *                        pixels / width in pixels)
      * @param activity_layout here, the layout of activity_main
      * @return Object of {@param activity_layout} after adjustments.
      */
     private ConstraintLayout getAdjustedLayout(float aspectRatio, ConstraintLayout activity_layout) {
         ConstraintLayout camera_container = activity_layout.findViewById(R.id.camera_container);
-        ConstraintLayout.LayoutParams camera_containerLP = (ConstraintLayout.LayoutParams) camera_container.getLayoutParams();
+        ConstraintLayout.LayoutParams camera_containerLP = (ConstraintLayout.LayoutParams) camera_container
+                .getLayoutParams();
         if (aspectRatio > 16f / 9f) {
             DisplayMetrics displayMetrics = activity.getResources().getDisplayMetrics();
             float dpHeight = displayMetrics.heightPixels / displayMetrics.density;
             float dpWidth = displayMetrics.widthPixels / displayMetrics.density;
 
             float dpmargin = (dpHeight - (dpWidth / 9f * 16f));
-            ConstraintLayout.LayoutParams layout_topbarLP = ((ConstraintLayout.LayoutParams) activity_layout.findViewById(R.id.layout_topbar).getLayoutParams());
+            ConstraintLayout.LayoutParams layout_topbarLP = ((ConstraintLayout.LayoutParams) activity_layout
+                    .findViewById(R.id.layout_topbar).getLayoutParams());
 
             layout_topbarLP.topMargin = (int) dpmargin;
             camera_containerLP.bottomMargin = (int) dpmargin;
@@ -524,9 +559,12 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
      */
     private void logDisplayProperties(DisplayMetrics dm) {
         String TAG = "DisplayProps";
-        Log.i(TAG, "ScreenResolution = " + Math.max(dm.heightPixels, dm.widthPixels) + "x" + Math.min(dm.heightPixels, dm.widthPixels));
-        Log.i(TAG, "AspectRatio = " + ((float) Math.max(dm.heightPixels, dm.widthPixels) / Math.min(dm.heightPixels, dm.widthPixels)));
-        Log.i(TAG, "SmallestWidth = " + (int) (Math.min(dm.heightPixels, dm.widthPixels) / (dm.densityDpi / 160f)) + "dp");
+        Log.i(TAG, "ScreenResolution = " + Math.max(dm.heightPixels, dm.widthPixels) + "x"
+                + Math.min(dm.heightPixels, dm.widthPixels));
+        Log.i(TAG, "AspectRatio = "
+                + ((float) Math.max(dm.heightPixels, dm.widthPixels) / Math.min(dm.heightPixels, dm.widthPixels)));
+        Log.i(TAG,
+                "SmallestWidth = " + (int) (Math.min(dm.heightPixels, dm.widthPixels) / (dm.densityDpi / 160f)) + "dp");
     }
 
     public void initCameraIDLists(CameraManager cameraManager) {
@@ -534,7 +572,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         this.mCameraLensDataMap = manager2.getCameraLensDataMap();
         // Re-anchor sActiveBackCamId / sActiveFrontCamId to real cameras.
         // The static defaults ("0" / "1") may not exist on every device (e.g. devices
-        // whose camera IDs start at 1).  After a full process restart there is no
+        // whose camera IDs start at 1). After a full process restart there is no
         // savedInstanceState to restore them, so we must derive them from the map here.
         if (!mCameraLensDataMap.containsKey(sActiveBackCamId)) {
             for (Map.Entry<String, CameraLensData> entry : mCameraLensDataMap.entrySet()) {
@@ -555,7 +593,8 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     }
 
     public String cycler(String savedCameraID) {
-        if (Objects.requireNonNull(mCameraLensDataMap.get(savedCameraID)).getFacing() == CameraCharacteristics.LENS_FACING_BACK) {
+        if (Objects.requireNonNull(mCameraLensDataMap.get(savedCameraID))
+                .getFacing() == CameraCharacteristics.LENS_FACING_BACK) {
             sActiveBackCamId = savedCameraID;
             return sActiveFrontCamId;
         } else {
@@ -566,7 +605,8 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
     public void triggerMediaScanner(Uri imageUri) {
         Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-//        Bitmap bitmap = BitmapDecoder.from(Uri.fromFile(imageToSave)).scaleBy(0.1f).decode();
+        // Bitmap bitmap =
+        // BitmapDecoder.from(Uri.fromFile(imageToSave)).scaleBy(0.1f).decode();
         mediaScanIntent.setData(imageUri);
         if (activity != null)
             activity.sendBroadcast(mediaScanIntent);
@@ -576,7 +616,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         Intent galleryIntent = new Intent(activity, GalleryActivity.class);
         // Create gallery bundle
         galleryIntent.putExtra("CameraFragment", true);
-        
+
         startActivity(galleryIntent, null);
     }
 
@@ -610,9 +650,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     }
 
     private void showNotification(String processName) {
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(activity, NOTIFICATION_CHANNEL_ID);
-        NotificationChannel channel = new NotificationChannel
-                (NOTIFICATION_CHANNEL_ID, "NotificationChannel", NotificationManager.IMPORTANCE_LOW);
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(activity,
+                NOTIFICATION_CHANNEL_ID);
+        NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "NotificationChannel",
+                NotificationManager.IMPORTANCE_LOW);
         notificationManager.createNotificationChannel(channel);
         notificationBuilder
                 .setSmallIcon(R.drawable.ic_round_photo_camera_24)
@@ -628,9 +669,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         notificationManager.cancel(NOTIFICATION_ID);
     }
 
-    //*****************************************************************************************************************
-    //**************************************ErrorDialog****************************************************************
-    //*****************************************************************************************************************
+    // *****************************************************************************************************************
+    // **************************************ErrorDialog****************************************************************
+    // *****************************************************************************************************************
 
     /**
      * Shows an error message dialog.
@@ -663,9 +704,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         }
     }
 
-    //*****************************************************************************************************************
-    //**************************************CameraEventsListenerImpl***************************************************
-    //*****************************************************************************************************************
+    // *****************************************************************************************************************
+    // **************************************CameraEventsListenerImpl***************************************************
+    // *****************************************************************************************************************
 
     private class CameraEventsListenerImpl extends CameraEventsListener {
         /**
@@ -683,8 +724,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         public void onProcessingChanged(Object obj) {
             if (PhotonCamera.getSettings().selectedMode == CameraMode.RAWVIDEO
                     && obj instanceof com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats) {
-                com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats stats =
-                        (com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats) obj;
+                com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats stats = (com.particlesdevs.photoncamera.processing.processor.RawVideoProcessor.RawVideoStats) obj;
                 timerFrameCountViewModel.setFrameTimeCnt(
                         new TimerFrameCountViewModel.FrameCntTime(stats.pendingWrites, 0, 0));
                 mCameraUIView.updateVideoRecordingInfo(stats.elapsedMs, stats.estimatedBytes, stats.availableBytes);
@@ -708,7 +748,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 if (savedFilePath != null) {
                     triggerMediaScanner(imageUri = Uri.fromFile(savedFilePath.toFile()));
                     logD("ImageSaved: " + savedFilePath);
-//                    showSnackBar("ImageSaved: " + savedFilePath.toString());
+                    // showSnackBar("ImageSaved: " + savedFilePath.toString());
                 }
                 cameraFragmentViewModel.updateGalleryThumb(imageUri);
             } else {
@@ -725,7 +765,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             onProcessingFinished("Processing Finished Unexpectedly!!");
         }
 
-        //*****************************************************************************************************************
+        // *****************************************************************************************************************
 
         /**
          * Implementation of {@link CaptureEventsListener}
@@ -741,14 +781,15 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 mCameraUIView.setCaptureProgressBarOpacity(1.0f);
                 mCameraUIView.lockUIForBurst(true);
             }
-            //textureView.post(() -> textureView.setAlpha(0.8f));
+            // textureView.post(() -> textureView.setAlpha(0.8f));
         }
 
         private long prevPlayTime = 0;
+
         @Override
         public void onFrameCaptureStarted(Object o) {
             long seekDelay = 50;
-            if(prevPlayTime + seekDelay < System.currentTimeMillis()){
+            if (prevPlayTime + seekDelay < System.currentTimeMillis()) {
                 prevPlayTime = System.currentTimeMillis();
                 burstPlayer.seekTo(0);
             }
@@ -757,6 +798,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         @Override
         public void onBurstPrepared(Object o) {
         }
+
         @Override
         public void onFrameCaptureProgressed(Object o) {
         }
@@ -837,6 +879,5 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             triggerMediaScanner(fileUri);
         }
     }
-
 
 }

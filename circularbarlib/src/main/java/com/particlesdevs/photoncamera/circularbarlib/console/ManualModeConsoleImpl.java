@@ -18,6 +18,7 @@ import com.particlesdevs.photoncamera.circularbarlib.model.KnobModel;
 import com.particlesdevs.photoncamera.circularbarlib.model.ManualModeModel;
 import com.particlesdevs.photoncamera.circularbarlib.ui.ViewObserver;
 import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
+import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
 
 import java.util.Observer;
 
@@ -218,7 +219,7 @@ public class ManualModeConsoleImpl implements ManualModeConsole {
         if (mfModel == null) {
             return false;
         }
-        com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo currentInfo = mfModel
+        KnobItemInfo currentInfo = mfModel
                 .getCurrentInfo();
         return currentInfo != null && currentInfo.value != ManualParamModel.FOCUS_AUTO;
     }

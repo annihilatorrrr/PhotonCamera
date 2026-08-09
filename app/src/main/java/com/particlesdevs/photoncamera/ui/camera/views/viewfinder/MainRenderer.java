@@ -36,6 +36,11 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private volatile boolean mMirrorPreview;
 
     private final GLPreview mView;
+    private ManualModeConsole mManualModeConsole;
+
+    public void setManualModeConsole(ManualModeConsole console) {
+        this.mManualModeConsole = console;
+    }
 
     MainRenderer(GLPreview view) {
         mView = view;
@@ -174,18 +179,12 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         if (focusPeakSetting == 1) {
             return 1; // On
         } else if (focusPeakSetting == 2) {
-            // Auto: show peaking when manual focus mode is active OR when focus parameter is selected via UI
-            try {
-                CaptureController cc = PhotonCamera.getCaptureController();
-                if (cc != null) {
-                    ManualModeConsole mmc = cc.getManualModeConsole();
-                    if (mmc != null) {
-                        boolean manualFocusActive = mmc.isManualFocusModeActive();
-                        boolean focusSelectedViaUI = mmc.isFocusParameterSelected();
-                        return (manualFocusActive || focusSelectedViaUI) ? 1 : 0;
-                    }
-                }
-            } catch (Exception ignored) {
+            // Auto: show peaking when manual focus mode is active OR when focus parameter
+            // is selected via UI
+            if (mManualModeConsole != null) {
+                return (mManualModeConsole.isManualFocusModeActive() || mManualModeConsole.isFocusParameterSelected())
+                        ? 1
+                        : 0;
             }
             return 0;
         }
