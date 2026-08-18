@@ -27,9 +27,10 @@ public class Bayer2Float extends Node {
     public void Compile() {
     }
     boolean testPattern = false;
+    int testPatternIndex = 2;
     @Override
     public void AfterRun(){
-        if(testPattern) {
+        if(testPattern && testPatternIndex == 0) {
             kodbm.close();
             kod.close();
         }
@@ -67,6 +68,7 @@ public class Bayer2Float extends Node {
         glProg.setDefine("QUAD", basePipeline.mSettings.cfaPattern == -2);
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
         glProg.setDefine("TESTPATTERN",testPattern);
+        glProg.setDefine("TP", testPatternIndex);
         glProg.useAssetProgram("tofloat");
         glProg.setTexture("InputBuffer", in);
         glProg.setVar("CfaPattern", basePipeline.mParameters.cfaPattern);
@@ -77,7 +79,7 @@ public class Bayer2Float extends Node {
         Log.d(Name, "whitelevel:" + basePipeline.mParameters.whiteLevel);
         glProg.setVarU("whitelevel", (basePipeline.mParameters.whiteLevel));
         glProg.setTexture("GainMap", GainMapTex);
-        if(testPattern) {
+        if(testPattern && testPatternIndex == 0) {
             try {
                 kodbm = new GLImage(PhotonCamera.getAssetLoader().getInputStream("kodim19.png"));
                 kod = new GLTexture(kodbm);
