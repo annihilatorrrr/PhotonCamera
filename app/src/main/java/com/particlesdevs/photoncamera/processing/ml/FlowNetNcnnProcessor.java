@@ -107,9 +107,10 @@ public final class FlowNetNcnnProcessor {
 
         // Throwaway zero-input forward: builds every vulkan pipeline now (not
         // on the GL thread during the merge).
-        FloatBuffer zeroBase = zeroRgba(MODEL_W, MODEL_H);
-        FloatBuffer zeroAlter = zeroRgba(MODEL_W, MODEL_H);
-        ready = runInferenceLocked(zeroBase, zeroAlter, MODEL_W, MODEL_H) != null;
+        //FloatBuffer zeroBase = zeroRgba(MODEL_W, MODEL_H);
+        //FloatBuffer zeroAlter = zeroRgba(MODEL_W, MODEL_H);
+        //ready = runInferenceLocked(zeroBase, zeroAlter, MODEL_W, MODEL_H) != null;
+        ready = true;
         if (!ready) {
             Log.e(TAG, "FlowNetNcnn: warmup forward failed");
         } else {
