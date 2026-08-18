@@ -21,13 +21,13 @@ public class Sharpen2 extends Node {
     
     @Tunable(
             title = "Sharp Size", description = "Size parameter for sharpening",
-            category = "Sharpening", min = 0.0f, max = 2.0f, defaultValue = 0.9f, step = 0.01f
+            category = "Sharpening", min = 0.0f, max = 2.0f, defaultValue = 0.8f, step = 0.01f
     )
     float sharpSize;
     
     @Tunable(
             title = "Sharp Min", description = "Minimum sharpening threshold",
-            category = "Sharpening", min = 0.0f, max = 2.0f, defaultValue = 0.4f, step = 0.01f
+            category = "Sharpening", min = 0.0f, max = 2.0f, defaultValue = 0.25f, step = 0.01f
     )
     float sharpMin;
     
