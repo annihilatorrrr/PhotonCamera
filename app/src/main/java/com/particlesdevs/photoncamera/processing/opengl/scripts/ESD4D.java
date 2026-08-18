@@ -4,8 +4,7 @@ import android.content.Context;
 import android.graphics.Point;
 import android.util.Pair;
 
-import com.particlesdevs.photoncamera.processing.ml.KernelNetNCNNProcessor;
-//import com.particlesdevs.photoncamera.processing.ml.KernelNetProcessor;
+import com.particlesdevs.photoncamera.processing.ml.KernelNetNcnnProcessor;
 import com.particlesdevs.photoncamera.processing.ml.KernelNetResult;
 import com.particlesdevs.photoncamera.processing.opengl.GLBuffer;
 import com.particlesdevs.photoncamera.settings.annotations.Tunable;
@@ -51,12 +50,9 @@ public class ESD4D extends GLOneScript {
     }
 
     /**
-     * KernelNet inference backend switch (for comparing ONNX vs ncnn/Vulkan).
-     * true = ncnn (Vulkan w/ CPU fallback), false = ONNX Runtime (NNAPI w/ CPU fallback).
+     * KernelNet runs natively through ncnn on the Vulkan backend (see
+     * {@link KernelNetNcnnProcessor}).
      */
-    @Tunable(title = "KernelNet backend (ncnn Vulkan)", category = "Merge",
-            description = "true = ncnn/Vulkan, false = ONNX/NNAPI", min = 0, max = 1, step = 1, defaultValue = 1)
-    public boolean useNcnnKernelNet = true;
 
     @Override
     public void Compile(){}
@@ -266,8 +262,6 @@ public class ESD4D extends GLOneScript {
 
     GLTexture inputBase;
     GLTexture baseDiff;
-    //GLTexture baseDiffOr;
-    GLTexture diffFlow;
     GLTexture base;
     GLTexture baseAlter;
     //GLTexture;
@@ -284,8 +278,8 @@ public class ESD4D extends GLOneScript {
     GLTexture inputAlter;
     GLTexture alter;
     GLTexture alignmentTex;
-    GLTexture hotPix;
-    //GLTexture noiseMap;
+    /** Dense optical-flow alignment (FlowNet); non-null when useNcnnFlow ran. */
+    FlowNetAlignment flowNetAlignment;
     @Tunable(title = "HotPixels detect threshold", category = "Merge", description = "Higher multiplier detects less hotpixels", min = 0.5f, max = 5.0f, step = 0.1f, defaultValue = 1.5f)
     double detectThr;
 
@@ -294,6 +288,9 @@ public class ESD4D extends GLOneScript {
 
     @Tunable(title = "Enable Alignment", category = "Merge", description = "Disable to test merging motion filtering without alignment", min = 0, max = 1, step = 1, defaultValue = 1)
     boolean enableAlignment;
+
+    @Tunable(title = "FlowNet optical flow alignment", category = "Merge", description = "Align burst frames with the FlowNet dense optical flow model (ncnn) instead of the block pyramid", min = 0, max = 1, step = 1, defaultValue = 0)
+    boolean useNcnnFlow;
 
     @Tunable(title = "Enable Adaptive Noise Storage", category = "Merge", description = "Persist fitted noise model into the dynamic multisample store", min = 0, max = 1, step = 1, defaultValue = 1)
     boolean enableNoiseStore;
@@ -306,10 +303,41 @@ public class ESD4D extends GLOneScript {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
         Log.d("ESD4D", "Noise multiplier: " + noiseMpy);
         glUtils = new GLUtils(glOne.glProcessing);
+
+        float minExp = 1.f;
+        int minExpIdx = 0;
+        int lowCnt = 0;
+        for (int i = 1; i < images.size(); i++) {
+            ImageFrame frame = images.get(i);
+            float exposure = 1.f/frame.pair.layerMpy;
+            Log.d("ESD4D", "exposure: " + exposure);
+            if(exposure < 0.95f) {
+                lowCnt++;
+            }
+            if(exposure < minExp) {
+                minExpIdx = i;
+                minExp = exposure;
+            }
+        }
+
         Point alignmentOutputSize = new Point(parameters.alignmentSize.x * parameters.tilesX,
                 parameters.alignmentSize.y * ((images.size()-1)/parameters.tilesX + 1));
         Log.d("Alignment", "alignment pipeline size: " + alignmentOutputSize.x + " " + alignmentOutputSize.y);
-        if (enableAlignment) {
+        useNcnnFlow = enableAlignment && useNcnnFlow;
+        if (enableAlignment && useNcnnFlow) {
+            FlowNetAlignment flowNetAlignmentTmp = new FlowNetAlignment(alignmentOutputSize, images, glProg, glUtils, this, minExpIdx);
+            flowNetAlignmentTmp.parameters = parameters;
+            long startTime = System.currentTimeMillis();
+            useNcnnFlow = flowNetAlignmentTmp.initFlow();
+            Log.d("ESD4D", "FlowNet alignment init time: " + (System.currentTimeMillis() - startTime) + "ms");
+            if (useNcnnFlow) {
+                flowNetAlignment = flowNetAlignmentTmp;
+                alignmentTex = flowNetAlignment.flowTex;
+            } else {
+                flowNetAlignmentTmp.close();
+            }
+        }
+        if (enableAlignment && !useNcnnFlow) {
             PyramidAlignment pyramidAlignment = new PyramidAlignment(alignmentOutputSize, images, glProg, glUtils, this);
             pyramidAlignment.parameters = parameters;
             long startTime = System.currentTimeMillis();
@@ -317,7 +345,7 @@ public class ESD4D extends GLOneScript {
             Log.d("ESD4D", "Alignment time: " + (System.currentTimeMillis() - startTime) + "ms");
             alignmentTex = pyramidAlignment.Result;
             pyramidAlignment.close();
-        } else {
+        } else if (!enableAlignment) {
             alignmentTex = new GLTexture(alignmentOutputSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4),
                     BufferUtils.getFrom(new float[alignmentOutputSize.x * alignmentOutputSize.y * 4]),
                     GL_NEAREST, GL_CLAMP_TO_EDGE);
@@ -329,20 +357,15 @@ public class ESD4D extends GLOneScript {
         inputBase = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16,1),images.get(0).buffer, GL_NEAREST, GL_CLAMP_TO_EDGE);
         // Pyramid diff
         baseDiff = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
-        //baseDiffOr = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
-        diffFlow = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         // Temporal result
         base = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         baseAlter = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         alter = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
-        //avrFrames = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_MIRRORED_REPEAT);
-        //noiseMap = new GLTexture(new Point(rawHalf.x/4,rawHalf.y/4),new GLFormat(GLFormat.DataType.FLOAT_32,4));
         // Pack 4 horizontal luma samples per rgba16f texel (r16f image formats are
         // rejected by some drivers) -> texture is 4x smaller in x.
         Point brightMapSize = new Point((rawHalf.x + 3) / 4, rawHalf.y);
         brightMap = new GLTexture(brightMapSize,new GLFormat(GLFormat.DataType.FLOAT_16,4));
         brightMapCPUSize = new Point(brightMapSize.x * 4, brightMapSize.y);
-        //hotPix = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.SIMPLE_8,4));
         float[] blackLevel = parameters.blackLevel;
         //float[] blackLevel = new float[]{parameters.blackLevel[0]*0.5f, parameters.blackLevel[1]*0.5f, parameters.blackLevel[2]*0.5f, parameters.blackLevel[3]*0.5f};
         //float bl = Math.max(Math.max(parameters.blackLevel[0], parameters.blackLevel[1]), Math.max(parameters.blackLevel[2], parameters.blackLevel[3]));
@@ -417,7 +440,7 @@ public class ESD4D extends GLOneScript {
             final int numVarianceBins = 64;
             final int noiseScanBins = numBrightnessBins * numVarianceBins; // 1024
             // Variance scale: max variance ~(numVarianceBins-0.5)/scale. Use 160 so we cover up to ~0.2 for noisy sensors.
-            final float varianceScale = 64.0f * (float)Math.sqrt(5.0f);
+            final float varianceScale = 64.0f * 6.0f;
             final float brightnessScale = 64.0f * (float)Math.sqrt(3.0f);
             GLHistogram noiseHist = new GLHistogram(glProg, noiseScanBins);
             noiseHist.Custom = true;
@@ -481,7 +504,7 @@ public class ESD4D extends GLOneScript {
                 // Median-of-squared-deviations (shader "var") ≈ 0.6745*sigma, so a
                 // single 1.4826 (=1/0.6745) converts it to sigma, then squaring gives
                 // the true variance. (Double-multiplying previously biased S/O by ~2.2x.)
-                variance *= 1.4826;
+                //variance *= 1.4826;
                 variance = Math.pow(variance, 2.0);
 
                 Log.d("DynamicNoise", "vin:"+ vin + " bin: " + bin + " Variance raw: " + variance + " brightness: " + brightness + " count: " + count);
@@ -591,21 +614,6 @@ public class ESD4D extends GLOneScript {
         inputAlter = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16, 1), null, GL_NEAREST, GL_MIRRORED_REPEAT);
         //alignmentTex = new GLTexture(aSize, new GLFormat(GLFormat.DataType.FLOAT_32, 2), alignment, GL_NEAREST, GL_MIRRORED_REPEAT);
 
-        float minExp = 1.f;
-        int minExpIdx = 0;
-        int lowCnt = 0;
-        for (int i = 1; i < images.size(); i++) {
-            ImageFrame frame = images.get(i);
-            float exposure = 1.f/frame.pair.layerMpy;
-            Log.d("ESD4D", "exposure: " + exposure);
-            if(exposure < 0.95f) {
-                lowCnt++;
-            }
-            if(exposure < minExp) {
-                minExpIdx = i;
-                minExp = exposure;
-            }
-        }
         //counter.put(1.0f,1.0f);
         float cnt1 = 2.0f;
 
@@ -627,7 +635,15 @@ public class ESD4D extends GLOneScript {
             //int f = 1;
             Log.d("ESD4D", "load:"+frame.pair.curlayer.name() + " " + frame.pair.layerMpy);
             inputAlter.loadData(frame.buffer);
-            
+
+            GLTexture flowTex = null;
+            if(useNcnnFlow) {
+                // Dense FlowNet optical flow for THIS alter frame, computed just
+                // in time (one pair at a time, no stored flow fields). Must run
+                // before the mergeAlign program is bound below.
+                flowTex = flowNetAlignment.computeFlow(ind);
+            }
+
             // Convert inputAlter to alter (vec4 format)
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge/merge00", true);
@@ -644,7 +660,7 @@ public class ESD4D extends GLOneScript {
             //alignmentTex.loadData(alignment.position((ind-1)*(aSize.x*aSize.y*4*2)));
             glProg.setDefine("TILE_AL", parameters.tile);
             glProg.setLayout(tile, tile, 1);
-            glProg.useAssetProgram("merge/mergeAlign", true);
+            glProg.useAssetProgram(useNcnnFlow ? "merge/mergeAlignFlow" : "merge/mergeAlign", true);
             glProg.setVar("rawHalf", rawHalf);
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
             glProg.setVar("whitePoint", parameters.whitePoint);
@@ -665,14 +681,16 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("noiseS", noiseS);
             glProg.setVar("noiseO", noiseO);
             glProg.setVar("border", border);
-            glProg.setVar("shift", shift);
-            glProg.setVar("alignmentSize", parameters.alignmentSize);
+            if(useNcnnFlow) {
+                glProg.setTexture("alignmentTexture", flowTex);
+            } else {
+                glProg.setVar("shift", shift);
+                glProg.setVar("alignmentSize", parameters.alignmentSize);
+                glProg.setTexture("alignmentTexture", alignmentTex);
+            }
             glProg.setTexture("inTexture", inputBase);
-            glProg.setTexture("alignmentTexture", alignmentTex);
             glProg.setTextureCompute("baseTexture",base, false);
             glProg.setTextureCompute("alterTexture", alter, false);
-            //glProg.setTextureCompute("avrTexture", avrFrames, false);
-            //glProg.setTextureCompute("hotPixTexture", hotPix, false);
             glProg.setTextureCompute("outTexture", baseDiff, true);
             glProg.computeAuto(baseDiff.mSize, 1);
 
@@ -693,14 +711,14 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
             glProg.setVar("blackLevel", blackLevel);
             glProg.setVar("analogBalance", analogBalance);
-
+            glProg.setVar("exposure", exposure);
             if(exposure >= 0.95f){
                 glProg.setVar("weight", 1.0f/cnt1);
-                glProg.setVar("exposure", minExp);
+                //glProg.setVar("exposure", minExp);
                 cnt1+=1.0f;
             } else {
                 glProg.setVar("weight", 1.0f/cnt2);
-                glProg.setVar("exposure", 1.0f);
+                //glProg.setVar("exposure", 1.0f);
                 cnt2+=1.0f;
             }
             //glProg.setVar("exposure", exposure);
@@ -749,16 +767,7 @@ public class ESD4D extends GLOneScript {
         if (brightMapCPU == null || brightMapCPUSize == null) return null;
         Context ctx = PhotonCamera.getAppContext();
         if (ctx == null) return null;
-        if (useNcnnKernelNet) {
-            KernelNetNCNNProcessor processor = new KernelNetNCNNProcessor(ctx);
-            try {
-                if (!processor.isReady()) return null;
-                return processor.runInference(brightMapCPU, brightMapCPUSize.x, brightMapCPUSize.y, sigma);
-            } finally {
-                processor.close();
-            }
-        }
-        KernelNetNCNNProcessor processor = new KernelNetNCNNProcessor(ctx);
+        KernelNetNcnnProcessor processor = new KernelNetNcnnProcessor(ctx);
         try {
             if (!processor.isReady()) return null;
             return processor.runInference(brightMapCPU, brightMapCPUSize.x, brightMapCPUSize.y, sigma);
@@ -805,10 +814,15 @@ public class ESD4D extends GLOneScript {
         baseAlter.close();
         brightMap.close();
         result.close();
-        alignmentTex.close();
-        diffFlow.close();
-        ///baseDiffOr.close();
-        //noiseMap.close();
+        if(useNcnnFlow && flowNetAlignment != null) {
+            // Closes flowTex (== alignmentTex), so drop the reference to avoid
+            // a double close below.
+            flowNetAlignment.close();
+            flowNetAlignment = null;
+            alignmentTex = null;
+        } else {
+            alignmentTex.close();
+        }
         GLTexture.notClosed();
     }
 }

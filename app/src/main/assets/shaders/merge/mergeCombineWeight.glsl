@@ -34,6 +34,7 @@ vec4 robustWeight(vec4 w){
 }
 
 #define EPS 1e-6
+#define EPS2 1e-5
 void main() {
     ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
     vec4 kernelParams = texture(kernelsMap, vec2(xy) / vec2(2.0 * vec2(textureSize(kernelsMap, 0)))).rgba;
@@ -45,35 +46,55 @@ void main() {
     float b = -rho / (s1 * s2 * det);  // dy*dx (i*j) coefficient
     float c = 1.0 / (s2 * s2 * det);   // dx² (i) coefficient
     vec4 base = imageLoad(inTexture, xy);
-    vec4 noise = sqrt(max(base * noiseS + noiseO,EPS));
     vec4 diff = imageLoad(diffTexture, xy);
     vec4 bayer = getBayerVec(xy*2, inTex);
     float Z = 0.0001;
-    float localDiff = 0.0001;
+    vec4 localDiff = vec4(0.0001);
     vec4 localDiff2 = vec4(0.0);
+    //vec4 exposure1 = vec4(0.0);
+    vec4 exposure2 = vec4(0.0);
+    for(int i = -5; i <= 5; i++) {
+        for(int j = -5; j <= 5; j++) {
+            ivec2 offset = ivec2(i, j);
+            ///vec4 neighborDiff = imageLoad(diffTexture, xy + offset);
+            //vec4 neighborBayer = getBayerVec((xy + offset) * 2, inTex);
+            vec4 neighborBayer = imageLoad(inTexture, xy + offset);
+            //exposure1 += neighborDiff;
+            exposure2 += neighborBayer;
+        }
+    }
+    //exposure1 /= 121.0;
+    exposure2 /= 121.0;
+    vec4 meanMain = exposure2;
+    vec4 variance = vec4(0.0001);
     for(float i = -5.0; i <= 5.0; i+=1.0) {
         for(float j = -5.0; j <= 5.0; j+=1.0) {
             ivec2 offset = ivec2(i, j);
             vec4 neighborDiff = imageLoad(diffTexture, xy + offset);
             //vec4 neighborBayer = getBayerVec((xy + offset) * 2, inTex);
             vec4 neighborBayer = imageLoad(inTexture, xy + offset);
+            //variance = max(((neighborBayer-meanMain)*(neighborBayer-meanMain)), variance);
+            variance += ((neighborBayer-meanMain)*(neighborBayer-meanMain));
             if(any(greaterThan(neighborDiff, vec4(exposure*0.99)))) {
                 continue; // skip overexposed pixels
             }
             float q = c * i * i + 2.0 * b * i * j + a * j * j;
-            float w = exp(-0.5 * q);
-            localDiff += dot(abs(neighborDiff-neighborBayer),vec4(0.25)) * w;
+            float w = exp(-1.0 * q);
+            localDiff += abs(neighborDiff-neighborBayer) * w;
             localDiff2 += neighborBayer * w;
             Z += w;
         }
     }
+    variance /= 120.0;
     localDiff /= Z;
-    float br = dot(base, vec4(0.25));
-    float N = sqrt(max(br * noiseS + noiseO, EPS));
-    //N /= Z;
-    float comb = (N * N) / (localDiff * localDiff + N * N);
-    if(any(greaterThan(diff, vec4(exposure*0.99))) && exposure < 0.95) {
-        comb = 0.0; // skip overexposed pixels
+    //float br = dot(base, vec4(0.25));
+    vec4 N = sqrt(max(meanMain * noiseS + noiseO, EPS));
+    N = min(N, sqrt(variance)*2.0); // Get noise floor from flat areas to improve noise model robustness
+    //N /= sqrt(Z + 1.0);
+    vec4 comb = (N * N) / (localDiff * localDiff + N * N);
+    //vec4 comb = exp(-0.5 * (localDiff * localDiff) / (N * N));
+    if(any(greaterThan(diff, vec4(exposure*0.80))) && exposure < 0.95) {
+        comb = vec4(0.0); // skip overexposed pixels
     }
     imageStore(outTexture, xy, mix(base, diff, weight * comb));
     //imageStore(outTexture, xy, localDiff2/Z); // blur test(check kernels)
