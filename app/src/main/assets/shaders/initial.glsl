@@ -483,81 +483,35 @@ void main() {
 
     float tonemapGain = 1.f;
     #if FUSION == 1
-        /*
-    float tempV = 0.0;
-    float minG,maxG;
-    float minImg, maxImg;
-    ivec2 xy2 = xy/2;
-    float brInitial = 0.f;
-    float brCorrected = 0.f;
-    float blurInitial = 0.f;
-    float blurCorrected = 0.f;
-    for(int i = -1; i<=2;i++){
-        for(int j = -1; j<=2;j++){
-            //vec4 gains = textureBicubicHardware(GainMap, vec2(xy+ivec2(i,j))/vec2(textureSize(InputBuffer, 0)));
-            float v = dot(texelFetch(InputBuffer, xy+ivec2(i,j), 0).rgb/vec3(NEUTRALPOINT), vec3(0.299, 0.587, 0.114));
-            //v *= (gains.r+gains.g+gains.b+gains.a)/4.0;
-            blurInitial += v;
-            blurCorrected += v*getGain(vec2(ivec2(i,j)));
-        }
-    }
-
-    float detail = dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))-blurInitial;
-    float brightening = blurCorrected/(blurInitial+EPS);
-    float corrected = blurCorrected + detail*brightening;
-    tonemapGain =  corrected/(dot(texelFetch(InputBuffer, xy, 0).rgb/vec3(NEUTRALPOINT),vec3(0.299, 0.587, 0.114))+EPS);
-    tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);*/
-    // guide filtering for gains
-    /*
-    float sigma = 1.0;
-    float Z = 0.0;
-    float gain = 0.0;
-    for (int i = -3; i <= 3; i++) {
-        for (int j = -3; j <= 3; j++) {
-            vec3 color = texelFetch(InputBuffer, xy + ivec2(i, j), 0).rgb;
-            float w = exp(-dot(color - sRGB, color - sRGB) / (2.0 * sigma * sigma));
-            Z += w;
-            gain += w * getGain(vec2(i, j));
-        }
-    }
-    tonemapGain = gain / Z;
-    */
     // Guided upsampling with Gaussian-weighted linear model
-    /*float momentX = 0.0, momentY = 0.0, momentX2 = 0.0, momentXY = 0.0;
-    float ws = 0.0;
+    //float momentX = 0.0, momentY = 0.0, momentX2 = 0.0, momentXY = 0.0;
+    vec4 moments = vec4(0.0);
     const float sigma = 1.2;
     const float sigmaSq2 = 2.0 * sigma * sigma;
     for (int i = -2; i <= 2; i++) {
         for (int j = -2; j <= 2; j++) {
             // Average lightness over 2x2 block to match FusionMap resolution
             vec2 offset = vec2(float(i*2), float(j*2));
-            float lightness = 0.0;
-            lightness += dot(texelFetch(InputBuffer, xy + ivec2(i*2, j*2), 0).rgb, vec3(1.0/3.0));
-            lightness += dot(texelFetch(InputBuffer, xy + ivec2(i*2+1, j*2), 0).rgb, vec3(1.0/3.0));
-            lightness += dot(texelFetch(InputBuffer, xy + ivec2(i*2, j*2+1), 0).rgb, vec3(1.0/3.0));
-            lightness += dot(texelFetch(InputBuffer, xy + ivec2(i*2+1, j*2+1), 0).rgb, vec3(1.0/3.0));
-            lightness *= 0.25;
-            float gain = getGain(offset);
-            
-            // Gaussian weight based on spatial distance
-            float w = exp(-float(i*i + j*j) / sigmaSq2);
-            
-            momentX += lightness * w;
-            momentY += gain * w;
-            momentX2 += lightness * lightness * w;
-            momentXY += lightness * gain * w;
-            ws += w;
+            float lightness = dot(texelFetch(InputBuffer, xy + ivec2(i, j), 0).rgb, vec3(1.0/3.0));
+            float gain = texelFetch(FusionMap, (xy + ivec2(i, j))/2, 0).r;//getGain(offset);
+
+            //momentX += lightness;
+            //momentY += gain;
+            //momentX2 += lightness * lightness;
+            //momentXY += lightness * gain;
+            moments += vec4(lightness, gain, lightness * lightness, lightness * gain);
         }
     }
-    float invWs = 1.0 / ws;
-    float meanX = momentX * invWs;
-    float meanY = momentY * invWs;
-    float covXY = momentXY * invWs - meanX * meanY;
-    float varX = momentX2 * invWs - meanX * meanX;
+    float invWs = 1.0 / 25.0;
+    moments *= invWs; // Normalize by the number of samples (5x5)
+    float meanX = moments.x;
+    float meanY = moments.y;
+    float covXY = moments.w - meanX * meanY;
+    float varX = moments.z - meanX * meanX;
     // Handle zero variance case with epsilon for stability
-    float a = covXY / (max(varX, 0.0) + 0.0001);
-    float b = meanY - a * meanX;*/
-    vec2 gainAB = texture(FusionMap, vec2(gl_FragCoord.xy)/vec2(textureSize(InputBuffer, 0))).rg * FUSIONGAIN;
+    float a = covXY / (max(varX, 0.0) + 3e-04);
+    vec2 gainAB = vec2(a, meanY - a * meanX);
+    //vec2 gainAB = texture(FusionMap, vec2(gl_FragCoord.xy)/vec2(textureSize(InputBuffer, 0))).rg * FUSIONGAIN;
     tonemapGain =  gainAB.r * ((luminocity(sRGB))) + gainAB.g;
     //tonemapGain = mix(1.0,tonemapGain,texture(IntenseCurve, vec2(dot(sRGB.rgb,vec3(1.0/3.0)),0.0)).r);
     //tonemapGain = max(tonemapGain, 0.5);
