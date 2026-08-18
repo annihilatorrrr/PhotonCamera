@@ -11,6 +11,8 @@ import com.particlesdevs.photoncamera.util.Log;
 import androidx.annotation.NonNull;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
+import com.particlesdevs.photoncamera.capture.CaptureController;
+import com.particlesdevs.photoncamera.circularbarlib.api.ManualModeConsole;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -25,7 +27,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private int[] hTex;
     private final FloatBuffer pVertex;
     private final FloatBuffer pTexCoord;
-    private final float[] mTexRotateMatrix = new float[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    private final float[] mTexRotateMatrix = new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 
     private SurfaceTexture mSTexture;
 
@@ -34,24 +36,29 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private volatile boolean mMirrorPreview;
 
     private final GLPreview mView;
+    private ManualModeConsole mManualModeConsole;
+
+    public void setManualModeConsole(ManualModeConsole console) {
+        this.mManualModeConsole = console;
+    }
 
     MainRenderer(GLPreview view) {
         mView = view;
         pVertex = ByteBuffer.allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        float[] vtmp = {1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f};
+        float[] vtmp = { 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f };
         pVertex.put(vtmp);
         pVertex.position(0);
         pTexCoord = ByteBuffer.allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        float[] ttmp = {1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f};
+        float[] ttmp = { 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f };
         pTexCoord.put(ttmp);
         pTexCoord.position(0);
         setOrientation(180);
     }
 
-
     public void onDrawFrame(GL10 unused) {
-        if (!mGLInit) return;
-        //GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        if (!mGLInit)
+            return;
+        // GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
         synchronized (this) {
             if (mUpdateST) {
@@ -60,13 +67,14 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
             }
         }
         GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
-        GLES20.glUniform1i(enablePeak, PhotonCamera.getSettings().focusPeak);
+        int peakEnabled = getPeakEnabled();
+        GLES20.glUniform1i(enablePeak, peakEnabled);
         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
 
         GLES20.glVertexAttribPointer(vPosition, 2, GLES20.GL_FLOAT, false, 4 * 2, pVertex);
         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-        //GLES20.glFlush();
+        // GLES20.glFlush();
     }
 
     private int uTexRotateMatrix;
@@ -74,6 +82,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private int vTexCoord;
     private int enablePeak;
     private int mirror;
+
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         initTex();
@@ -102,8 +111,6 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         GLES30.glViewport(0, 0, width, height);
     }
-
-
 
     public SurfaceTexture getmSTexture() {
         return mSTexture;
@@ -167,6 +174,23 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         mMirrorPreview = mirrorPreview;
     }
 
+    private int getPeakEnabled() {
+        int focusPeakSetting = PhotonCamera.getSettings().focusPeak;
+        if (focusPeakSetting == 1) {
+            return 1; // On
+        } else if (focusPeakSetting == 2) {
+            // Auto: show peaking when manual focus mode is active OR when focus parameter
+            // is selected via UI
+            if (mManualModeConsole != null) {
+                return (mManualModeConsole.isManualFocusModeActive() || mManualModeConsole.isFocusParameterSelected())
+                        ? 1
+                        : 0;
+            }
+            return 0;
+        }
+        return 0; // Off
+    }
+
     public void setOrientation(int or) {
         android.opengl.Matrix.setRotateM(mTexRotateMatrix, 0, or, 0f, 0f, 1f);
     }
@@ -188,7 +212,8 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
         inputRect.right = in_width;
         inputRect.bottom = in_height;
         if (mLastImageRect != inputRect) {
-            GLES20.glViewport((int) inputRect.left, (int) inputRect.top, (int) inputRect.width(), (int) inputRect.height());
+            GLES20.glViewport((int) inputRect.left, (int) inputRect.top, (int) inputRect.width(),
+                    (int) inputRect.height());
 
             mLastImageRect.set(inputRect);
         }

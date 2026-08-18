@@ -74,6 +74,7 @@ import com.particlesdevs.photoncamera.api.CameraReflectionApi;
 import com.particlesdevs.photoncamera.api.Settings;
 import com.particlesdevs.photoncamera.api.VendorTagUtils;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
+import com.particlesdevs.photoncamera.circularbarlib.api.ManualModeConsole;
 import com.particlesdevs.photoncamera.control.GyroBurst;
 import com.particlesdevs.photoncamera.control.TouchFocus;
 import com.particlesdevs.photoncamera.debugclient.DebugSender;
@@ -224,6 +225,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             description = "Camera capture session type (0 = regular)")
     public int sessionType = 0;
     private static int mTargetFormat = RAW_FORMAT;
+    private ManualModeConsole manualModeConsole;
     private final ParamController paramController;
     public TouchFocus mTouchFocus;
 
@@ -646,6 +648,14 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             showToast("Failed to fetch camera characteristics: " + cameraAccessException.getLocalizedMessage());
         }
 
+    }
+
+    public ManualModeConsole getManualModeConsole() {
+        return manualModeConsole;
+    }
+
+    public void setManualModeConsole(ManualModeConsole manualModeConsole) {
+        this.manualModeConsole = manualModeConsole;
     }
 
     public ParamController getParamController() {

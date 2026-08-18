@@ -32,4 +32,8 @@ public interface ManualModeConsole {
     boolean isPanelVisible();
 
     void retractAllKnobs();
+
+    boolean isFocusParameterSelected();
+
+    boolean isManualFocusModeActive();
 }

@@ -13,7 +13,7 @@ import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.TextureView;
-
+import com.particlesdevs.photoncamera.circularbarlib.api.ManualModeConsole;
 
 public class GLPreview extends GLSurfaceView {
     MainRenderer mRenderer;
@@ -117,21 +117,24 @@ public class GLPreview extends GLSurfaceView {
     public void onResume() {
         super.onResume();
 
-        //mRenderer.onResume();
+        // mRenderer.onResume();
     }
 
     @Override
     public void onPause() {
         available = false;
         fireOnSurfaceTextureDestroyed(getSurfaceTexture());
-        //mRenderer.onPause();
+        // mRenderer.onPause();
         super.onPause();
     }
 
     /**
-     * Sets the aspect ratio for this view. The size of the view will be measured based on the ratio
-     * calculated from the parameters. Note that the actual sizes of parameters don't matter, that
-     * is, calling setAspectRatio(2, 3) and setAspectRatio(4, 6) make the same result.
+     * Sets the aspect ratio for this view. The size of the view will be measured
+     * based on the ratio
+     * calculated from the parameters. Note that the actual sizes of parameters
+     * don't matter, that
+     * is, calling setAspectRatio(2, 3) and setAspectRatio(4, 6) make the same
+     * result.
      *
      * @param width  Relative horizontal size
      * @param height Relative vertical size
@@ -146,7 +149,6 @@ public class GLPreview extends GLSurfaceView {
         this.post(this::requestLayout);
 
     }
-
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
@@ -176,6 +178,12 @@ public class GLPreview extends GLSurfaceView {
 
     public void setTransform(Matrix matrix) {
 
+    }
+
+    public void setManualModeConsole(ManualModeConsole console) {
+        if (mRenderer != null) {
+            mRenderer.setManualModeConsole(console);
+        }
     }
 
     public void setOrientation(int or) {
