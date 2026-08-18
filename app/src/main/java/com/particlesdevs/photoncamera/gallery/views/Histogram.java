@@ -63,6 +63,12 @@ public class Histogram extends View {
                 Log.d("Histogram", "Thread interrupted:"+Log.getStackTraceString(e));
             }
         }
+        // Convert to sqrt space
+        for (int i = 0; i < size; i++) {
+            colorsMap[0][0][i] = (int) Math.sqrt(colorsMap[0][0][i]);
+            colorsMap[0][1][i] = (int) Math.sqrt(colorsMap[0][1][i]);
+            colorsMap[0][2][i] = (int) Math.sqrt(colorsMap[0][2][i]);
+        }
         //Find max
         int maxY = 0;
         for (int i = 1; i < size-1; i++) {
