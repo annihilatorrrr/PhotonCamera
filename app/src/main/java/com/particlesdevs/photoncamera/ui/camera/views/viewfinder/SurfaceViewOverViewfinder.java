@@ -39,10 +39,10 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
 
     private final Paint histBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint histBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint histFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint histStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint histChannelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path histPath = new Path();
-    private int[] mHistLumaMap = null;
+    private final PorterDuffXfermode histXfermode = new PorterDuffXfermode(PorterDuff.Mode.ADD);
+    private int[][] mHistColorsMap = null;
     private int mHistMaxY = 1;
     private int mHistSize = 64;
 
@@ -83,19 +83,12 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
 
         oisTextWidth = hudPaint.measureText("OIS");
 
-        histBgPaint.setColor(Color.argb(110, 0, 0, 0));
+        histBgPaint.setColor(Color.argb(100, 0, 0, 0));
         histBgPaint.setStyle(Paint.Style.FILL);
 
-        histBorderPaint.setColor(Color.argb(80, 255, 255, 255));
+        histBorderPaint.setColor(Color.argb(90, 255, 255, 255));
         histBorderPaint.setStyle(Paint.Style.STROKE);
         histBorderPaint.setStrokeWidth(1.0f * mDensity);
-
-        histFillPaint.setColor(Color.argb(120, 255, 255, 255)); // translucent white fill
-        histFillPaint.setStyle(Paint.Style.FILL);
-
-        histStrokePaint.setColor(Color.WHITE); // solid white top contour
-        histStrokePaint.setStyle(Paint.Style.STROKE);
-        histStrokePaint.setStrokeWidth(1.2f * mDensity);
     }
 
     @Override
@@ -241,10 +234,9 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     private void drawHUD(Canvas canvas) {
         if (mExpoText == null) return;
 
-        // Symmetric 16dp margin from left and top edges
-        float x = 16f * mDensity;
-        float y = 16f * mDensity + hudPaint.getTextSize();
-        float lineSpacing = 18f * mDensity;
+        float x = 14f * mDensity;
+        float y = 22f * mDensity; // 12dp top margin + font ascent baseline
+        float lineSpacing = 16f * mDensity;
 
         // Row 1: Shutter Speed
         canvas.drawText(mExpoText, x, y, hudPaint);
@@ -262,13 +254,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         canvas.drawText(mFocusText, x, y, hudPaint);
         y += lineSpacing;
 
-        // Row 5: Tripod Status (only when mounted on a tripod)
-        if (mIsTripod) {
-            canvas.drawText("[TRIPOD]", x, y, hudPaint);
-            y += lineSpacing;
-        }
-
-        // Row 6: OIS Status (only if active lens has hardware OIS)
+        // Row 5: OIS Status (only if active lens has hardware OIS)
         if (mIsOisSupported) {
             canvas.drawText("OIS", x, y, hudPaint);
 
@@ -277,23 +263,30 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
                 float strikeY = y - (hudPaint.getTextSize() * 0.32f);
                 canvas.drawLine(x - 2f * mDensity, strikeY, x + oisTextWidth + 2f * mDensity, strikeY, strikePaint);
             }
+            y += lineSpacing;
+        }
+
+        // Row 6: Tripod Status (only when mounted on a tripod)
+        if (mIsTripod) {
+            canvas.drawText("[TRIPOD]", x, y, hudPaint);
+            y += lineSpacing;
         }
     }
 
-    public void setHistogramData(int[] lumaMap, int maxY, int size) {
-        this.mHistLumaMap = lumaMap;
+     public void setHistogramData(int[][] colorsMap, int maxY, int size) {
+        this.mHistColorsMap = colorsMap;
         this.mHistMaxY = Math.max(1, maxY);
         this.mHistSize = size;
     }
 
-     private void drawHistogram(Canvas canvas) {
-        if (mHistLumaMap == null) return;
+    private void drawHistogram(Canvas canvas) {
+        if (mHistColorsMap == null || mHistColorsMap.length < 3) return;
 
+        float marginSide = 14f * mDensity;
         float w = 72f * mDensity;
         float h = 36f * mDensity;
-        // Symmetric 16dp margin from right and top edges (matching left HUD and AUX buttons)
-        float left = canvas.getWidth() - w - (16f * mDensity);
-        float top = 16f * mDensity;
+        float left = canvas.getWidth() - w - marginSide;
+        float top = 12f * mDensity; // Compact 12dp top margin matching the HUD baseline
         float right = left + w;
         float bottom = top + h;
 
@@ -303,20 +296,32 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         canvas.drawLine(left + (w / 3f), top, left + (w / 3f), bottom, histBorderPaint);
         canvas.drawLine(left + (2f * w / 3f), top, left + (2f * w / 3f), bottom, histBorderPaint);
 
-        // 2. Draw monochrome Luminance curve
+        // 2. Draw additive RGB channels (Red, Green, Blue)
         float xInterval = w / (float) (mHistSize + 1);
-        histPath.reset();
-        histPath.moveTo(left, bottom);
-        for (int j = 0; j < mHistSize; j++) {
-            float val = ((float) mHistLumaMap[j] * (h / (float) mHistMaxY));
-            float px = left + (j * xInterval);
-            float py = bottom - Math.min(val, h);
-            histPath.lineTo(px, py);
-        }
-        histPath.lineTo(left + (mHistSize * xInterval), bottom);
+        histChannelPaint.setAntiAlias(true);
+        histChannelPaint.setStyle(Paint.Style.FILL);
+        histChannelPaint.setXfermode(histXfermode);
 
-        canvas.drawPath(histPath, histFillPaint);
-        canvas.drawPath(histPath, histStrokePaint);
+        for (int i = 0; i < 3; i++) {
+            if (i == 0) {
+                histChannelPaint.setARGB(0xDD, 0xFF, 0x1A, 0x1A); // Red channel
+            } else if (i == 1) {
+                histChannelPaint.setARGB(0xDD, 0x1A, 0xD4, 0x2A); // Green channel
+            } else {
+                histChannelPaint.setARGB(0xDD, 0x2A, 0x55, 0xFF); // Blue channel
+            }
+
+            histPath.reset();
+            histPath.moveTo(left, bottom);
+            for (int j = 0; j < mHistSize; j++) {
+                float val = ((float) mHistColorsMap[i][j] * (h / (float) mHistMaxY));
+                float px = left + (j * xInterval);
+                float py = bottom - Math.min(val, h);
+                histPath.lineTo(px, py);
+            }
+            histPath.lineTo(left + (mHistSize * xInterval), bottom);
+            canvas.drawPath(histPath, histChannelPaint);
+        }
     }
 
     public void clear() {
@@ -338,7 +343,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         mIsoText = null;
         mFocalText = null;
         mFocusText = null;
-        mHistLumaMap = null;
+        mHistColorsMap = null;
         isCanvasDrawn = false;
     }
 
