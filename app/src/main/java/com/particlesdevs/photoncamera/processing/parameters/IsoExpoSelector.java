@@ -104,6 +104,11 @@ public class IsoExpoSelector {
             return pair;
         }
 
+        // Dynamically update tripod state from gyro to avoid stale exposure caching across modes
+        if (PhotonCamera.getGyro() != null) {
+            useTripod = PhotonCamera.getGyro().getTripod();
+        }
+
         // Shutter-Priority / Dynamic Low-Light AE Curve - PHOTO and NIGHT only.
         // MOTION/RAWVIDEO already returned above, so framerate-sensitive capture is
         // never affected. Tripod overrides mode when active since it removes the
