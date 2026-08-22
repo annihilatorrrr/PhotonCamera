@@ -77,7 +77,7 @@ public class PreferenceKeys {
         settingsManager.setDefaults(Key.CAMERA_ID, resources.getString(R.string.camera_id_default), new String[]{"0", "1"});
         settingsManager.setDefaults(Key.TONEMAP, resources.getString(R.string.tonemap_default), new String[]{resources.getString(R.string.tonemap_default)});
         settingsManager.setDefaults(Key.GAMMA, resources.getString(R.string.gamma_default), new String[]{resources.getString(R.string.gamma_default)});
-        settingsManager.setDefaults(Key.KEY_SHOW_AF_DATA, "0", new String[]{"0", "1", "2"});
+        settingsManager.setDefaults(Key.KEY_SHOW_AF_DATA, "0", new String[]{"0", "1", "2", "3"});
 
 
         settingsManager.addListener((settingsManager1, key) -> {
@@ -195,7 +195,7 @@ public class PreferenceKeys {
     }
 
     public static boolean isFullDebugOn() {
-        return getAfDataValue() == 2;
+        return getAfDataValue() == 3;
     }
 
     public static boolean isHorizonOn() {
