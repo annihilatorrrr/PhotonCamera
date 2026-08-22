@@ -1895,7 +1895,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         activity.runOnUiThread(() -> debugCapture(builder));
     }
 
-    private boolean isZslMode() {
+    public boolean isZslMode() {
         return PhotonCamera.getSettings().selectedMode == CameraMode.MOTION
                 && !IsoExpoSelector.HDR
                 && !isDualSession;

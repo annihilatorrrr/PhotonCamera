@@ -82,6 +82,7 @@ import com.particlesdevs.photoncamera.databinding.CameraFragmentBinding;
 import com.particlesdevs.photoncamera.gallery.ui.GalleryActivity;
 import com.particlesdevs.photoncamera.pro.SupportedDevice;
 import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
+import com.particlesdevs.photoncamera.processing.parameters.ExposureIndex;
 import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
 import com.particlesdevs.photoncamera.settings.PreferenceKeys;
 import com.particlesdevs.photoncamera.settings.SettingsManager;
@@ -442,7 +443,22 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 updateViewfinderHud(result);
             } else if (afDataMode == 2) {
                 // Full Raw Debug Mode
-                IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
+                boolean isZsl = (captureController != null && captureController.isZslMode());
+                String exposureStr;
+                String isoStr;
+                if (isZsl) {
+                    Long expNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+                    Integer isoVal = result.get(CaptureResult.SENSOR_SENSITIVITY);
+                    long expTime = (expNs != null) ? expNs : (captureController != null ? captureController.mPreviewExposureTime : 10000000L);
+                    int iso = (isoVal != null) ? isoVal : (captureController != null ? captureController.mPreviewIso : 100);
+                    exposureStr = ExposureIndex.sec2string(ExposureIndex.time2sec(expTime)) + "s";
+                    isoStr = String.valueOf(iso);
+                } else {
+                    IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
+                    exposureStr = expoPair.ExposureString() + "s";
+                    isoStr = String.valueOf(expoPair.iso);
+                }
+
                 LinkedHashMap<String, String> stringMap = new LinkedHashMap<>();
                 stringMap.put("AF_MODE", getResultFieldName("CONTROL_AF_MODE_", result.get(CaptureResult.CONTROL_AF_MODE)));
                 stringMap.put("AF_TRIGGER", getResultFieldName("CONTROL_AF_TRIGGER_", result.get(CaptureResult.CONTROL_AF_TRIGGER)));
@@ -450,8 +466,8 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 stringMap.put("AE_MODE", getResultFieldName("CONTROL_AE_MODE_", result.get(CaptureResult.CONTROL_AE_MODE)));
                 stringMap.put("FLASH_MODE", getResultFieldName("FLASH_MODE_", result.get(CaptureResult.FLASH_MODE)));
                 stringMap.put("FOCUS_DISTANCE", String.valueOf(result.get(CaptureResult.LENS_FOCUS_DISTANCE)));
-                stringMap.put("EXPOSURE_TIME", expoPair.ExposureString() + "s");
-                stringMap.put("ISO", String.valueOf(expoPair.iso));
+                stringMap.put("EXPOSURE_TIME", exposureStr);
+                stringMap.put("ISO", isoStr);
                 stringMap.put("Shakiness", String.valueOf(PhotonCamera.getGyro().getShakiness()));
                 stringMap.put("TripodShakiness", String.valueOf(PhotonCamera.getGyro().tripodShakiness));
                 stringMap.put("Tripod", String.valueOf(PhotonCamera.getGyro().getTripod()));
@@ -499,9 +515,26 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         }
         lastHudUpdateTime = now;
 
-        IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
-        String exposureStr = expoPair.ExposureString() + "s";
-        String isoStr = "ISO " + expoPair.iso;
+        String exposureStr;
+        String isoStr;
+
+        // In ZSL mode (Motion without HDR), frames are sourced from live preview stream (hardware AE).
+        // In non-ZSL modes (Photo, Night, HDR), frames are shot using IsoExpoSelector's manual calculation.
+        boolean isZsl = (captureController != null && captureController.isZslMode());
+
+        if (isZsl) {
+            Long expNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+            Integer isoVal = result.get(CaptureResult.SENSOR_SENSITIVITY);
+            long expTime = (expNs != null) ? expNs : (captureController != null ? captureController.mPreviewExposureTime : 10000000L);
+            int iso = (isoVal != null) ? isoVal : (captureController != null ? captureController.mPreviewIso : 100);
+
+            exposureStr = ExposureIndex.sec2string(ExposureIndex.time2sec(expTime)) + "s";
+            isoStr = "ISO " + iso;
+        } else {
+            IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
+            exposureStr = expoPair.ExposureString() + "s";
+            isoStr = "ISO " + expoPair.iso;
+        }
 
         // 35mm equivalent focal length calculation
         int eqFocalLength = 24;
