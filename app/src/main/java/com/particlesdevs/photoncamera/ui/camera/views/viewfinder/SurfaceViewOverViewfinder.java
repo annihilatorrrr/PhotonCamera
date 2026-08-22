@@ -24,6 +24,18 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     private RectF afRectToDraw = new RectF();
     private RectF aeRectToDraw = new RectF();
     private String debugText = null;
+    private final TextPaint hudPaint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
+    private final Paint strikePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float oisTextWidth = 0f;
+    private float mDensity = 1.0f;
+
+    private String mExpoText = null;
+    private String mIsoText = null;
+    private String mFocalText = null;
+    private String mFocusText = null;
+    private boolean mIsTripod = false;
+    private boolean mIsOisSupported = false;
+    private boolean mIsOisActive = false;
 
     public SurfaceViewOverViewfinder(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -45,6 +57,22 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
 
         rectPaint.setStyle(Paint.Style.STROKE);
         rectPaint.setStrokeWidth(3);
+
+        mDensity = getResources().getDisplayMetrics().density;
+        float fontSize = 13f * mDensity;
+
+        hudPaint.setColor(Color.WHITE);
+        hudPaint.setTextSize(fontSize);
+        hudPaint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        hudPaint.setTextAlign(Paint.Align.LEFT);
+        hudPaint.setShadowLayer(4f, 1f, 1f, Color.BLACK);
+
+        strikePaint.setColor(Color.WHITE);
+        strikePaint.setStrokeWidth(1.5f * mDensity);
+        strikePaint.setStyle(Paint.Style.STROKE);
+        strikePaint.setShadowLayer(4f, 1f, 1f, Color.BLACK);
+
+        oisTextWidth = hudPaint.measureText("OIS");
     }
 
     @Override
@@ -145,6 +173,18 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         this.debugText = debugText;
     }
 
+    public void setHudData(String expo, String iso, String focal, String focus,
+                           boolean isTripod, boolean isOisSupported, boolean isOisActive) {
+        this.mExpoText = expo;
+        this.mIsoText = iso;
+        this.mFocalText = focal;
+        this.mFocusText = focus;
+        this.mIsTripod = isTripod;
+        this.mIsOisSupported = isOisSupported;
+        this.mIsOisActive = isOisActive;
+    }
+
+
     public void refresh() {
         drawOnCanvas(mHolder);
     }
@@ -156,15 +196,63 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
                 Log.e(TAG, "Canvas is null");
             } else {
                 canvas.drawColor(0, PorterDuff.Mode.CLEAR);//Clears the canvas
-                drawAFRect(canvas);
-                drawAERect(canvas);
-                drawAFDebugText(canvas);
+                int mode = PreferenceKeys.getAfDataValue();
+                if (mode == 1) {
+                    drawHUD(canvas);
+                } else if (mode == 2) {
+                    drawAFRect(canvas);
+                    drawAERect(canvas);
+                    drawAFDebugText(canvas);
+                }
                 surfaceHolder.unlockCanvasAndPost(canvas);
                 isCanvasDrawn = true;
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void drawHUD(Canvas canvas) {
+        if (mExpoText == null) return;
+
+        float x = 14f * mDensity;
+        float y = (screenRatio > 16 / 9f) ? (36f * mDensity) : (28f * mDensity);
+        float lineSpacing = 18f * mDensity;
+
+        // Row 1: Shutter Speed
+        canvas.drawText(mExpoText, x, y, hudPaint);
+        y += lineSpacing;
+
+        // Row 2: ISO
+        canvas.drawText(mIsoText, x, y, hudPaint);
+        y += lineSpacing;
+
+        // Row 3: 35mm Equivalent Focal Length
+        canvas.drawText(mFocalText, x, y, hudPaint);
+        y += lineSpacing;
+
+        // Row 4: Focus Mode & Distance
+        canvas.drawText(mFocusText, x, y, hudPaint);
+        y += lineSpacing;
+
+        // Row 5: OIS Status (only if active lens has hardware OIS)
+        if (mIsOisSupported) {
+            canvas.drawText("OIS", x, y, hudPaint);
+
+            // Draw clean strike-through line if OIS is currently inactive
+            if (!mIsOisActive) {
+                float strikeY = y - (hudPaint.getTextSize() * 0.32f);
+                canvas.drawLine(x - 2f * mDensity, strikeY, x + oisTextWidth + 2f * mDensity, strikeY, strikePaint);
+            }
+            y += lineSpacing;
+        }
+
+        // Row 6: Tripod Status (only when mounted on a tripod)
+        if (mIsTripod) {
+            canvas.drawText("[TRIPOD]", x, y, hudPaint);
+            y += lineSpacing;
+        }
+        
     }
 
     public void clear() {
@@ -182,6 +270,10 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         afRectToDraw = null;
         aeRectToDraw = null;
         debugText = null;
+        mExpoText = null;
+        mIsoText = null;
+        mFocalText = null;
+        mFocusText = null;
         isCanvasDrawn = false;
     }
 

@@ -52,7 +52,8 @@
     <string name="flength">"Focal Length "</string>
     <string name="info">Info</string>
     <string name="filename">"File Name "</string>
-    <string name="turn_on_afdata">Show Debug Data</string>
+    <string name="turn_on_afdata">Viewfinder HUD / Debug</string>
+    <string name="afdata_summary">Viewfinder overlay: clean Leica-style camera HUD or full raw sensor debug data</string>
     <string name="histogram">Histogram</string>
     <string name="export_settings">Export Settings</string>
     <string name="import_settings">Import Settings</string>

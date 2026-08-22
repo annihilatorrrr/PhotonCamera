@@ -64,7 +64,7 @@ public class Settings {
         aspect169 = PreferenceKeys.getBool(PreferenceKeys.Key.KEY_WIDE169);
         binning = PreferenceKeys.isBinningOn();
         Allocator.binning = binning;
-        DebugData = PreferenceKeys.isAfDataOn();
+        DebugData = PreferenceKeys.isFullDebugOn();
         roundEdge = PreferenceKeys.isRoundEdgeOn();
         sharpness = PreferenceKeys.getSharpnessValue();
         contrastMpy = PreferenceKeys.getContrastValue();//TODO recheck

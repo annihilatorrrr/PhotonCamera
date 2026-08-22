@@ -248,7 +248,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     "2.83x (High Speed Bias)",
                     "4.00x (Max Speed Bias)"
             },
-            entryValues = {"0.25", "0.35", "0.50", "0.71", "1.00", "1.41", "2.00", "2.83", "4.00"},
+            entryValues = {"0.25", "0.35", "0.5", "0.71", "1.0", "1.41", "2.0", "2.83", "4.0"},
             defaultValue = 1.0f
     )
     public float exposureBalanceMultiplier = 1.0f;

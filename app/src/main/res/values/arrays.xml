@@ -145,4 +145,14 @@
         <item>1920x1080</item>
         <item>1280x720</item>
     </string-array>
+    <string-array name="afdata_entries">
+        <item>Off</item>
+        <item>HUD</item>
+        <item>Full Debug</item>
+    </string-array>
+    <string-array name="afdata_entryValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
 </resources>
