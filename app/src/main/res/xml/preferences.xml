@@ -96,13 +96,15 @@
                 android:defaultValue="2"
                 />
 
-        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
-                android:key="@string/pref_show_afdata_key"
-                android:defaultValue="@bool/pref_show_afdata_default"
+        <ListPreference
                 android:layout="@layout/preference_with_margin"
+                android:key="@string/pref_show_afdata_key"
                 android:title="@string/turn_on_afdata"
-                android:summary=""
+                app:useSimpleSummaryProvider="true"
                 android:icon="@drawable/ic_developer"
+                android:entries="@array/afdata_entries"
+                android:entryValues="@array/afdata_entryValues"
+                android:defaultValue="0"
                 />
         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
                 android:title="@string/pref_save_per_lens_string"

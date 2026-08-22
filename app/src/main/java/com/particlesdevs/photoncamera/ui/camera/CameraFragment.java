@@ -29,20 +29,24 @@ import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 
 import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.HorizonIndicatorView;
 import com.particlesdevs.photoncamera.util.Log;
 import android.util.Size;
+import android.util.SizeF;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -93,6 +97,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -370,6 +375,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         PhotonCamera.getGyro().unregister();
         PhotonCamera.getSettings().saveID();
         textureView.onPause();
+        surfaceView.clear();
         captureController.closeCamera();
 //        stopBackgroundThread();
         cameraFragmentViewModel.onPause();
@@ -430,7 +436,12 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
             }
             mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
-            if (PreferenceKeys.isAfDataOn()) {
+            int afDataMode = PreferenceKeys.getAfDataValue();
+            if (afDataMode == 1) {
+                // Camera HUD Mode
+                updateViewfinderHud(result);
+            } else if (afDataMode == 2) {
+                // Full Raw Debug Mode
                 IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
                 LinkedHashMap<String, String> stringMap = new LinkedHashMap<>();
                 stringMap.put("AF_MODE", getResultFieldName("CONTROL_AF_MODE_", result.get(CaptureResult.CONTROL_AF_MODE)));
@@ -440,9 +451,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 stringMap.put("FLASH_MODE", getResultFieldName("FLASH_MODE_", result.get(CaptureResult.FLASH_MODE)));
                 stringMap.put("FOCUS_DISTANCE", String.valueOf(result.get(CaptureResult.LENS_FOCUS_DISTANCE)));
                 stringMap.put("EXPOSURE_TIME", expoPair.ExposureString() + "s");
-//            stringMap.put("EXPOSURE_TIME_CR", String.format(Locale.ROOT,"%.5f",result.get(CaptureResult.SENSOR_EXPOSURE_TIME).doubleValue()/1E9)+ "s");
                 stringMap.put("ISO", String.valueOf(expoPair.iso));
-//            stringMap.put("ISO_CR", String.valueOf(result.get(CaptureResult.SENSOR_SENSITIVITY)));
                 stringMap.put("Shakiness", String.valueOf(PhotonCamera.getGyro().getShakiness()));
                 stringMap.put("TripodShakiness", String.valueOf(PhotonCamera.getGyro().tripodShakiness));
                 stringMap.put("Tripod", String.valueOf(PhotonCamera.getGyro().getTripod()));
@@ -478,6 +487,95 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 }
             }
         });
+    }
+
+    private long lastHudUpdateTime = 0;
+    private static final long HUD_UPDATE_INTERVAL_MS = 150; // Smooth 6.6 Hz update rate to eliminate jitter
+
+    private void updateViewfinderHud(CaptureResult result) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastHudUpdateTime < HUD_UPDATE_INTERVAL_MS) {
+            return; // Damping: skip intermediate frame fluctuations to keep HUD rock-steady
+        }
+        lastHudUpdateTime = now;
+
+        IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
+        String exposureStr = expoPair.ExposureString() + "s";
+        String isoStr = "ISO " + expoPair.iso;
+
+        // 35mm equivalent focal length calculation
+        int eqFocalLength = 24;
+        CameraCharacteristics chars = CaptureController.mCameraCharacteristics;
+        if (chars != null) {
+            float[] focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            SizeF sensorSize = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            float fl = (focalLengths != null && focalLengths.length > 0) ? focalLengths[0] : 4.75f;
+            float zoom = 1.0f;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Float zr = result.get(CaptureResult.CONTROL_ZOOM_RATIO);
+                if (zr != null) zoom = zr;
+            } else {
+                Rect crop = result.get(CaptureResult.SCALER_CROP_REGION);
+                Rect activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+                if (crop != null && activeArray != null && crop.width() > 0) {
+                    zoom = (float) activeArray.width() / crop.width();
+                }
+            }
+            if (sensorSize != null && sensorSize.getWidth() > 0) {
+                eqFocalLength = Math.round((36.0f / sensorSize.getWidth()) * fl * zoom);
+            }
+        }
+        String focalStr = eqFocalLength + "mm";
+
+        // Focus mode & distance in meters
+        String focusStr;
+        Integer afMode = result.get(CaptureResult.CONTROL_AF_MODE);
+        Float focusDist = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+        boolean isManual = (manualModeConsole != null && manualModeConsole.isManualFocusModeActive())
+                || (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_OFF);
+
+        if (isManual) {
+            if (focusDist == null || focusDist == 0.0f) {
+                focusStr = "MF · ∞";
+            } else {
+                float meters = 1.0f / focusDist;
+                focusStr = String.format(Locale.ROOT, "MF · %.1fm", meters);
+            }
+        } else {
+            if (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_AUTO) {
+                focusStr = "AF-S";
+            } else if (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_MACRO) {
+                focusStr = "AF-Macro";
+            } else {
+                focusStr = "AF-C";
+            }
+        }
+
+        // Tripod indicator
+        boolean isTripod = PhotonCamera.getGyro() != null && PhotonCamera.getGyro().getTripod();
+
+        // OIS hardware & runtime active status
+        boolean oisSupported = false;
+        boolean oisActive = true;
+        if (chars != null) {
+            int[] stabModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
+            oisSupported = (stabModes != null && stabModes.length > 1);
+            if (oisSupported && captureController != null) {
+                int oisMode = captureController.oisMode;
+                if (oisMode == 2) {
+                    oisActive = false;
+                } else if (oisMode == 1) {
+                    CameraMode curMode = PhotonCamera.getSettings().selectedMode;
+                    boolean isContinuous = (curMode == CameraMode.UNLIMITED);
+                    oisActive = !(isTripod || isContinuous);
+                } else {
+                    oisActive = true;
+                }
+            }
+        }
+
+        surfaceView.setHudData(exposureStr, isoStr, focalStr, focusStr, isTripod, oisSupported, oisActive);
+        surfaceView.refresh();
     }
 
     private RectF getScreenRectFromMeteringRect(MeteringRectangle meteringRectangle) {
@@ -848,12 +946,14 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
         @Override
         public void onCameraRestarted() {
+            surfaceView.clear();
             mCameraUIView.refresh(CaptureController.isProcessing);
             mTouchFocus.resetFocusCircle();
         }
 
         @Override
         public void onCharacteristicsUpdated(CameraCharacteristics characteristics) {
+            surfaceView.clear();
             auxButtonsViewModel.setActiveId(PreferenceKeys.getCameraID());
             Boolean flashAvailable = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
             mCameraUIView.showFlashButton(flashAvailable != null && flashAvailable);
