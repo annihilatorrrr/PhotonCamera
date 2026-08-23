@@ -12,9 +12,11 @@ import androidx.core.content.res.ResourcesCompat;
 
 import com.particlesdevs.photoncamera.processing.ImagePath;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -70,6 +72,35 @@ public class Utilities {
             e.printStackTrace();
         }
         in.compress(Bitmap.CompressFormat.PNG, 100, fOut);
+    }
+    /**
+     * Saves a Bitmap as PNG into DCIM/Camera via SimpleStorage (SAF).
+     * Required on Android 11+ where plain FileOutputStream writes inside DCIM
+     * end up as 0-byte files through the FUSE MediaProvider.
+     * Falls back to a direct file write when SAF access is unavailable.
+     */
+    public static void saveBitmapSaf(Bitmap in, String name){
+        File target = new File(ImagePath.newImageFilePath().toString() + name + ".png");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        in.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+        OutputStream os = SimpleStorageHelper.openOutputStreamByAbsPath(target.getAbsolutePath());
+        if (os != null) {
+            try (OutputStream out = os) {
+                out.write(bytes.toByteArray());
+                out.flush();
+                Log.d("Utilities", "Saved debug PNG via SAF: " + target);
+                return;
+            } catch (IOException e) {
+                Log.e("Utilities", "SAF PNG write failed: " + target, e);
+            }
+        }
+        try (FileOutputStream fOut = new FileOutputStream(target)) {
+            fOut.write(bytes.toByteArray());
+            fOut.flush();
+            Log.d("Utilities", "Saved debug PNG via file fallback: " + target);
+        } catch (IOException e) {
+            Log.e("Utilities", "PNG write failed: " + target, e);
+        }
     }
     public static void drawBL(float[] rgb, Bitmap io){
         float max = 0.f;
