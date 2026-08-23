@@ -433,9 +433,11 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     @SuppressLint("DefaultLocale")
     private void updateScreenLog(CaptureResult result) {
         surfaceView.post(() -> {
+            int orientation = getCameraFragmentViewModel().getCameraFragmentModel().getOrientation();
             if (mHorizonIndicatorView != null) {
-                mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+                mHorizonIndicatorView.updateDisplayRotation(orientation);
             }
+            surfaceView.setOrientation(orientation);
             mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
             int afDataMode = PreferenceKeys.getAfDataValue();
             if (afDataMode == 1 || afDataMode == 2) {

@@ -1,8 +1,10 @@
 package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
 
 import android.content.Context;
+import android.animation.ValueAnimator;
 import android.graphics.*;
 import android.text.TextPaint;
+import android.view.animation.DecelerateInterpolator;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import com.particlesdevs.photoncamera.util.Log;
@@ -36,6 +38,9 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     private boolean mIsTripod = false;
     private boolean mIsOisSupported = false;
     private boolean mIsOisActive = false;
+    private float mAnimatedOrientation = 0f;
+    private int mTargetOrientation = 0;
+    private ValueAnimator mRotationAnimator = null;
 
     private final Paint histBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint histBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -200,6 +205,33 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         this.mIsOisActive = isOisActive;
     }
 
+    /**
+     * Smoothly animates HUD and Histogram rotation to the target device orientation (250ms).
+     * Calculates the shortest angular path to prevent unwanted 360-degree spins.
+     */
+    public void setOrientation(int orientation) {
+        if (this.mTargetOrientation == orientation) return;
+        this.mTargetOrientation = orientation;
+
+        float startAngle = mAnimatedOrientation;
+        float diff = (orientation - startAngle) % 360f;
+        if (diff > 180f) diff -= 360f;
+        if (diff < -180f) diff += 360f;
+        float endAngle = startAngle + diff;
+
+        if (mRotationAnimator != null && mRotationAnimator.isRunning()) {
+            mRotationAnimator.cancel();
+        }
+
+        mRotationAnimator = ValueAnimator.ofFloat(startAngle, endAngle);
+        mRotationAnimator.setDuration(250);
+        mRotationAnimator.setInterpolator(new DecelerateInterpolator());
+        mRotationAnimator.addUpdateListener(animation -> {
+            mAnimatedOrientation = (float) animation.getAnimatedValue();
+            refresh();
+        });
+        mRotationAnimator.start();
+    }
 
     public void refresh() {
         drawOnCanvas(mHolder);
@@ -234,9 +266,27 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     private void drawHUD(Canvas canvas) {
         if (mExpoText == null) return;
 
-        float x = 14f * mDensity;
-        float y = 22f * mDensity; // 12dp top margin + font ascent baseline
+        float marginSide = 14f * mDensity;
+        float marginTop = 12f * mDensity;
         float lineSpacing = 16f * mDensity;
+
+        int rowCount = 4 + (mIsTripod ? 1 : 0) + (mIsOisSupported ? 1 : 0);
+        float hudHeight = rowCount * lineSpacing;
+        float hudWidth = 54f * mDensity;
+
+        boolean isLandscape = (mTargetOrientation == 90 || mTargetOrientation == 270);
+
+        // Dynamic pivot calculation keeping exact 14dp left and 12dp top margins in all rotations
+        float pivotX = marginSide + (isLandscape ? (hudHeight / 2f) : (hudWidth / 2f));
+        float pivotY = marginTop + (isLandscape ? (hudWidth / 2f) : (hudHeight / 2f));
+
+        float x = pivotX - (hudWidth / 2f);
+        float y = pivotY - (hudHeight / 2f) + (10f * mDensity); // 10dp text baseline
+
+        canvas.save();
+        if (mAnimatedOrientation != 0f) {
+            canvas.rotate(mAnimatedOrientation, pivotX, pivotY);
+        }
 
         // Row 1: Shutter Speed
         canvas.drawText(mExpoText, x, y, hudPaint);
@@ -271,9 +321,11 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
             canvas.drawText("[TRIPOD]", x, y, hudPaint);
             y += lineSpacing;
         }
+
+        canvas.restore();
     }
 
-     public void setHistogramData(int[][] colorsMap, int maxY, int size) {
+    public void setHistogramData(int[][] colorsMap, int maxY, int size) {
         this.mHistColorsMap = colorsMap;
         this.mHistMaxY = Math.max(1, maxY);
         this.mHistSize = size;
@@ -283,12 +335,25 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         if (mHistColorsMap == null || mHistColorsMap.length < 3) return;
 
         float marginSide = 14f * mDensity;
+        float marginTop = 12f * mDensity;
         float w = 72f * mDensity;
         float h = 36f * mDensity;
-        float left = canvas.getWidth() - w - marginSide;
-        float top = 12f * mDensity; // Compact 12dp top margin matching the HUD baseline
+
+        boolean isLandscape = (mTargetOrientation == 90 || mTargetOrientation == 270);
+
+        // Dynamic pivot calculation keeping exact 14dp right and 12dp top margins in all rotations
+        float pivotX = canvas.getWidth() - marginSide - (isLandscape ? (h / 2f) : (w / 2f));
+        float pivotY = marginTop + (isLandscape ? (w / 2f) : (h / 2f));
+
+        float left = pivotX - (w / 2f);
+        float top = pivotY - (h / 2f);
         float right = left + w;
         float bottom = top + h;
+
+        canvas.save();
+        if (mAnimatedOrientation != 0f) {
+            canvas.rotate(mAnimatedOrientation, pivotX, pivotY);
+        }
 
         // 1. Draw semi-transparent dark background and 1/3 guidelines
         canvas.drawRect(left, top, right, bottom, histBgPaint);
@@ -322,9 +387,14 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
             histPath.lineTo(left + (mHistSize * xInterval), bottom);
             canvas.drawPath(histPath, histChannelPaint);
         }
+
+        canvas.restore();
     }
 
     public void clear() {
+        if (mRotationAnimator != null) {
+            mRotationAnimator.cancel();
+        }
         try {
             Canvas canvas = mHolder.lockHardwareCanvas();
             if (canvas == null) {
