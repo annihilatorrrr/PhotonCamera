@@ -1,30 +1,40 @@
 
 #define SCALE 4
-#define SCALEMPY (1.0/float(SCALE))
 precision highp float;
 precision highp sampler2D;
 uniform sampler2D LowresInput;
-uniform sampler2D Guide;
 uniform sampler2D GuideHigh;
-uniform float noiseS;
-uniform float noiseO;
 out vec3 Output;
-#import interpolation
-#import median
-void computeAB(ivec2 center, out vec3 a, out vec3 b) {
+// Guided upsampling, same technique as the FusionMap upsampling in initial.glsl:
+// a Gaussian-weighted least-squares fit of the lowres input against the highres
+// guide lightness, evaluated with the center pixel's guide lightness.
+// The window radius equals SCALE so the fit always spans the same 3x3 parent
+// texels as initial.glsl (radius 2 at scale 2), independent of the scale.
+void main() {
+    ivec2 xy = ivec2(gl_FragCoord.xy);
+    vec2 lowSize = vec2(textureSize(LowresInput, 0));
+    ivec2 highMax = textureSize(GuideHigh, 0) - ivec2(1);
+    const int R = SCALE;
+    // Gaussian spatial kernel, computed inline: wi lives in one register across
+    // the j loop, wj is recomputed per iteration (cheaper than array indexing)
+    const float sigma = 0.4 * float(R);
+    const float sigmaSq2 = 2.0 * sigma * sigma;
     float momentX  = 0.0;
     vec3  momentY  = vec3(0.0);
     float momentX2 = 0.0;
     vec3  momentXY = vec3(0.0);
     float ws = 0.0;
-    const float sigma     = 1.2;
-    const float sigmaSq2  = 2.0 * sigma * sigma;
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            ivec2 pos     = center + ivec2(i, j);
-            vec3  lowresVal  = texelFetch(LowresInput, pos, 0).rgb;
-            float lightness  = dot(texelFetch(Guide, pos, 0).rgb, vec3(1.0/3.0));
-            float w          = exp(-float(i*i + j*j) / sigmaSq2);
+    for (int i = -R; i <= R; i++) {
+        float wi = exp(-float(i * i) / sigmaSq2);
+        for (int j = -R; j <= R; j++) {
+            float w = wi * exp(-float(j * j) / sigmaSq2);
+            ivec2 pos = clamp(xy + ivec2(i, j), ivec2(0), highMax);
+            float lightness = dot(texelFetch(GuideHigh, pos, 0).rgb, vec3(1.0/3.0));
+            // Bilinear lowres lookup. gaussdown anchors lowres texel (i,j) at
+            // highres (i*SCALE, j*SCALE), so highres p maps to continuous lowres
+            // coord p/SCALE. Keeps the fitted a,b continuous across block
+            // boundaries, avoiding rectangular seams.
+            vec3 lowresVal = textureLod(LowresInput, (vec2(pos) / float(SCALE) + 0.5) / lowSize, 0.0).rgb;
             momentX  += lightness * w;
             momentY  += lowresVal * w;
             momentX2 += lightness * lightness * w;
@@ -33,62 +43,15 @@ void computeAB(ivec2 center, out vec3 a, out vec3 b) {
         }
     }
     float invWs = 1.0 / ws;
-    float meanX = momentX * invWs;
-    vec3  meanY = momentY * invWs;
-    vec3  covXY = momentXY * invWs - meanX * meanY;
-    float varX  = momentX2 * invWs - meanX * meanX;
-    // When variance is too low the guide provides no useful signal,
-    // so blend linearly toward a=0 (output = meanY) to avoid instability.
-    float varThreshold = 0.001;
-    float varWeight    = varX / (varX + varThreshold);
-    a = varWeight * covXY / (varX + varThreshold);
-    b = meanY - a * meanX;
-}
-
-void main() {
-    ivec2 xy   = ivec2(gl_FragCoord.xy);
-    ivec2 size = textureSize(GuideHigh, 0);
-
-    vec2  lowres_pos = vec2(xy) / float(SCALE);
-    ivec2 c          = ivec2(floor(lowres_pos));
-    vec2  f          = fract(lowres_pos);
-    vec3 a00, b00, a10, b10, a01, b01, a11, b11;
-    computeAB(c,                 a00, b00);
-    computeAB(c + ivec2(1, 0),   a10, b10);
-    computeAB(c + ivec2(0, 1),   a01, b01);
-    computeAB(c + ivec2(1, 1),   a11, b11);
-
-    vec3 a = mix(mix(a00, a10, f.x), mix(a01, a11, f.x), f.y);
-    vec3 b = mix(mix(b00, b10, f.x), mix(b01, b11, f.x), f.y);
-
-    vec3 guideCenter = texelFetch(GuideHigh, xy, 0).rgb;
-    Output = a * dot(guideCenter, vec3(1.0/3.0)) + b;
-    float diffs[9];
-    for (int i = -1; i <= 1; i++) {
-        for (int j = - 1; j <= 1; j++) {
-            ivec2 pos = xy + ivec2(i, j);
-            vec3  guideVal = texelFetch(GuideHigh, pos, 0).rgb;
-            diffs[(i+1)*3 + (j+1)] = dot(guideVal - (a * dot(guideVal, vec3(1.0/3.0)) + b), vec3(1.0/3.0));
-        }
-    }
-    float medianDiff = median9(diffs);
-    float absDev[9];
-    for(int i = 0; i < 9; i++) {
-        absDev[i] = abs(diffs[i] - medianDiff);
-    }
-    float mad = median9(absDev);
-    float centerDiff = diffs[4];
-    float threshold = 4.5 * mad;
-    float dev = abs(centerDiff - medianDiff);
-
-    float br = dot(Output, vec3(1.0/3.0));
-    float noise = sqrt(noiseS * br + noiseO);
-    float guideBr = dot(guideCenter, vec3(1.0/3.0));
-    if (dev > threshold) {
-        //guideBr = guideBr - medianDiff;
-    }
-    //float pd = exp(((centerDiff - medianDiff)*(centerDiff - medianDiff))/(-2.0*noise*noise));
-    //guideBr = mix(br, guideBr, pd);
-    Output = (Output/br) * guideBr;
-    //Output = abs(textureLinear(Guide, gl_FragCoord.xy / vec2(size)).rgb - guideCenter);
+    momentX *= invWs; momentY *= invWs; momentX2 *= invWs; momentXY *= invWs;
+    float meanX = momentX;
+    vec3  meanY = momentY;
+    float varX  = momentX2 - meanX * meanX;
+    vec3  covXY = momentXY - meanX * meanY;
+    // Handle zero variance case with epsilon for stability
+    vec3 a = covXY / (max(varX, 0.0) + 3e-04);
+    vec3 b = meanY - a * meanX;
+    float guideLightness = dot(texelFetch(GuideHigh, xy, 0).rgb, vec3(1.0/3.0));
+    Output = a * guideLightness + b;
+    Output = normalize(Output) * length(guideLightness);
 }
