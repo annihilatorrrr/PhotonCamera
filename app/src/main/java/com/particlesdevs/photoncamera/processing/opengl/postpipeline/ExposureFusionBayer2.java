@@ -5,6 +5,7 @@ import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
+import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.GLUtils;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
@@ -13,6 +14,7 @@ import com.particlesdevs.photoncamera.settings.annotations.Tunable;
 import com.particlesdevs.photoncamera.util.BufferUtils;
 import com.particlesdevs.photoncamera.util.Math2;
 import com.particlesdevs.photoncamera.util.SplineInterpolator;
+import com.particlesdevs.photoncamera.util.Utilities;
 
 import java.util.ArrayList;
 
@@ -38,6 +40,12 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setDefine("RGBLAYOUT",basePipeline.mSettings.alignAlgorithm == 2);
         glProg.setDefine("COMPRESSOR", (float) basePipeline.mSettings.compressor);
         glProg.setDefine("UPPERLIM", overexposedUpperLimit);
+        // Fusion packing: three exposures + blend factor (well-exposedness x
+        // Laplacian contrast, Mertens et al.) in alpha, no separate weight
+        // textures (see exposebayer2.glsl).
+        glProg.setDefine("FUSEWEIGHTED",true);
+        glProg.setDefine("TARGET", targetLuma);
+        glProg.setDefine("LAPMIN", fusionLaplaceFactorMin);
         Log.d(Name,"Compressor:"+basePipeline.mSettings.compressor);
         glProg.useAssetProgram("ltm/exposebayer2",false);
         glProg.setTexture("InputBuffer",in);
@@ -227,7 +235,7 @@ public class ExposureFusionBayer2 extends Node {
         max = 1.0f,
         step = 0.01f
     )
-    float targetLuma = 0.5f;
+    float targetLuma = 0.6f;
     
     @Tunable(
         title = "DownScale Per Level",
@@ -493,17 +501,19 @@ public class ExposureFusionBayer2 extends Node {
         Log.d(Name,"Pyramid elapsed:"+(System.currentTimeMillis()-time)+" ms");
         //in.close();
 
+        // expose() premultiplied the packed exposure channels with their
+        // full-resolution luma shares, so the pyramid channels carry the
+        // weighting implicitly and no separate weight textures are needed.
+        // The gauss levels are no longer used by the fusion loop.
+        int ind = normalExpo.gauss.length - 1;
+        for (int i = 0; i < ind; i++) normalExpo.gauss[i].close();
+
         // select base gauss
         glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-        glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
-        glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
+        glProg.setDefine("FUSEWEIGHTED",true);
         glProg.useAssetProgram("ltm/fusionbayer3",false);
-        glProg.setVar("gauss", gaussSize);
-        glProg.setVar("target", targetLuma);
         glProg.setVar("useUpsampled",0);
-        int ind = normalExpo.gauss.length - 1;
         GLTexture binnedFuse = new GLTexture(normalExpo.gauss[ind]);
-        glProg.setTexture("normalExpo",normalExpo.gauss[ind]);
         //glProg.setTexture("highExpo",highExpo.gauss[ind]);
         glProg.setTexture("normalExpoDiff",normalExpo.gauss[ind]);
         //glProg.setTexture("highExpoDiff",highExpo.gauss[ind]);
@@ -511,6 +521,7 @@ public class ExposureFusionBayer2 extends Node {
         glProg.setVar("blendMpy",1.f);
 
         glProg.drawBlocks(binnedFuse,normalExpo.sizes[ind]);
+        normalExpo.gauss[ind].close();
 
         for (int i = normalExpo.laplace.length - 1; i >= 0; i--) {
             //GLTexture upsampleWip = (glUtils.interpolate(binnedFuse,normalExpo.sizes[i]));
@@ -518,8 +529,7 @@ public class ExposureFusionBayer2 extends Node {
             GLTexture upsampleWip = binnedFuse;
             Log.d(Name,"upsampleWip:"+upsampleWip.mSize);
             glProg.setDefine("MAXLEVEL",normalExpo.laplace.length - 1);
-            glProg.setDefine("LAPLACEMIN", fusionLaplaceFactorMin);
-            glProg.setDefine("EXPOMIN", fusionExpoFactorMin);
+            glProg.setDefine("FUSEWEIGHTED",true);
             glProg.useAssetProgram("ltm/fusionbayer3",false);
 
             glProg.setTexture("upsampled", upsampleWip);
@@ -527,15 +537,9 @@ public class ExposureFusionBayer2 extends Node {
             glProg.setVar("blendMpy",1.0f+dehazing-dehazing*((float)i)/(normalExpo.laplace.length-1.f));
             glProg.setVar("level",i);
             glProg.setVar("upscaleIn",1.0f/normalExpo.sizes[i].x, 1.0f/normalExpo.sizes[i].y);
-            glProg.setVar("gauss", gaussSize);
-            glProg.setVar("target", targetLuma);
             // We can discard the previous work in progress merge.
             //binnedFuse.close();
             binnedFuse = new GLTexture(normalExpo.laplace[i]);
-
-            // Weigh full image.
-            glProg.setTexture("normalExpo", normalExpo.gauss[i]);
-            //glProg.setTexture("highExpo", highExpo.gauss[i]);
 
             // Blend feature level.
             glProg.setTexture("normalExpoDiff", normalExpo.laplace[i]);
@@ -545,15 +549,23 @@ public class ExposureFusionBayer2 extends Node {
             //glUtils.SaveProgResult(binnedFuse.mSize,"ExposureFusion"+i);
 
             upsampleWip.close();
-            normalExpo.gauss[i].close();
-            //highExpo.gauss[i].close();
             normalExpo.laplace[i].close();
-            //highExpo.laplace[i].close();
 
         }
         //previousNode.WorkingTexture.close();
-        normalExpo.gauss[ind].close();
         //highExpo.gauss[ind].close();
+        // Debug dump: the fusion expose packing carries the blend factor t in
+        // .a (rgb hold the three exposures). Extract that single scalar via
+        // convertVec4 for a grayscale PNG: black = shadows (max boost),
+        // white = highlights (base exposure). For a specific share instead,
+        // derive it from t: shadow = clamp(2-2t), mid = clamp(2t)-clamp(2t-1),
+        // highlight = clamp(2t-1).
+        /*GLTexture debugWeights = expose(in, underexposure, overexposure);
+        GLTexture debugScalar = glUtils.convertVec4(debugWeights, "vec3(in1.a), 1.0");
+        GLImage debugImage = glUtils.GenerateGLImage(debugWeights.mSize);
+        Utilities.saveBitmapSaf(debugImage.getBufferedImage(), "FusionWeights");
+        debugScalar.close();
+        debugWeights.close();*/
         basePipeline.main1.mSize.x = initialSize.x;
         basePipeline.main1.mSize.y = initialSize.y;
         basePipeline.main2.mSize.x = initialSize.x;

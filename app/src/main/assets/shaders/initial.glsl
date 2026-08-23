@@ -474,6 +474,20 @@ float aces(float x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+// Soft clamp: identity below SOFTKNEE, smooth C1 rolloff towards 1.0 above it.
+// Preserves highlight detail instead of hard-clipping to flat white.
+#define SOFTKNEE 0.8
+float softClip(float x) {
+    x = max(x, 0.0);
+    if (x <= SOFTKNEE) return x;
+    float t = x - SOFTKNEE;
+    float s = 1.0 - SOFTKNEE;
+    return SOFTKNEE + s * t / (t + s);
+}
+vec3 softClip(vec3 v) {
+    return vec3(softClip(v.r), softClip(v.g), softClip(v.b));
+}
+
 void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
     xy = mirrorCoords(xy,activeSize);
@@ -537,7 +551,7 @@ void main() {
     //float noiseO = (NOISEO*NOISEO)*0.25;
     //noiseO = min(noiseO,0.25);
     //Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
-    Output = clamp(sRGB,0.0,1.0);
+    Output = softClip(sRGB);
     #if POSTLUT == 1
         Output = postlookup(Output);
     #endif

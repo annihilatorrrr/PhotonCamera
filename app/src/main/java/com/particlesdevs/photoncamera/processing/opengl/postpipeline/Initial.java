@@ -91,6 +91,9 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
     @Tunable(title = "Epsilon", category = "Color & Tone", max = 0.01f, defaultValue = 0.0008f, step = 0.0001f)
     float eps = 0.0008f;
     
+    @Tunable(title = "Highlight Softness", category = "Color & Tone", min = 0.5f, max = 1.0f, defaultValue = 0.8f, step = 0.01f, description = "Soft clamp knee for highlights; lower value rolls highlights off sooner")
+    float highlightSoftness = 0.8f;
+    
     //@Tunable(title = "Curve Points Count", category = "Color & Tone", min = 4.0f, max = 10.0f, defaultValue = 6.0f, step = 1.0f)
     int curvePointsCount = 6;
     
@@ -210,6 +213,7 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
         glProg.setDefine("NOISEO",  basePipeline.noiseO);
         glProg.setDefine("NOISES",  basePipeline.noiseS);
         glProg.setDefine("EPS", eps);
+        glProg.setDefine("SOFTKNEE", highlightSoftness);
 
         if(postlut != null && postlut.exists()){
             lutbm = new GLImage(postlut);
