@@ -99,7 +99,7 @@ public class PostPipeline extends GLBasePipeline {
             noiseO = 0.f;
             noiseS = 0.f;
         }*/
-        noiseO = Math.max(noiseO, 1.0f/4096.0f);
+        noiseO = Math.max(noiseO, Float.MIN_NORMAL);
         noiseS = Math.max(noiseS, Float.MIN_NORMAL);
         Point rawSliced = parameters.rawSize;
         cropSize = new Point(parameters.rawSize);
@@ -134,6 +134,11 @@ public class PostPipeline extends GLBasePipeline {
         GLTexture.closeAll();
         return res;
     }
+
+    /** KernelNet parameter map (RGBA floats: s1, s2, rho, 1) exported by ESD4D during the merge pass; may be null (single frame / model unavailable). */
+    public java.nio.FloatBuffer kernelParams;
+    /** Size of {@link #kernelParams}. */
+    public android.graphics.Point kernelParamsSize;
 
     private void BuildDefaultPipeline() {
         boolean nightMode = PhotonCamera.getSettings().selectedMode == CameraMode.NIGHT;

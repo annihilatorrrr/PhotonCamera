@@ -15,6 +15,7 @@ uniform float noiseS;
 uniform float noiseO;
 uniform ivec2 border;
 uniform int cfaPattern;
+uniform ivec2 cfaShift; // sensor red-site offset (cfa%2, cfa/2), 0..1 per axis
 uniform vec4 analogBalance;
 uniform vec2 randF;
 #define TILE 2
@@ -29,8 +30,23 @@ uint getBayer(ivec2 coords, highp usampler2D tex){
 float getBayerNorm(ivec2 coords, highp usampler2D tex){
     return clamp((float(getBayer(coords, tex)) - dot(blackLevel, vec4(0.25)))/(float(whiteLevel)-dot(blackLevel,vec4(0.25))), 0.0, 1.0);
 }
+// Green-normalize the packed quads: the quincunx sub-texel sampler in later
+// stages needs the two greens on the anti-diagonal g/b slots. Only GRBG/GBRG
+// (main-diagonal greens) get a shift - the quad origin moves back by the
+// sensor's red-site offset cfaShift so real raw site X lives at packed
+// rel = X + cfaShift. RGGB/BGGR pass cfaShift = 0: their greens are already
+// on the anti-diagonal (for BGGR, R/B sit swapped in r/a, which is harmless
+// - all merge stages work channel-wise and merge2o maps sites back).
+// The packed grid is rawHalf + cfaShift texels; shifted out-of-range sites
+// are filled by clamped fetches (edge duplication) and never read back.
+// blackLevel is passed already permuted to the shifted channel order.
 vec4 getBayerVec(ivec2 coords, highp usampler2D tex){
-    vec4 c0 = vec4(getBayer(coords,tex),getBayer(coords+ivec2(1,0),tex),getBayer(coords+ivec2(0,1),tex),getBayer(coords+ivec2(1,1),tex));
+    ivec2 sz = textureSize(tex, 0);
+    ivec2 org = coords - cfaShift;
+    vec4 c0 = vec4(getBayer(clamp(org, ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(1,0), ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(0,1), ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(1,1), ivec2(0), sz - ivec2(1)),tex));
     return clamp((c0 - blackLevel)/(vec4(whiteLevel)-blackLevel), 0.0, 1.0);
 }
 

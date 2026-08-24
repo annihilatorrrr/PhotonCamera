@@ -67,9 +67,10 @@ vec4 robustWeight(vec4 w){
 }
 
 vec2 vec4ToAlignment(vec4 alignment) {
-    vec2 converted = vec2(alignment.x * float(rawHalf.x), alignment.y * float(rawHalf.y));
-    converted.xy += alignment.zw;
-    return converted;
+    // Round the integer part: rgba16f precision reconstructs floor(v)/rawHalf
+    // as e.g. 1.9998 and truncation would bias offsets by -1px. The fract
+    // part (subpixel residual) is preserved for the caller to floor().
+    return floor(alignment.xy * vec2(rawHalf) + vec2(0.5)) + alignment.zw;
 }
 vec2 hash22(vec2 p)
 {
@@ -105,7 +106,7 @@ void main() {
             mpy = 50.0;
         }*/
         //mpy = (seed.x + seed.y) * 5.0;
-        ivec2 align = ivec2(vec4ToAlignment(alignLoad));
+        ivec2 align = ivec2(floor(vec4ToAlignment(alignLoad)));
         //vec2 align = texture(alignmentTexture, uv + vec2(i % 2, i / 2) / uvScale).xy;
         ivec2 aligned = clamp(xy + align, ivec2(0), outSize - ivec2(1));
         //ivec2 alignedFull = aligned * TILE;

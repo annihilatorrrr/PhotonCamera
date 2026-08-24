@@ -71,6 +71,12 @@ public class ESD4D extends GLOneScript {
     float noiseO;
     GLBuffer hotPixelBuffer;
     int hotPixelCount;
+    /** Black levels permuted to the normalized internal RGGB packed-channel order (merge00 shifts quad origins to the red site). */
+    float[] blNorm;
+    /** Sensor red-site offset ((cfa%2, cfa/2)); the packed grid is rawHalf + cfaShift. */
+    Point cfaShift;
+    /** Packed texture size (rawSize/2 + cfaShift) shared by all quad-packed stages. */
+    Point packedSize;
     @Tunable(title = "Max hotPixels", category = "Merge", description = "Statistical cpu filtering count threshold", min = 16384, max = 262144, step = 1000, defaultValue = 65535)
     int MAX_HOT_PIXELS;
     @Tunable(title = "Max reasonable hotPixels", category = "Merge", description = "Statistical cpu filtering count threshold", min = 1000, max = 10000, step = 100, defaultValue = 2000)
@@ -85,12 +91,11 @@ public class ESD4D extends GLOneScript {
      * a proper running average without overflow.
      */
     private GLTexture buildAveragedFrame(float[] blackLevel, int tile) {
-        Point rawHalf = new Point(parameters.rawSize.x / 2, parameters.rawSize.y / 2);
         int maxFrames = Math.min(10, images.size());
 
-        GLTexture avgA     = new GLTexture(rawHalf, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
-        GLTexture avgB     = new GLTexture(rawHalf, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
-        GLTexture tempFloat = new GLTexture(rawHalf, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
+        GLTexture avgA     = new GLTexture(packedSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
+        GLTexture avgB     = new GLTexture(packedSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
+        GLTexture tempFloat = new GLTexture(packedSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
         GLTexture tempRaw  = maxFrames > 1
                 ? new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16, 1), null, GL_NEAREST, GL_CLAMP_TO_EDGE)
                 : null;
@@ -111,10 +116,10 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("blackLevel", blackLevel);
             glProg.setVar("exposure", 1.0f / images.get(0).pair.layerMpy);
             glProg.setVar("createDiff", 0);
-            glProg.setVar("cfaPattern", parameters.cfaPattern);
+            glProg.setVar("cfaShift", cfaShift);
             glProg.setTexture("inTexture", rawSrc);
             glProg.setTextureCompute("outTexture", tempFloat, true);
-            glProg.computeAuto(rawHalf, 1);
+            glProg.computeAuto(packedSize, 1);
 
             // Incremental mix: mix(currentAvg, newFrame, 1/(i+1))
             // i=0 → weight=1.0 copies newFrame wholesale (currentAvg is uninitialised zeros)
@@ -125,7 +130,7 @@ public class ESD4D extends GLOneScript {
             glProg.setTextureCompute("newTexture",     tempFloat,  false);
             glProg.setTextureCompute("outTexture",     avgNext,    true);
             glProg.setVar("weight", weight);
-            glProg.computeAuto(rawHalf, 1);
+            glProg.computeAuto(packedSize, 1);
 
             // Ping-pong: avgNext becomes the new accumulator
             GLTexture swap = avgCurrent;
@@ -253,8 +258,7 @@ public class ESD4D extends GLOneScript {
     }
 
     private void hotPixels(){
-        float[] blackLevel = parameters.blackLevel;
-        GLTexture avgTex = buildAveragedFrame(blackLevel, 8);
+        GLTexture avgTex = buildAveragedFrame(blNorm, 8);
         hotPixelBuffer = detectHotPixels(avgTex);
         avgTex.close();
         correctHotPixelsBase(hotPixelBuffer, hotPixelCount);
@@ -272,6 +276,10 @@ public class ESD4D extends GLOneScript {
     public Point brightMapCPUSize;
     /** KernelNet half-res parameter texture (s1, s2, rho in RGBA16F) for the anisotropic filter. */
     public GLTexture kernelsMap;
+    /** CPU copy of {@link #kernelsMap} (RGBA floats: s1, s2, rho, 1) for reuse in the post pipeline. */
+    public FloatBuffer kernelsMapCPU;
+    /** Size of {@link #kernelsMapCPU}. */
+    public Point kernelsMapCPUSize;
     /** Noise sigma fed to KernelNet (captured pre-merge-inflation). */
     float kernelSigma;
     GLTexture result;
@@ -292,6 +300,15 @@ public class ESD4D extends GLOneScript {
     @Tunable(title = "FlowNet optical flow alignment", category = "Merge", description = "Align burst frames with the FlowNet dense optical flow model (ncnn) instead of the block pyramid", min = 0, max = 1, step = 1, defaultValue = 0)
     boolean useNcnnFlow;
 
+    @Tunable(title = "Optical flow refinement", category = "Merge", description = "Brute-force half-texel diagonal refinement on the green quincunx in the merge combine pass (exact sample pairs, no interpolation, immune to brightness offsets between frames); the winning sub-texel offset warps the final mix tap - greens exact on the quincunx, R/B phase-dithered so the accumulator averages their chroma alias (moire) away across frames; comb weights stay full vec4 over exact whole-texel taps so the dither never modulates them (no temporal blink, chroma excess still steers the weight for demosaicing)", min = 0, max = 1, step = 1, defaultValue = 1)
+    boolean enableFlowRefinement;
+
+    @Tunable(title = "Flow refinement max shift", category = "Merge", description = "Unused by the brute-force diagonal refinement (candidates are fixed at half a texel); kept for settings compatibility", min = 1.0f, max = 4.0f, step = 1.0f, defaultValue = 2.0f)
+    float flowRefineMaxDisp;
+
+    @Tunable(title = "Alignment tile size", category = "Alignment", description = "16=standard; 32=larger alignment tiles, much more robust on dark scenes but uses 16KB of compute shared memory and coarser motion field", min = 16, max = 32, step = 16, defaultValue = 16)
+    int alignmentTile;
+
     @Tunable(title = "Enable Adaptive Noise Storage", category = "Merge", description = "Persist fitted noise model into the dynamic multisample store", min = 0, max = 1, step = 1, defaultValue = 1)
     boolean enableNoiseStore;
 
@@ -302,6 +319,7 @@ public class ESD4D extends GLOneScript {
     public void Run() {
         com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
         Log.d("ESD4D", "Noise multiplier: " + noiseMpy);
+        Log.d("ESD4D", "Optical flow refinement: " + enableFlowRefinement + " maxShift: " + flowRefineMaxDisp);
         glUtils = new GLUtils(glOne.glProcessing);
 
         float minExp = 1.f;
@@ -320,6 +338,13 @@ public class ESD4D extends GLOneScript {
             }
         }
 
+        if (alignmentTile != 16 && alignmentTile != parameters.tile) {
+            parameters.tile = alignmentTile;
+            parameters.alignmentSize = new Point((parameters.rawSize.x / alignmentTile) + 1,
+                    (parameters.rawSize.y / alignmentTile) + 1);
+            Log.d("ESD4D", "Alignment tile size overridden: " + alignmentTile
+                    + " alignmentSize: " + parameters.alignmentSize.x + "x" + parameters.alignmentSize.y);
+        }
         Point alignmentOutputSize = new Point(parameters.alignmentSize.x * parameters.tilesX,
                 parameters.alignmentSize.y * ((images.size()-1)/parameters.tilesX + 1));
         Log.d("Alignment", "alignment pipeline size: " + alignmentOutputSize.x + " " + alignmentOutputSize.y);
@@ -353,22 +378,44 @@ public class ESD4D extends GLOneScript {
         }
         Point raw = parameters.rawSize;
         Point rawHalf = new Point(parameters.rawSize.x/2,parameters.rawSize.y/2);
+        // merge00 green-normalizes all packed quads for any CFA: the quincunx
+        // sub-texel sampler needs the two greens on the anti-diagonal g/b
+        // slots. Only GRBG/GBRG carry their greens on the main diagonal - for
+        // those, quad origins are shifted back by the red-site offset and the
+        // packed grid grows by it. RGGB/BGGR already have greens on the
+        // anti-diagonal (R/B merely sit swapped for BGGR, which every merge
+        // stage treats channel-agnostically), so they get no shift, no filler
+        // and an unchanged grid. Real raw site X lives at packed rel = X +
+        // cfaShift; shifted out-of-range sites are edge duplicates, never
+        // read back on unpack.
+        int cfa = (int) parameters.cfaPattern;
+        if (cfa < 0 || cfa > 3) cfa = 0; // quad/monochrome modes: no normalization
+        cfaShift = (cfa == 1 || cfa == 2) ? new Point(cfa % 2, cfa / 2) : new Point(0, 0);
+        packedSize = new Point(rawHalf.x + cfaShift.x, rawHalf.y + cfaShift.y);
         result = new GLTexture(raw,new GLFormat(GLFormat.DataType.UNSIGNED_16,1), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
         inputBase = new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16,1),images.get(0).buffer, GL_NEAREST, GL_CLAMP_TO_EDGE);
         // Pyramid diff
-        baseDiff = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
+        baseDiff = new GLTexture(packedSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         // Temporal result
-        base = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
-        baseAlter = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
-        alter = new GLTexture(rawHalf,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
+        base = new GLTexture(packedSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
+        baseAlter = new GLTexture(packedSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
+        alter = new GLTexture(packedSize,new GLFormat(GLFormat.DataType.FLOAT_16,4),null,GL_LINEAR,GL_CLAMP_TO_EDGE);
         // Pack 4 horizontal luma samples per rgba16f texel (r16f image formats are
         // rejected by some drivers) -> texture is 4x smaller in x.
-        Point brightMapSize = new Point((rawHalf.x + 3) / 4, rawHalf.y);
+        Point brightMapSize = new Point((packedSize.x + 3) / 4, packedSize.y);
         brightMap = new GLTexture(brightMapSize,new GLFormat(GLFormat.DataType.FLOAT_16,4));
         brightMapCPUSize = new Point(brightMapSize.x * 4, brightMapSize.y);
         float[] blackLevel = parameters.blackLevel;
         //float[] blackLevel = new float[]{parameters.blackLevel[0]*0.5f, parameters.blackLevel[1]*0.5f, parameters.blackLevel[2]*0.5f, parameters.blackLevel[3]*0.5f};
         //float bl = Math.max(Math.max(parameters.blackLevel[0], parameters.blackLevel[1]), Math.max(parameters.blackLevel[2], parameters.blackLevel[3]));
+        // Per-channel vectors for packed textures must use the shifted
+        // (R, Gr, Gb, B) level order; unshifted CFAs keep the natural site
+        // order. blackLevel[i] is the sensor site (i%2, i/2) level.
+        blNorm = blackLevel.clone();
+        switch (cfa) {
+            case 1: blNorm = new float[]{blackLevel[1], blackLevel[0], blackLevel[3], blackLevel[2]}; break; // GRBG
+            case 2: blNorm = new float[]{blackLevel[2], blackLevel[3], blackLevel[0], blackLevel[1]}; break; // GBRG
+        }
         glOne.glProgram.setDefine("RAWSIZE",parameters.rawSize);
         glOne.glProgram.setDefine("CFAPATTERN",(int)parameters.cfaPattern);
 
@@ -413,10 +460,10 @@ public class ESD4D extends GLOneScript {
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge/merge00",true);
         glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
-        glProg.setVar("blackLevel", blackLevel);
+        glProg.setVar("blackLevel", blNorm);
         glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
         glProg.setVar("createDiff", 0);
-        glProg.setVar("cfaPattern", parameters.cfaPattern);
+        glProg.setVar("cfaShift", cfaShift);
         glProg.setVar("analogBalance", analogBalance);
         glProg.setVar("randF", (float)Math.random(), (float)Math.random());
         // Test value if enabled in shader
@@ -594,6 +641,10 @@ public class ESD4D extends GLOneScript {
         //double noiseMin = 1.0/(double)parameters.whiteLevel;
         double noiseMin = 1e-6;
         kernelSigma = (float) Math.sqrt(noiseS * 0.5 + noiseO);
+        // Pre-inflation noise model for the optical-flow significance gate
+        // (noiseS/noiseO below are merge-strength inflated).
+        float rawNoiseS = noiseS;
+        float rawNoiseO = noiseO;
         noiseS = (float)Math.max(noiseS * noisempy * adaptiveNMpy * adaptiveNMpy,noiseMin);
         noiseO = (float)Math.max(noiseO * noisempy * adaptiveNMpy * adaptiveNMpy,noiseMin);
         if(enableHotPixelCorrection)
@@ -601,13 +652,14 @@ public class ESD4D extends GLOneScript {
 
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge/mergeGrayscale",true);
-        glProg.setVar("inSize", rawHalf);
+        glProg.setVar("inSize", packedSize);
         glProg.setTextureCompute("inTexture",base, false);
         glProg.setTextureCompute("outTexture",brightMap, true);
         glProg.computeAuto(brightMap.mSize, 1);
         exportBrightMap();
         KernelNetResult kernelParams = runKernelNetInference(kernelSigma * noiseMpy);
         kernelsMap = createKernelsMap(kernelParams);
+        exportKernelsMap();
 
         //Point aSize = new Point(parameters.rawSize.x/(2*parameters.tile) + 1, parameters.rawSize.y/(2*parameters.tile) + 1);
         Point border = new Point(16,16);
@@ -624,6 +676,7 @@ public class ESD4D extends GLOneScript {
         float minLevel = (float) (1.0/(double)(parameters.whiteLevel-maxBlack));
 
         for (int f = 0; f < images.size(); f++) {
+            startT();
             if(f == minExpIdx) continue;
             int ind = f;
             if(ind == 0){
@@ -648,10 +701,10 @@ public class ESD4D extends GLOneScript {
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge/merge00", true);
             glProg.setVar("whiteLevel", (float)(parameters.whiteLevel));
-            glProg.setVar("blackLevel", blackLevel);
+            glProg.setVar("blackLevel", blNorm);
             glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
             glProg.setVar("createDiff", 0);
-            glProg.setVar("cfaPattern", parameters.cfaPattern);
+            glProg.setVar("cfaShift", cfaShift);
             glProg.setTexture("inTexture", inputAlter);
             glProg.setTextureCompute("outTexture", alter, true);
             glProg.computeAuto(new Point(alter.mSize.x, alter.mSize.y), 1);
@@ -664,7 +717,10 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("rawHalf", rawHalf);
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
             glProg.setVar("whitePoint", parameters.whitePoint);
-            glProg.setVar("blackLevel", blackLevel);
+            glProg.setVar("blackLevel", blNorm);
+            // Red-site origin shift for mergeAlign's noise-model repack
+            // (harmless no-op uniform for mergeAlignFlow).
+            glProg.setVar("cfaShift", cfaShift);
             glProg.setVar("minLevel",minLevel);
             glProg.setVar("exposure", exposure);
             glProg.setVar("analogBalance", analogBalance);
@@ -702,6 +758,11 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("cfaPattern", parameters.cfaPattern);
             glProg.setTexture("inTex", inputBase);
             glProg.setTexture("kernelsMap", kernelsMap);
+            // Optical flow refinement: brute-force diagonal candidate wins
+            // only when it beats the zero offset beyond the shader's gates.
+            glProg.setVar("enableFlow", enableFlowRefinement ? 1 : 0);
+            glProg.setVar("flowNoiseS", rawNoiseS);
+            glProg.setVar("flowNoiseO", rawNoiseO);
             glProg.setTextureCompute("inTexture", base, false);
             glProg.setTextureCompute("diffTexture", baseDiff, false);
             base = getBase();
@@ -709,7 +770,7 @@ public class ESD4D extends GLOneScript {
             glProg.setVar("noiseS", noiseS);
             glProg.setVar("noiseO", noiseO);
             glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
-            glProg.setVar("blackLevel", blackLevel);
+            glProg.setVar("blackLevel", blNorm);
             glProg.setVar("analogBalance", analogBalance);
             glProg.setVar("exposure", exposure);
             if(exposure >= 0.95f){
@@ -724,16 +785,18 @@ public class ESD4D extends GLOneScript {
             //glProg.setVar("exposure", exposure);
             //glProg.setVar("weight",  1.0f);
             glProg.computeAuto(base.mSize, 1);
+            endT();
         }
 
         float[] bl2 = new float[4];
         for (int i = 0; i < 4; i++) {
-            bl2[i] = blackLevel[i]*(FAKE_WL / parameters.whiteLevel);
+            bl2[i] = blNorm[i]*(FAKE_WL / parameters.whiteLevel);
         }
         glProg.setDefine("WHITE_LEVEL", FAKE_WL);
         glProg.setDefine("BLACK_LEVEL", bl2);
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge/merge2o");
+        glProg.setVar("cfaShift", cfaShift); // uniform: GLProg clears defines after each load
         glProg.setTexture("inTexture",base);
         glProg.setTexture("alignmentTexture", alignmentTex);
         result.BufferLoad();
@@ -774,6 +837,21 @@ public class ESD4D extends GLOneScript {
         } finally {
             processor.close();
         }
+    }
+
+    /**
+     * Reads kernelsMap back to CPU (RGBA floats, s1/s2/rho/1 per texel) so the
+     * post pipeline can reuse the merge-pass KernelNet parameters without a
+     * second inference. Must be called while the GL context is current,
+     * before AfterRun() closes kernelsMap.
+     */
+    public void exportKernelsMap() {
+        if (kernelsMap == null) return;
+        kernelsMap.BufferLoad();
+        ByteBuffer raw = kernelsMap.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_32, 4), true);
+        raw.order(ByteOrder.nativeOrder());
+        kernelsMapCPU = raw.asFloatBuffer();
+        kernelsMapCPUSize = new Point(kernelsMap.mSize.x, kernelsMap.mSize.y);
     }
 
     /**

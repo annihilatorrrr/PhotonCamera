@@ -259,8 +259,9 @@ public class HdrxProcessor extends ProcessorBase {
         Log.d(TAG, "Packing");
         //WrapperAl.packImages();
         Log.d(TAG, "Packed");
+        ESD4D esd4d = null;
         if(images.size() > 1) {
-            ESD4D esd4d = new ESD4D(new Point(width, height), images);
+            esd4d = new ESD4D(new Point(width, height), images);
             esd4d.parameters = processingParameters;
             esd4d.Run();
             esd4d.close();
@@ -290,6 +291,8 @@ public class HdrxProcessor extends ProcessorBase {
         processingParameters.noiseModeler.computeStackingNoiseModel(images.size());
 
         PostPipeline pipeline = new PostPipeline();
+        pipeline.kernelParams = esd4d != null ? esd4d.kernelsMapCPU : null;
+        pipeline.kernelParamsSize = esd4d != null ? esd4d.kernelsMapCPUSize : null;
 
         Bitmap img = pipeline.Run(output, processingParameters);
         Allocator.free(output);

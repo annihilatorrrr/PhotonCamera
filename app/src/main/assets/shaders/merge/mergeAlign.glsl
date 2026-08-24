@@ -25,6 +25,7 @@ uniform ivec2 shift;
 uniform ivec2 alignmentSize;
 uniform ivec2 rawHalf;
 uniform vec4 analogBalance;
+uniform ivec2 cfaShift; // sensor red-site offset (cfa%2, cfa/2), 0..1 per axis
 #define TILE 2
 #define CONCAT 1
 #define M_PI 3.1415926535897932384626433832795
@@ -34,8 +35,16 @@ uint getBayer(ivec2 coords, highp usampler2D tex){
     return texelFetch(tex,coords,0).r;
 }
 
+// Repack raw with the same red-site origin shift as merge00 (negative shift,
+// edge-duplicated fetches), so the normalized quad layout (R, Gr, Gb, B)
+// matches the packed textures; blackLevel is already permuted accordingly.
 vec4 getBayerVec(ivec2 coords, highp usampler2D tex){
-    vec4 c0 = vec4(getBayer(coords,tex),getBayer(coords+ivec2(1,0),tex),getBayer(coords+ivec2(0,1),tex),getBayer(coords+ivec2(1,1),tex));
+    ivec2 sz = textureSize(tex, 0);
+    ivec2 org = coords - cfaShift;
+    vec4 c0 = vec4(getBayer(clamp(org, ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(1,0), ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(0,1), ivec2(0), sz - ivec2(1)),tex),
+                   getBayer(clamp(org + ivec2(1,1), ivec2(0), sz - ivec2(1)),tex));
     return clamp((c0 - blackLevel)/(vec4(whiteLevel)-blackLevel), 0.0, 1.0);
 }
 
@@ -55,9 +64,10 @@ vec4 windowxy4(ivec2 xy){
 }
 
 vec2 vec4ToAlignment(vec4 alignment) {
-    vec2 converted = vec2(alignment.x * float(rawHalf.x), alignment.y * float(rawHalf.y));
-    converted.xy += alignment.zw;
-    return converted;
+    // Round the integer part: rgba16f precision reconstructs floor(v)/rawHalf
+    // as e.g. 1.9998 and truncation would bias offsets by -1px. The fract
+    // part (subpixel residual) is preserved for the caller to floor().
+    return floor(alignment.xy * vec2(rawHalf) + vec2(0.5)) + alignment.zw;
 }
 vec2 hash22(vec2 p)
 {
@@ -85,7 +95,7 @@ void main() {
     for (int i = 0; i < 4; i++) {
         ivec2 xyT = clamp(ivec2((TILE*xy)/TILE_AL + ivec2(i % 2, i / 2)),ivec2(0),alignmentSize-1);
         vec4 alignLoad = texelFetch(alignmentTexture, xyT + shift, 0);
-        ivec2 align = ivec2(vec4ToAlignment(alignLoad));
+        ivec2 align = ivec2(floor(vec4ToAlignment(alignLoad)));
         ivec2 aligned = clamp(xy + align, ivec2(0), outSize - ivec2(1));
         vec4 bayerAlter = imageLoad(alterTexture, aligned);
         vec4 w1 = (abs(bayerAlter*vec4(exposure) - bayerBase));
