@@ -73,6 +73,8 @@ public class GLInterface {
         Map<String, GLComputeLayout> layoutsMap = new HashMap<>();
         for (Object line : reader.lines().toArray()) {
             String val = String.valueOf(line);
+            int comment = val.indexOf("//");
+            if (comment >= 0) val = val.substring(0, comment);
             if(val.contains("layout")){
                 String[] divided = val.replace("{","").split(" ");
                 String last = "";
