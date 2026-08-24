@@ -68,7 +68,7 @@ public class PostPipeline extends GLBasePipeline {
     
     @Tunable(
         title = "Demosaicing Method",
-        description = "0 = Demosaic (compatibility mode), 1 = Demosaic3 (better quality)",
+        description = "0 = Demosaic (compatibility mode), 1 = New demosaicing (better quality)",
         category = "Demosaic",
         min = 0.0f,
         max = 1.0f,
@@ -176,7 +176,7 @@ public class PostPipeline extends GLBasePipeline {
                             add(new Demosaic());
                             break;
                         default:
-                            add(new Demosaic3());
+                            add(new Amaze());
                             break;
                     }
                 }
