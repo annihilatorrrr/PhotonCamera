@@ -146,8 +146,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public CameraFragmentBinding cameraFragmentBinding;
     private TouchFocus mTouchFocus;
     public Swipe mSwipe;
-    private MediaPlayer burstPlayer;
-    private MediaPlayer endPlayer;
+    // Created on an AsyncTask thread in onResume and consumed from the camera
+    // callback threads; volatile + local-copy access keeps them consistent.
+    private volatile MediaPlayer burstPlayer;
+    private volatile MediaPlayer endPlayer;
     public GLPreview textureView;
     private NotificationManagerCompat notificationManager;
     private SettingsManager settingsManager;
@@ -344,8 +346,14 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         AsyncTask.execute(() -> {
             PhotonCamera.getGyro().register();
             PhotonCamera.getGravity().register();
-            burstPlayer = MediaPlayer.create(activity, R.raw.sound_burst2);
-            endPlayer = MediaPlayer.create(activity,R.raw.sound_end);
+            // onPause may already have released the players if the app was
+            // backgrounded before this task ran; only create what is missing.
+            if (burstPlayer == null) {
+                burstPlayer = MediaPlayer.create(activity, R.raw.sound_burst2);
+            }
+            if (endPlayer == null) {
+                endPlayer = MediaPlayer.create(activity, R.raw.sound_end);
+            }
             cameraFragmentViewModel.updateGalleryThumb(null);
         });
         cameraFragmentViewModel.onResume();
@@ -382,8 +390,18 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         cameraFragmentViewModel.onPause();
         mCameraUIEventsListener.onPause();
         auxButtonsViewModel.setAuxButtonListener(null);
-        burstPlayer.release();
-        endPlayer.release();
+        // The players are created asynchronously in onResume, so they may still
+        // be null when the app is backgrounded again quickly.
+        MediaPlayer burst = burstPlayer;
+        if (burst != null) {
+            burst.release();
+            burstPlayer = null;
+        }
+        MediaPlayer end = endPlayer;
+        if (end != null) {
+            end.release();
+            endPlayer = null;
+        }
         mSwipe.SwipeDown();
         manualModeConsole.onPause();
         super.onPause();
@@ -926,7 +944,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             long seekDelay = 50;
             if(prevPlayTime + seekDelay < System.currentTimeMillis()){
                 prevPlayTime = System.currentTimeMillis();
-                burstPlayer.seekTo(0);
+                MediaPlayer player = burstPlayer;
+                if (player != null) {
+                    player.seekTo(0);
+                }
             }
         }
 
@@ -942,7 +963,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             if (PhotonCamera.getSettings().selectedMode != CameraMode.RAWVIDEO) {
                 mCameraUIView.incrementCaptureProgressBar(1);
                 if (PreferenceKeys.isCameraSoundsOn()) {
-                    burstPlayer.start();
+                    MediaPlayer player = burstPlayer;
+                    if (player != null) {
+                        player.start();
+                    }
                 }
                 if (o instanceof TimerFrameCountViewModel.FrameCntTime) {
                     timerFrameCountViewModel.setFrameTimeCnt((TimerFrameCountViewModel.FrameCntTime) o);
@@ -953,7 +977,10 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         @Override
         public void onCaptureSequenceCompleted(Object o) {
             if (PreferenceKeys.isCameraSoundsOn()) {
-                endPlayer.start();
+                MediaPlayer player = endPlayer;
+                if (player != null) {
+                    player.start();
+                }
             }
             timerFrameCountViewModel.clearFrameTimeCnt();
             mCameraUIView.resetCaptureProgressBar();

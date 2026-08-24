@@ -26,6 +26,11 @@ public class GLPreview extends GLSurfaceView {
     private final Paint placeholderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint placeholderFramePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+    // True while the renderer owns a SurfaceTexture bound to a live GL surface.
+    // Mirrors TextureView#isAvailable() so the camera stack can tell whether
+    // the preview consumer is ready without waiting for one-shot callbacks.
+    private volatile boolean surfaceReady = false;
+
     public GLPreview(Context context) {
         super(context);
         init();
@@ -84,6 +89,10 @@ public class GLPreview extends GLSurfaceView {
     }
 
     public void fireOnSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int w, int h) {
+        // The renderer only calls this right after creating a fresh SurfaceTexture
+        // for the current GL surface, so from this point on the preview consumer
+        // exists and the camera can be opened against it.
+        surfaceReady = true;
         handler.post(() -> {
             if (surfaceTextureListener != null)
                 surfaceTextureListener.onSurfaceTextureAvailable(surfaceTexture, w, h);
@@ -102,6 +111,9 @@ public class GLPreview extends GLSurfaceView {
     }
 
     public void surfaceDestroyed(SurfaceHolder holder) {
+        // The system tore the GL surface down (activity stopped, app sent to
+        // background); the old SurfaceTexture can no longer receive frames.
+        surfaceReady = false;
         super.surfaceDestroyed(holder);
     }
 
@@ -122,7 +134,6 @@ public class GLPreview extends GLSurfaceView {
 
     @Override
     public void onPause() {
-        available = false;
         fireOnSurfaceTextureDestroyed(getSurfaceTexture());
         // mRenderer.onPause();
         super.onPause();
@@ -173,7 +184,7 @@ public class GLPreview extends GLSurfaceView {
     }
 
     public SurfaceTexture getSurfaceTexture() {
-        return mRenderer.getmSTexture();
+        return mRenderer == null ? null : mRenderer.getmSTexture();
     }
 
     public void setTransform(Matrix matrix) {
@@ -195,15 +206,12 @@ public class GLPreview extends GLSurfaceView {
         requestRender();
     }
 
-    boolean available = false;
-
     public boolean isAvailable() {
-        return available;
+        return surfaceReady && mRenderer != null && mRenderer.getmSTexture() != null;
     }
 
     public void setSurfaceTextureListener(TextureView.SurfaceTextureListener l) {
         this.surfaceTextureListener = l;
-        available = true;
     }
 
     public void scale(int in_width, int in_height, int out_width, int out_height, int or) {

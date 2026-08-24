@@ -116,6 +116,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.particlesdevs.photoncamera.processing.ImageFrame;
 import com.particlesdevs.photoncamera.processing.ImageSaverSelector;
 import com.particlesdevs.photoncamera.processing.SaverImplementation;
@@ -273,6 +274,19 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * A {@link Semaphore} to prevent the app from exiting before closing the camera.
      */
     private final Semaphore mCameraOpenCloseLock = new Semaphore(1);
+    /**
+     * Guards {@link #openCamera(int, int)} against duplicate concurrent opens.
+     * Held from the moment an open is requested until the device is closed
+     * again (see {@link #closeCamera()} and the {@link CameraDevice} callbacks).
+     */
+    private final AtomicBoolean mCameraOpening = new AtomicBoolean(false);
+    /**
+     * True only while the camera fragment is foregrounded (between
+     * {@link #resumeCamera()} and the next {@link #closeCamera()}). Open
+     * requests and onOpened() deliveries that arrive after backgrounding are
+     * dropped so a hidden app never grabs or holds the camera device.
+     */
+    private volatile boolean isCameraResumed = false;
     private CameraManager mCameraManager;
     private CameraManager2 mCameraManager2;
     private Activity activity;
@@ -563,6 +577,14 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             // This method is called when the camera is opened.  We start camera preview here.
             mCameraOpenCloseLock.release();
+            if (!isCameraResumed) {
+                // The app was backgrounded while the open was in flight; a
+                // hidden activity must not hold the camera device.
+                Log.d(TAG, "onOpened(): fragment already paused, closing device");
+                cameraDevice.close();
+                mCameraOpening.set(false);
+                return;
+            }
             mCameraDevice = cameraDevice;
             mImageSaver = new ImageSaver(cameraEventsListener);
             createCameraPreviewSession(false);
@@ -571,6 +593,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         @Override
         public void onDisconnected(@NonNull CameraDevice cameraDevice) {
             mCameraOpenCloseLock.release();
+            mCameraOpening.set(false);
             cameraDevice.close();
             mCameraDevice = null;
         }
@@ -578,6 +601,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         @Override
         public void onError(@NonNull CameraDevice cameraDevice, int error) {
             mCameraOpenCloseLock.release();
+            mCameraOpening.set(false);
             cameraDevice.close();
             mCameraDevice = null;
             showToast("onError() : cameraDevice = [" + cameraDevice + "], error = [" + error + "]");
@@ -593,6 +617,15 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
         @Override
         public void onSurfaceTextureAvailable(@NonNull SurfaceTexture texture, int width, int height) {
+            // The availability callback is delivered through the main-thread
+            // handler; if the GL surface was recreated in the meantime, this
+            // event still refers to a texture the renderer has already
+            // replaced - opening the camera against it would show a black
+            // viewfinder.
+            if (mTextureView != null && texture != mTextureView.getSurfaceTexture()) {
+                Log.d(TAG, "onSurfaceTextureAvailable(): stale texture ignored");
+                return;
+            }
             try {
                 String curID = PhotonCamera.getSettings().mCameraID;
                 if(curID.contains("-")){
@@ -914,6 +947,8 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * Closes the current {@link CameraDevice}.
      */
     public void closeCamera() {
+        mCameraOpening.set(false);
+        isCameraResumed = false;
         try {
             mCameraOpenCloseLock.acquire();
             if (null != mCaptureSession) {
@@ -1126,6 +1161,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     public void restartCamera() {
         Log.d(TAG, "restartCamera() called from \"" + Thread.currentThread().getName() + "\" Thread");
         CameraFragment.mSelectedMode = PhotonCamera.getSettings().selectedMode;
+        mCameraOpening.set(false); // the device is closed below before reopening
         try {
             mCameraOpenCloseLock.acquire();
             if (mIsRecordingVideo) {
@@ -1186,10 +1222,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
+            mCameraOpening.set(true);
             this.mCameraManager.openCamera(logicalID, mStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
+            mCameraOpening.set(false);
             Log.e(TAG, Log.getStackTraceString(e));
         } catch (InterruptedException e) {
+            mCameraOpening.set(false);
             throw new RuntimeException("Interrupted while trying to restart camera.", e);
         }
         //stopBackgroundThread();
@@ -1325,12 +1364,26 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * Opens the camera specified by {@link Settings#mCameraID}.
      */
     public void openCamera(int width, int height) {
+        // Both the SurfaceTexture listener and resumeCamera() can request an
+        // open for the same surface lifecycle event; a second open while one is
+        // in flight fails with CAMERA_IN_USE and kills the preview.
+        if (!mCameraOpening.compareAndSet(false, true)) {
+            Log.d(TAG, "openCamera(): an open is already in flight, skipping");
+            return;
+        }
         //Open camera in non ui thread
         processExecutor.execute(()->{
             CameraFragment.mSelectedMode = PhotonCamera.getSettings().selectedMode;
             if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
                 //requestCameraPermission();
+                mCameraOpening.set(false);
+                return;
+            }
+            if (!isCameraResumed) {
+                // The app was backgrounded before this task ran.
+                mCameraOpening.set(false);
+                Log.d(TAG, "openCamera(): app already backgrounded, skipping");
                 return;
             }
             processExecutor.execute(()-> {
@@ -1339,8 +1392,15 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             cameraEventsListener.onOpenCamera(this.mCameraManager);
             setUpCameraOutputs(width, height);
             configureTransform(width, height);
+            if (!isCameraResumed) {
+                // The app was backgrounded while outputs were being set up.
+                mCameraOpening.set(false);
+                Log.d(TAG, "openCamera(): app backgrounded during setup, skipping");
+                return;
+            }
             try {
                 if (!mCameraOpenCloseLock.tryAcquire(1000, TimeUnit.MILLISECONDS)) {
+                    mCameraOpening.set(false);
                     throw new RuntimeException("Time out waiting to lock camera opening.");
                 }
                 physicalID = PhotonCamera.getSettings().mCameraID;
@@ -1352,11 +1412,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                     physicalID = ids[1];
                     //isDualSession = true;
                 }
-                
+
                 this.mCameraManager.openCamera(logicalID, mStateCallback, mBackgroundHandler);
             } catch (CameraAccessException e) {
+                mCameraOpening.set(false);
                 Log.e(TAG, Log.getStackTraceString(e));
             } catch (InterruptedException e) {
+                mCameraOpening.set(false);
                 throw new RuntimeException("Interrupted while trying to lock camera opening.", e);
             }
     });
@@ -2393,6 +2455,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         rebuildPreviewBuilder();
     }
 
+    public void applyAeMetering() {
+        if (mPreviewRequestBuilder == null) return;
+        applyAeMeteringRegions(mPreviewRequestBuilder);
+        rebuildPreviewBuilder();
+    }
+
     private void applyAeMeteringRegions(CaptureRequest.Builder builder) {
         int mode = PreferenceKeys.getAeMeteringStd();
         Log.d(TAG, "applyAeMeteringRegions mode:" + mode);
@@ -2646,6 +2714,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         super.finalize();
     }
     public void resumeCamera() {
+        isCameraResumed = true;
         if(PhotonCamera.getSettings().previewFormat != 0) {
             mPreviewTargetFormat = PhotonCamera.getSettings().previewFormat;
         } else {
@@ -2655,6 +2724,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             if (mTextureView == null)
                 mTextureView = new GLPreview(activity);
             if (mTextureView.isAvailable()) {
+                // The GL surface survived backgrounding (no onSurfaceCreated will
+                // fire on resume), so open the camera directly against the
+                // existing SurfaceTexture instead of waiting for a callback.
                 Log.d(TAG,"ID:"+mCameraCharacteristicsMap.get(physicalID));
                 Size optimal = getPreviewOutputSize(getSafeDisplay(),
                         mCameraCharacteristicsMap.get(physicalID),
@@ -2662,6 +2734,16 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
                 openCamera(optimal.getWidth(), optimal.getHeight());
             } else {
                 mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+                // The availability callback is delivered through the main-thread
+                // handler; it may have fired between the check above and arming
+                // the listener. Re-check so the camera is never left waiting for
+                // an event that already happened.
+                if (mTextureView.isAvailable()) {
+                    Size optimal = getPreviewOutputSize(getSafeDisplay(),
+                            mCameraCharacteristicsMap.get(physicalID),
+                            PhotonCamera.getSettings().selectedMode);
+                    openCamera(optimal.getWidth(), optimal.getHeight());
+                }
             }
         });
     }

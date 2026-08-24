@@ -48,7 +48,9 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     private final FloatBuffer pTexCoord;
     private int hProgram;
 
-    private SurfaceTexture mSTexture;
+    // Written on the GL thread (surface creation) and read from the frame
+    // callback thread; volatile keeps onFrameAvailable() consistent with it.
+    private volatile SurfaceTexture mSTexture;
 
     private GLProg glProg;
     private boolean mGLInit = false;
@@ -85,6 +87,18 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+        // A fresh GL surface invalidates the previous SurfaceTexture: its buffer
+        // queue is bound to the destroyed EGL context, and the camera already
+        // re-targets a new one. Release both to avoid leaking a buffer queue on
+        // every background/foreground cycle.
+        if (mSTexture != null) {
+            mSTexture.release();
+            mSTexture = null;
+        }
+        if (hTex != null && hTex[0] != 0) {
+            GLES20.glDeleteTextures(1, hTex, 0);
+        }
+        mUpdateST = false;
         initTex();
         mSTexture = new SurfaceTexture(hTex[0]);
         mSTexture.setOnFrameAvailableListener(this);
@@ -124,6 +138,10 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
     }
 
     public synchronized void onFrameAvailable(SurfaceTexture st) {
+        if (st != mSTexture) {
+            // Frame from a SurfaceTexture the renderer has already replaced.
+            return;
+        }
         mUpdateST = true;
         mView.requestRender();
     }
