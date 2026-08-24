@@ -29,7 +29,7 @@ vec4 getBayerVec(ivec2 coords, highp usampler2D tex){
 
 void main() {
     ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
-    vec4 bayer;
+    vec4 bayer = vec4(0.0);
     // multisample
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {

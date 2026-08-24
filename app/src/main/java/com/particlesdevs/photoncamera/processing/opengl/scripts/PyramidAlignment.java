@@ -162,6 +162,18 @@ public class PyramidAlignment implements AutoCloseable {
     @Tunable(title = "Correction Sharpness", category = "Alignment", min = -1.0f, max = 2.0f, defaultValue = 1.0f)
     float sharpness;
 
+    @Tunable(title = "Robust alignment cost", category = "Alignment", description = "0=plain SAD, 1=truncated noise-normalized, 2=Charbonnier noise-normalized", min = 0, max = 2, step = 1, defaultValue = 1)
+    int robustCost;
+
+    @Tunable(title = "Alignment cost truncation", category = "Alignment", description = "Robust cost clamp in noise sigmas (outlier/hotpixel rejection)", min = 1.0f, max = 8.0f, step = 0.5f, defaultValue = 3.0f)
+    float alignTrunc;
+
+    @Tunable(title = "Alignment significancy", category = "Alignment", description = "k: how many standard deviations the cost must improve to accept a new tile offset (higher = more conservative, freezes noise-driven tiles)", min = 1.0f, max = 8.0f, step = 0.5f, defaultValue = 3.0f)
+    float alignSignificancy;
+
+    @Tunable(title = "Diagonal previous-offset search", category = "Alignment", description = "Search the 8-neighborhood instead of the plus-shape when propagating the coarse alignment", min = 0, max = 1, step = 1, defaultValue = 1)
+    int diagSearch;
+
     GLTexture inputBase;
     GLTexture base;
     GLTexture alter;
@@ -342,12 +354,10 @@ public class PyramidAlignment implements AutoCloseable {
 
                 float integralNorm = (float)rawHalf.x * rawHalf.y/(pyramidAlter.gauss[i+1].mSize.x * pyramidAlter.gauss[i+1].mSize.y);
                 glProg.setDefine("TILE_AL", parameters.tile);
-                /*if (noise > 0.04) {
-                    glProg.setDefine("OFFSETS", 9);
-                } else {
-                    glProg.setDefine("OFFSETS", 4);
-                }*/
-                glProg.setLayout(tile, tile, 1);
+                glProg.setDefine("ROBUST", robustCost);
+                glProg.setDefine("TRUNC", alignTrunc);
+                glProg.setDefine("OFFSETS", diagSearch != 0 ? 9 : 5);
+                glProg.setLayout(parameters.tile / 2, parameters.tile / 2, 1);
                 glProg.useAssetProgram("alignment/align", true);
                 boolean first = (i == pyramidAlter.gauss.length - 2);
                 if (!first) {
@@ -360,7 +370,11 @@ public class PyramidAlignment implements AutoCloseable {
                 glProg.setTextureCompute("outTexture", pyramidAlter.gauss[i+1], true);
                 glProg.setVar("noiseS", noiseS);
                 glProg.setVar("noiseO", noiseO);
-                glProg.setVar("integralNorm", (float) Math.sqrt(integralNorm)*8.0f);
+                // Noise shrinks by sqrt(pixels averaged) per pyramid level; the
+                // old *8.0 factor was tuned for dead code and made the robust
+                // cost saturate (sigma underestimated ~8x).
+                glProg.setVar("integralNorm", (float) Math.sqrt(integralNorm));
+                glProg.setVar("significancy", alignSignificancy);
                 glProg.setVar("first", first ? 1 : 0);
                 glProg.setVar("rawHalf", rawHalf);
                 glProg.setVar("exposure", exposure);
