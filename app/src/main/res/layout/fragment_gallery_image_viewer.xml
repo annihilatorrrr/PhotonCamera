@@ -29,6 +29,10 @@
                 type="com.particlesdevs.photoncamera.gallery.model.ExifDialogModel"/>
 
         <variable
+                name="onHdrToggleClicked"
+                type="android.view.View.OnClickListener" />
+
+        <variable
                 name="scale"
                 type="java.lang.String"/>
         <variable
@@ -130,6 +134,24 @@
                     android:text="@{scale}" />
         </LinearLayout>
 
+        <ImageButton
+                android:id="@+id/hdr_toggle_text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="72dp"
+                android:layout_marginEnd="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="Toggle Ultra HDR viewing"
+                android:focusable="true"
+                android:padding="8dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_ultra_hdr"
+                android:tint="@android:color/white"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
