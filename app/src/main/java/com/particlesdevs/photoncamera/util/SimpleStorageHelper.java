@@ -256,6 +256,9 @@ public final class SimpleStorageHelper {
     private static String guessMime(String fileName) {
         String lower = fileName.toLowerCase();
         if (lower.endsWith(".flac"))             return "audio/flac";
+        if (lower.endsWith(".png"))              return "image/png";
+        if (lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg"))      return "image/jpeg";
         if (lower.endsWith(".csv")
                 || lower.endsWith(".gcsv"))      return "text/csv";
         if (lower.endsWith(".txt"))              return "text/plain";
