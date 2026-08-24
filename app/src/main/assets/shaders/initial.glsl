@@ -448,7 +448,7 @@ float getGain(vec2 coordsShift){
     /*if(ingain > 0.0){
         ingain = 1.0/ingain;
     } else ingain = -ingain;*/
-    return ingain*FUSIONGAIN;
+    return ingain;
 }
 float getLm(ivec2 coordsShift){
     vec3 inrgb = texelFetch(InputBuffer, coordsShift, 0).rgb;
@@ -505,10 +505,10 @@ void main() {
     for (int i = -2; i <= 2; i++) {
         for (int j = -2; j <= 2; j++) {
             // Average lightness over 2x2 block to match FusionMap resolution
-            vec2 offset = vec2(float(i*2), float(j*2));
+            vec2 offset = vec2(float(i), float(j));
             float lightness = dot(texelFetch(InputBuffer, xy + ivec2(i, j), 0).rgb, vec3(1.0/3.0));
-            float gain = texelFetch(FusionMap, (xy + ivec2(i, j))/2, 0).r;//getGain(offset);
-
+            //float gain = texelFetch(FusionMap, (xy + ivec2(i, j))/2, 0).r;//getGain(offset);
+            float gain = getGain(offset);
             //momentX += lightness;
             //momentY += gain;
             //momentX2 += lightness * lightness;
