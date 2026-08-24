@@ -3,6 +3,8 @@ package com.particlesdevs.photoncamera.processing.opengl.postpipeline;
 import com.particlesdevs.photoncamera.util.Log;
 
 import com.particlesdevs.photoncamera.R;
+import com.particlesdevs.photoncamera.processing.opengl.GLDrawParams;
+import com.particlesdevs.photoncamera.processing.opengl.GLFormat;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
 import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
@@ -57,7 +59,19 @@ public class ESD3D2 extends Node {
     )
     boolean useColorDenoising;
 
-    void ESD3DRun(GLTexture inputTexture, GLTexture outputTexture, float moire, float scale) {
+    @Tunable(title = "ESD3D Version", category = "Denoise", defaultValue = 0,
+            entries = {"Steered", "Steered Prod"},
+            entryValues = {"steered", "steered_prod"},
+            description = "Steered Prod adds consensus weights (stricter edge preservation) on top of tensor steering"
+    )
+    String version = "steered";
+
+    private String esd3dProgram() {
+        if ("steered_prod".equals(version)) return "denoise/esd3d2_steered_prod";
+        return "denoise/esd3d2_steered";
+    }
+
+    void ESD3DRun(GLTexture inputTexture, GLTexture outputTexture, GLTexture gradBuffer, float moire, float scale) {
         {
             float NoiseS = basePipeline.noiseS;
             float NoiseO = basePipeline.noiseO;
@@ -78,10 +92,9 @@ public class ESD3D2 extends Node {
             Log.d("ESD3D", "KernelSize: "+kernelSize+" MSIZE: "+msize);
             glProg.setDefine("KERNELSIZE", (float)(kernelSize));
             glProg.setDefine("MSIZE", msize);
-            glProg.useAssetProgram("denoise/esd3d2");
-            //glProg.setTexture("NoiseMap", basePipeline.main4);
+            glProg.useAssetProgram(esd3dProgram());
             glProg.setTexture("InputBuffer", inputTexture);
-            //glProg.setTexture("GradBuffer", grad);
+            glProg.setTexture("GradBuffer", gradBuffer);
             glProg.drawBlocks(outputTexture);
         }
     }
@@ -109,29 +122,50 @@ public class ESD3D2 extends Node {
         float scaleF = Math2.clamp(N/targetN, 1.0f, 4.0f);
         int scale = (int)(scaleF + 0.5f);
         GLTexture outp;
+        // Gradient buffers (gx, gy) required by the steered kernel, one per filter input resolution
+        GLTexture grad = null;
+        GLTexture gradLow = null;
         Log.d(Name, "Scaling factor:" + scale);
         if(!useColorDenoising){
             outp = previousNode.WorkingTexture;
         } else {
             if (scale != 1) {
                 basePipeline.main4 = glUtils.gaussdown(previousNode.WorkingTexture, scale);
+                // Denoise runs at low resolution, so the intermediate has to match main4's size
+                basePipeline.main5 = new GLTexture(basePipeline.main4.mSize, new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim));
+                gradLow = new GLTexture(basePipeline.main4.mSize, new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim));
+                glUtils.ConvDiff(basePipeline.main4, gradLow, 0.f);
+                ESD3DRun(basePipeline.main4, basePipeline.main5, gradLow, 0.0f, scaleF * 0.75f);
                 WorkingTexture = basePipeline.getMain();
-                ESD3DRun(basePipeline.main4, WorkingTexture, 0.0f, scaleF * 0.75f);
                 outp = basePipeline.getMain();
-                guidedUpsample(WorkingTexture, basePipeline.main4, previousNode.WorkingTexture, outp, scale);
+                guidedUpsample(basePipeline.main5, basePipeline.main4, previousNode.WorkingTexture, outp, scale);
             } else {
                 WorkingTexture = basePipeline.getMain();
-                ESD3DRun(previousNode.WorkingTexture, WorkingTexture, 0.0f, 1.0f);
+                grad = new GLTexture(previousNode.WorkingTexture.mSize, new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim));
+                glUtils.ConvDiff(previousNode.WorkingTexture, grad, 0.f);
+                ESD3DRun(previousNode.WorkingTexture, WorkingTexture, grad, 0.0f, 1.0f);
                 outp = basePipeline.getMain();
                 guidedUpsample(WorkingTexture, previousNode.WorkingTexture, previousNode.WorkingTexture, outp, scale);
             }
         }
         WorkingTexture = basePipeline.getMain();
-        ESD3DRun(outp, WorkingTexture, moire, 1.0f);
+        if (grad == null) {
+            grad = new GLTexture(outp.mSize, new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim));
+        }
+        glUtils.ConvDiff(outp, grad, 0.f);
+        ESD3DRun(outp, WorkingTexture, grad, moire, 1.0f);
         glProg.closed = true;
+        grad.close();
+        if (gradLow != null) {
+            gradLow.close();
+        }
         if(basePipeline.main4 != null){
             basePipeline.main4.close();
             basePipeline.main4 = null;
+        }
+        if(basePipeline.main5 != null){
+            basePipeline.main5.close();
+            basePipeline.main5 = null;
         }
     }
 }
