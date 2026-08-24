@@ -60,7 +60,8 @@ public class TunableInjector {
                     float step = annotation.step();
                     boolean isStoredAsFloat = (step != Math.floor(step));
                     boolean isFreeText = (step == 0f);
-                    String freeText = isFreeText
+                    boolean isList = (annotation.entries().length > 0 && annotation.entryValues().length > 0);
+                    String freeText = (isFreeText || isList)
                             ? SettingsManagerExtensions.getString(settingsManager, PreferenceKeys.SCOPE_GLOBAL, prefKey, null)
                             : null;
                     
@@ -136,6 +137,21 @@ public class TunableInjector {
                             Log.d(TAG, "Injected " + prefKey + " = " + value + " (default: " + defVal + ")");
                         }
                         field.setBoolean(target, value);
+
+                    } else if (fieldType == String.class && isList) {
+                        // List selector: stored string, falls back to the field initializer, then entryValues[0]
+                        String value = (freeText == null || freeText.trim().isEmpty())
+                                ? (String) field.get(target) : freeText;
+                        boolean valid = false;
+                        for (String val : annotation.entryValues()) {
+                            if (val.equals(value)) {
+                                valid = true;
+                                break;
+                            }
+                        }
+                        if (!valid) value = annotation.entryValues()[0];
+                        field.set(target, value);
+                        Log.d(TAG, "Injected list " + prefKey + " = " + value);
 
                     } else if (fieldType == String.class && isFreeText) {
                         String value = (freeText == null || freeText.trim().isEmpty())

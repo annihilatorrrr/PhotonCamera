@@ -3,6 +3,7 @@ package com.particlesdevs.photoncamera.settings;
 import android.content.Context;
 import android.text.InputType;
 import androidx.preference.EditTextPreference;
+import androidx.preference.ListPreference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
 
@@ -167,6 +168,14 @@ public class TunablePreferenceGenerator {
         Tunable annotation = info.annotation;
         String prefKey = "pref_tunable_" + info.className.toLowerCase() + "_" + info.fieldName.toLowerCase();
 
+        // String fields with entries/entryValues become a list selector
+        if (info.fieldType == String.class
+                && annotation.entries().length > 0
+                && annotation.entryValues().length > 0) {
+            addListPreference(context, category, prefKey, info);
+            return;
+        }
+
         // step == 0 means plain text input without a slider
         if (annotation.step() == 0f) {
             addFreeTextPreference(context, category, prefKey, info);
@@ -307,6 +316,44 @@ public class TunablePreferenceGenerator {
 
         category.addPreference(editText);
         Log.d(TAG, "Added free text preference: " + prefKey);
+    }
+
+    /**
+     * Creates a ListPreference (dropdown/dialog list) when the annotation provides entries and entryValues.
+     */
+    private static void addListPreference(Context context, PreferenceCategory category, String prefKey, TunableFieldInfo info) {
+        Tunable annotation = info.annotation;
+        ListPreference listPref = new ListPreference(context);
+        listPref.setKey(prefKey);
+        listPref.setTitle(annotation.title());
+        listPref.setDialogTitle(annotation.title());
+
+        listPref.setEntries(annotation.entries());
+        listPref.setEntryValues(annotation.entryValues());
+
+        // Resolve default from annotation defaultValue: numeric match first, then index
+        String defaultValue = null;
+        float def = annotation.defaultValue();
+        if (def != -999999f) {
+            for (String val : annotation.entryValues()) {
+                try {
+                    if (Float.parseFloat(val) == def) {
+                        defaultValue = val;
+                        break;
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (defaultValue == null && def >= 0 && def < annotation.entryValues().length) {
+                defaultValue = annotation.entryValues()[(int) def];
+            }
+        }
+        if (defaultValue == null) defaultValue = annotation.entryValues()[0];
+        listPref.setDefaultValue(defaultValue);
+        listPref.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+
+        category.addPreference(listPref);
+        Log.d(TAG, "Added list preference: " + prefKey + " with default: " + defaultValue);
     }
 
     private static String formatDefault(float defaultValue, Class<?> fieldType) {

@@ -134,6 +134,13 @@ public class TunableSettingsManager {
                             tunableSettings.put(settingKey, currentValue);
                             Log.d(TAG, "Exporting tunable File: " + settingKey + " = " + currentValue);
                         }
+                    } else if (fieldType == String.class) {
+                        // String type (list selector / free text): export string if set
+                        String currentValue = prefs.getString(prefKey, null);
+                        if (currentValue != null && !currentValue.isEmpty()) {
+                            tunableSettings.put(settingKey, currentValue);
+                            Log.d(TAG, "Exporting tunable String: " + settingKey + " = " + currentValue);
+                        }
                     } else {
                         // Auto-detect if float based on step value
                         float step = annotation.step();
@@ -213,6 +220,12 @@ public class TunableSettingsManager {
                             String fileName = value != null ? value.toString() : "";
                             if (!fileName.isEmpty()) {
                                 editor.putString(prefKey, fileName);
+                            }
+                        } else if (fieldType == String.class) {
+                            // String type (list selector / free text)
+                            String strValue = value != null ? value.toString() : "";
+                            if (!strValue.isEmpty()) {
+                                editor.putString(prefKey, strValue);
                             }
                         } else {
                             float step = annotation.step();

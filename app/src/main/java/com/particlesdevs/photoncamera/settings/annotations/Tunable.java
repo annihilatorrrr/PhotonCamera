@@ -71,5 +71,19 @@ public @interface Tunable {
      * Example: {512, 1000, 1728, 2744, 4096}
      */
     int[] allowedPngSizes() default {};
+
+    /**
+     * Optional human-readable labels for ListPreference dialog options.
+     * Only used when the annotated field type is {@link String}; if both
+     * entries and entryValues are provided, a ListPreference is generated.
+     */
+    String[] entries() default {};
+
+    /**
+     * Values corresponding to entries for ListPreference.
+     * The default selection is resolved from {@link #defaultValue()}: first a
+     * numeric match against entryValues, then an index into entryValues.
+     */
+    String[] entryValues() default {};
 }
 
