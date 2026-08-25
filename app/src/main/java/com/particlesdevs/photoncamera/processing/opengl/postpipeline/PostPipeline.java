@@ -56,7 +56,13 @@ public class PostPipeline extends GLBasePipeline {
      */
     public boolean captureDemosaic = false;
     private boolean mCaptured = false;
-    /** CPU copy of the post-demosaic linear buffer (survives GLTexture.closeAll). */
+    /**
+     * CPU copy of the post-demosaic linear buffer (survives GLTexture.closeAll).
+     * Backed by a native {@link Allocator} malloc - at 50 MP this snapshot is
+     * ~768 MB (16 B/pixel), far above the Java heap growth limit, so it must
+     * not be a Java-accounted direct ByteBuffer. Must be freed via
+     * {@link #releaseDemosaicLinear()}.
+     */
     public ByteBuffer demosaicLinear;
     public Point demosaicLinearSize;
 
@@ -191,11 +197,31 @@ public class PostPipeline extends GLBasePipeline {
     /** Called from Initial.Run (first pass) to keep the linear scene buffer. */
     public void captureDemosaicLinear(GLTexture tex) {
         if (mCaptured || demosaicLinear != null) return;
+        // FLOAT_16 textures are read back as GL_FLOAT (4 B/channel, RGBA),
+        // i.e. 16 B/pixel: ~768 MB at 50 MP - above the Java heap growth
+        // limit, so the snapshot is allocated in native memory instead
+        // (same backing as the pipeline's other large I/O buffers).
+        int size = tex.mSize.x * tex.mSize.y * 4 * 4;
+        ByteBuffer buf = Allocator.allocate(size);
+        if (buf == null) {
+            Log.e("PostPipeline", "Linear scene snapshot allocation of " + size + " B failed; Ultra HDR will fall back to SDR");
+            return;
+        }
         tex.BindBuffer();
-        demosaicLinear = tex.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_16, 4), true);
-        demosaicLinear.rewind();
+        tex.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_16, 4), buf);
+        buf.rewind();
+        demosaicLinear = buf;
         demosaicLinearSize = new Point(tex.mSize.x, tex.mSize.y);
         mCaptured = true;
+    }
+
+    /** Frees the native linear scene snapshot; safe to call repeatedly. */
+    public void releaseDemosaicLinear() {
+        if (demosaicLinear != null) {
+            Allocator.free(demosaicLinear);
+            demosaicLinear = null;
+        }
+        demosaicLinearSize = null;
     }
 
     /**
@@ -376,7 +402,16 @@ public class PostPipeline extends GLBasePipeline {
                 try { gainTex.close(); } catch (Exception ignored) {}
             }
             GLTexture.closeAll();
+            // Consume-once: the snapshot is only needed for this pass.
+            releaseDemosaicLinear();
         }
+    }
+
+    @Override
+    public void close() {
+        // Safety net for paths where the gain-map pass never ran.
+        releaseDemosaicLinear();
+        super.close();
     }
 
     private void checkGlError(String what) {
