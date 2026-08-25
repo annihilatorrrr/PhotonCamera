@@ -15,8 +15,11 @@ import java.nio.file.Path;
 /**
  * Orchestrates the full Ultra HDR encode:
  * <ol>
- *   <li>compute the single-channel gain map from the SDR (sRGB) and linear HDR (RGBA16F) renditions</li>
- *   <li>compress the SDR base to a JPEG (optionally with EXIF), compress the gain map to a JPEG</li>
+ *   <li>take the encoded gain map from PostPipeline's scene-anchored pass
+ *       (pre-LTM scene luma, midtone-anchored to the stored base) and
+ *       normalize it via {@link GainMapComputer#compute}</li>
+ *   <li>compress the SDR base to a JPEG (optionally with EXIF), compress the
+ *       gain map to a JPEG</li>
  *   <li>assemble the Ultra HDR container ({@link UltraHdrContainer})</li>
  * </ol>
  *

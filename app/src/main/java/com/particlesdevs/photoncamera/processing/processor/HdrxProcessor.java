@@ -302,8 +302,12 @@ public class HdrxProcessor extends ProcessorBase {
         PostPipeline.GainMapRaw gm = null;
         if (PhotonCamera.getSettings().ultraHdr) {
             // Must run before the raw frame buffer is freed.
-            gm = pipeline.RunHDRGainMap(output, processingParameters, img,
-                    GainMapComputer.SCALE_DOWN, GainMapComputer.SCALE);
+            try {
+                gm = pipeline.RunHDRGainMap(output, processingParameters, img,
+                        GainMapComputer.SCALE_DOWN, GainMapComputer.SCALE);
+            } catch (Exception e) {
+                Log.e(TAG, "Ultra HDR gain-map pass failed, falling back to SDR JPEG", e);
+            }
         }
 
         Allocator.free(output);
@@ -319,7 +323,7 @@ public class HdrxProcessor extends ProcessorBase {
         boolean imageSaved;
         if (PhotonCamera.getSettings().ultraHdr && gm != null) {
             try {
-                GainMapComputer.Result res = GainMapComputer.compute(gm.buffer, gm.w, gm.h, gm.scale);
+                GainMapComputer.Result res = GainMapComputer.compute(gm.bitmap, gm.down, gm.scale);
                 byte[] uhdr = UltraHdrEncoder.encode(img, res, exifData);
                 Files.write(imageFile, uhdr);
                 img.recycle();
@@ -342,7 +346,11 @@ public class HdrxProcessor extends ProcessorBase {
             Log.d(TAG,"Error in processingEventsListener.notifyImageSavedStatus:"+Log.getStackTraceString(e));
         }
 
-        pipeline.close();
+        try {
+            pipeline.close();
+        } catch (Exception e) {
+            Log.e(TAG, "PostPipeline close failed (non-fatal): " + Log.getStackTraceString(e));
+        }
 
 
         Allocator.getMemoryCount();

@@ -179,21 +179,42 @@ public class GLCoreBlockProcessing extends GLContext implements AutoCloseable {
 
     @Override
     public void close() {
-        super.close();
+        // Ensure GPU work is complete before tearing down EGL state.
+        try {
+            GLES30.glFinish();
+        } catch (Exception ignored) {}
+        try {
+            super.close();
+        } catch (Exception ignored) {}
         if (mOut != null) {
-            mOut.close();
+            try {
+                mOut.close();
+            } catch (Exception ignored) {}
             mOut = null;
         }
         if (mBlockBuffer != null) {
-            mBlockBuffer.clear();
+            try {
+                mBlockBuffer.clear();
+            } catch (Exception ignored) {}
             mBlockBuffer = null;
         }
         if (mOutBuffer != null) {
-            if (allocation == GLDrawParams.Allocate.Direct) {
-                //Allocator.free(mOutBuffer);
-            } else
-                mOutBuffer.clear();
+            try {
+                if (allocation == GLDrawParams.Allocate.Direct) {
+                    // Intentionally temporarily leaked: must hold the malloc
+                } else {
+                    mOutBuffer.clear();
+                }
+            } catch (Exception ignored) {}
             mOutBuffer = null;
         }
+        // FBO/RBO are owned by this context; delete while context was current.
+        // They are recreated per-pipeline, so stale IDs must not survive eglTerminate.
+        try {
+            if (bindFB[0] != 0) GLES30.glDeleteFramebuffers(1, bindFB, 0);
+        } catch (Exception ignored) {}
+        try {
+            if (bindRB[0] != 0) GLES30.glDeleteRenderbuffers(1, bindRB, 0);
+        } catch (Exception ignored) {}
     }
 }
