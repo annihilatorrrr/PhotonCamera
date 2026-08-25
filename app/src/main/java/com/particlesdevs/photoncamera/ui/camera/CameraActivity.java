@@ -237,9 +237,11 @@ public class CameraActivity extends BaseActivity {
         if (photonCamera != null) {
             photonCamera.getSupportedDevice().loadCheck();
         }
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.container, CameraFragment.newInstance())
-                .commit();
+        if (getSupportFragmentManager().findFragmentById(R.id.container) == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.container, CameraFragment.newInstance())
+                    .commit();
+        }
     }
 
     @Override

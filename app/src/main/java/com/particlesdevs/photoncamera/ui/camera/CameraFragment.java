@@ -182,10 +182,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public CameraFragmentViewModel getCameraFragmentViewModel() {
         return cameraFragmentViewModel;
     }
-    @Override
+   @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setRetainInstance(true);
         activity = getActivity();
         assert activity != null;
         notificationManager = NotificationManagerCompat.from(activity);
@@ -430,7 +429,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         } catch (Exception e) {
             e.printStackTrace();
         }
-        getParentFragmentManager().beginTransaction().remove(CameraFragment.this).commitAllowingStateLoss();
         for (Future<?> taskResult : captureController.taskResults) {
             try {
                 taskResult.get(); //wait for all tasks to complete
