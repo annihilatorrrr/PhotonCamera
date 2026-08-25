@@ -71,8 +71,6 @@ out vec3 Output;
 #define FUSIONNORM 64.0
 #define VIGNETTE 0.0
 #define LTMMIX 0.0
-#define HDRMAXBOOST 64.0
-#define HDR_OUTPUT 0
 #import coords
 #import interpolation
 #import gaussian
@@ -395,7 +393,7 @@ float reinhard_extended(float v, float max_white){
     return numerator / (float(1.0f) + v);
 }
 
-vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal, out float headroom){
+vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal){
     vec3 neutralPoint = vec3(NEUTRALPOINT);
     //pRGB = clamp(reinhard_extended(pRGB*tonemapGain,max(1.0,tonemapGain)), vec3(0.0), neutralPoint);
     #if CCT == 0
@@ -441,17 +439,6 @@ vec3 applyColorSpace(vec3 pRGB,float tonemapGain, float gainsVal, out float head
     pRGBsdr = gammaCorrectPixel2(pRGBsdr);
     pRGBsdr = tonemap(pRGBsdr, mix(1.0,tonemapGain,LTMMIX));
     pRGBsdr = mix(pRGBsdr*pRGBsdr*pRGBsdr*TONEMAPX3 + pRGBsdr*pRGBsdr*TONEMAPX2 + pRGBsdr*TONEMAPX1, pRGBsdr, min(pRGBsdr*0.8+0.55,1.0));
-
-    // --- HDR headroom (for Ultra HDR gain map) ---
-    // Measure, in LINEAR light, how much range the SDR chain discards. Where
-    // nothing clips the ratio is exactly 1, so the HDR rendition equals the SDR
-    // base outside highlights. Only clipped highlights yield headroom > 1, which
-    // the gain-map shader stores as a positive log2 boost.
-    vec3 lin1 = reinhard_extended(pRGB*mix(tonemapGain,1.0,LTMMIX), max(1.0, tonemapGain));
-    float head1 = luminocity(lin1) / max(luminocity(clamp(lin1, 0.0, 1.0)), EPS);
-    vec3 lin2 = reinhard_extended(clamp(lin1, 0.0, 1.0)*gainsVal, max(1.0, gainsVal));
-    float head2 = luminocity(lin2) / max(luminocity(clamp(lin2, 0.0, 1.0)), EPS);
-    headroom = clamp(head1 * head2, 1.0, HDRMAXBOOST);
 
     return pRGBsdr;
 }
@@ -551,8 +538,7 @@ void main() {
     vec4 gains = textureBicubicHardware(GainMap, vec2(xy)/vec2(textureSize(InputBuffer, 0)));
     gains.rgb = vec3(gains.r,(gains.g+gains.b)/2.0,gains.a);
     float gainsVal = dot(gains.rgb,vec3(1.0/3.0));
-    float headroom;
-    sRGB = applyColorSpace(sRGB,tonemapGain, gainsVal, headroom);
+    sRGB = applyColorSpace(sRGB,tonemapGain, gainsVal);
     //sRGB = vec3(tonemapGain);
     #if LUT == 1
     //sRGB = lookup(sRGB);
@@ -569,19 +555,8 @@ void main() {
     //float noiseO = (NOISEO*NOISEO)*0.25;
     //noiseO = min(noiseO,0.25);
     //Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
-    #if HDR_OUTPUT == 1
-        // HDR rendition = the SDR signal linearized (undo the display gamma) and
-        // re-extended by the highlight headroom. The gain-map shader divides this by
-        // srgbToLinear(SDR), so the stored boost is exactly log2(headroom): zero in
-        // midtones (identity) and positive only where the SDR curve compressed
-        // highlights. Scalar multiplier -> no chroma shift.
-        Output = srgbToLinear(sRGB) * headroom;
-    #else
-        Output = softClip(sRGB);
-    #endif
+    Output = softClip(sRGB);
     #if POSTLUT == 1
-    #if HDR_OUTPUT == 0
         Output = postlookup(Output);
-    #endif
     #endif
 }

@@ -227,11 +227,35 @@ public class GLBasePipeline implements AutoCloseable {
 
     @Override
     public void close() {
-        if(glint != null) {
-            if (glint.glProcessing != null) glint.glProcessing.close();
-            if (glint.glContext != null) glint.glContext.close();
-            if (glint.glProgram != null) glint.glProgram.close();
+        if (glint != null) {
+            // Ensure any pending Adreno work is complete before eglTerminate.
+            try {
+                android.opengl.GLES30.glFinish();
+            } catch (Exception ignored) {}
+            // glProcessing owns the EGL context (extends GLContext); closing it
+            // already terminates the context, so glContext is redundant but guarded.
+            GLCoreBlockProcessing proc = glint.glProcessing;
+            if (proc != null) {
+                try {
+                    proc.close();
+                } catch (Exception ignored) {}
+                glint.glProcessing = null;
+            }
+            if (glint.glContext != null && glint.glContext != proc) {
+                try {
+                    glint.glContext.close();
+                } catch (Exception ignored) {}
+                glint.glContext = null;
+            }
+            if (glint.glProgram != null) {
+                try {
+                    glint.glProgram.close();
+                } catch (Exception ignored) {}
+            }
+            glint = null;
         }
-        GLTexture.notClosed();
+        try {
+            GLTexture.notClosed();
+        } catch (Exception ignored) {}
     }
 }

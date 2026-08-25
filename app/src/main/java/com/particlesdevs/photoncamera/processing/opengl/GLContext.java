@@ -74,10 +74,24 @@ public class GLContext implements AutoCloseable {
 
     @Override
     public void close() {
-        mProgram.close();
-        eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        eglDestroyContext(mDisplay, mContext);
-        eglDestroySurface(mDisplay, mSurface);
-        eglTerminate(mDisplay);
+        if (mDisplay == null) return;
+        try {
+            if (mProgram != null) mProgram.close();
+        } catch (Exception ignored) {}
+        try {
+            eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        } catch (Exception ignored) {}
+        try {
+            if (mContext != null) eglDestroyContext(mDisplay, mContext);
+        } catch (Exception ignored) {}
+        try {
+            if (mSurface != null) eglDestroySurface(mDisplay, mSurface);
+        } catch (Exception ignored) {}
+        try {
+            eglTerminate(mDisplay);
+        } catch (Exception ignored) {}
+        mDisplay = null;
+        mContext = null;
+        mSurface = null;
     }
 }

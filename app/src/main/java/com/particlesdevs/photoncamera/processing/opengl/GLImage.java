@@ -130,6 +130,11 @@ public class GLImage implements AutoCloseable {
      */
     @Override
     public void close() {
-        byteBuffer.clear();
+        if (byteBuffer != null) {
+            try {
+                byteBuffer.clear();
+            } catch (Exception ignored) {}
+            byteBuffer = null;
+        }
     }
 }

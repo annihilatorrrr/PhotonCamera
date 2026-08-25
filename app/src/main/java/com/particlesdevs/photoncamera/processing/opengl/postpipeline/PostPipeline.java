@@ -19,8 +19,8 @@ import com.particlesdevs.photoncamera.processing.opengl.GLImage;
 import com.particlesdevs.photoncamera.processing.opengl.GLInterface;
 import com.particlesdevs.photoncamera.processing.opengl.GLProg;
 import com.particlesdevs.photoncamera.processing.opengl.GLTexture;
-import com.particlesdevs.photoncamera.processing.opengl.nodes.Node;
 import com.particlesdevs.photoncamera.processing.opengl.postpipeline.RotateWatermark;
+import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
 import com.particlesdevs.photoncamera.processing.parameters.ResolutionSolution;
 import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
 import com.particlesdevs.photoncamera.processing.render.Parameters;
@@ -48,20 +48,17 @@ public class PostPipeline extends GLBasePipeline {
     float fusionGain = 1.f;
     float softLight = 1.f;
 
-    // Ultra HDR (cheap second pass) state.
-    public boolean hdrOutput = false;
-    /** When true, the first run captures the linear (post-demosaic) buffer so the
-     *  second pass can re-run only color + tone. */
+    // Ultra HDR state.
+    /**
+     * When true, the first run captures the linear (post-demosaic) buffer so
+     * the scene-anchored gain-map pass can measure pre-local-tone-map scene
+     * energy.
+     */
     public boolean captureDemosaic = false;
     private boolean mCaptured = false;
     /** CPU copy of the post-demosaic linear buffer (survives GLTexture.closeAll). */
     public ByteBuffer demosaicLinear;
     public Point demosaicLinearSize;
-    /** CPU copies of the per-image GainMap / FusionMap used by Initial. */
-    public ByteBuffer gainMapBuf;
-    public ByteBuffer fusionMapBuf;
-    public Point gainMapSize;
-    public Point fusionMapSize;
 
     public PostPipeline() {
         super("PostPipeline");
@@ -156,15 +153,32 @@ public class PostPipeline extends GLBasePipeline {
         BuildDefaultPipeline();
         GLImage resImg = runAll();
         Bitmap res = resImg.getBufferedImage();
-        Allocator.free(resImg.byteBuffer);
-
-        // Retain the GainMap / FusionMap (and the linear buffer is already
-        // captured inside Initial) so the cheap HDR pass can reuse them.
-        if (captureDemosaic) {
-            retainGainMap();
-            retainFusionMap();
+        // Ownership of the Direct malloc is transferred to this scope.
+        // glFinish ensures Adreno has completed the glReadPixels copy before
+        // we free the underlying malloc; then detach from glProcessing to
+        // avoid pipeline.close() touching freed memory (Direct buffers are
+        // intentionally leaked in GLCoreBlockProcessing.close for safety).
+        try {
+            GLES30.glFinish();
+        } catch (Exception ignored) {}
+        ByteBuffer resBuf = resImg.byteBuffer;
+        resImg.byteBuffer = null;
+        if (glint != null && glint.glProcessing != null) {
+            if (glint.glProcessing.mOut == resImg) {
+                glint.glProcessing.mOut = null;
+            }
+            if (glint.glProcessing.mOutBuffer == resBuf) {
+                glint.glProcessing.mOutBuffer = null;
+            }
+        }
+        if (resBuf != null) {
+            Allocator.free(resBuf);
         }
 
+        // The linear scene buffer was already snapshotted to CPU from inside
+        // Initial.Run (before closeAll claims the textures), so the
+        // scene-anchored gain-map pass can measure it afterwards.
+        // closeAll must run while the EGL context is still current.
         GLTexture.closeAll();
         return res;
     }
@@ -173,22 +187,6 @@ public class PostPipeline extends GLBasePipeline {
     public java.nio.FloatBuffer kernelParams;
     /** Size of {@link #kernelParams}. */
     public android.graphics.Point kernelParamsSize;
-
-    private void retainGainMap() {
-        if (GainMap == null) return;
-        GainMap.BindBuffer();
-        gainMapBuf = GainMap.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_16, 4), true);
-        gainMapBuf.rewind();
-        gainMapSize = new Point(GainMap.mSize.x, GainMap.mSize.y);
-    }
-
-    private void retainFusionMap() {
-        if (FusionMap == null) return;
-        FusionMap.BindBuffer();
-        fusionMapBuf = FusionMap.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_16, 4), true);
-        fusionMapBuf.rewind();
-        fusionMapSize = new Point(FusionMap.mSize.x, FusionMap.mSize.y);
-    }
 
     /** Called from Initial.Run (first pass) to keep the linear scene buffer. */
     public void captureDemosaicLinear(GLTexture tex) {
@@ -201,26 +199,41 @@ public class PostPipeline extends GLBasePipeline {
     }
 
     /**
-     * Cheap second run: reuses the already-demosaiced linear buffer (captured in
-     * {@link #Run}) plus the GainMap/FusionMap, and re-runs only the color + tone
-     * stages (Initial in HDR mode, AutoExposure, rotate) to produce a linear HDR
-     * rendition. The expensive Bayer2Float / fusion / demosaic / denoise / ABLC
-     * stages are skipped entirely.
+     * Ultra HDR gain-map pass (scene-anchored): fusion local tone mapping
+     * compresses clipped highlights below display white inside the rendering
+     * chain, so no comparison of pipeline outputs can recover them. Instead
+     * this pass measures the pre-local-tone-map scene energy directly from the
+     * captured post-demosaic buffer ({@link #demosaicLinear}):
      *
-     * @param sdr  the SDR (display-encoded) base rendition, already computed by {@link #Run}
-     * @param down downsample factor per axis for the gain map (gain map is 1/down^2 the size)
-     * @param scale total log2 range the gain-map shader covers; passed through to {@link GainMapComputer}
-     * @return the raw RGBA8 gain map plus its dimensions and the scale used
+     * <ol>
+     *   <li>render the scene-luma plane L (linear luminance, rotated/cropped to
+     *       match the stored base) via {@code ultrahdr/sceneluma}</li>
+     *   <li>anchor the two midtones to each other:
+     *       {@code k = median(linearized base luma) / median(L)} - matching
+     *       medians makes the scene/render ratio grow monotonically as the SDR
+     *       signal saturates, so clipped cores always dominate</li>
+     *   <li>encode {@code log2((L·k + eps) / (baseLuma + eps))} via
+     *       {@code ultrahdr/gainmap}</li>
+     * </ol>
+     *
+     * Scene content above the anchor with a saturated SDR signal yields real,
+     * multi-stop boost; the anchor itself is exactly zero and everything below
+     * is floored to identity. Independent of AutoExposure and local tone
+     * mapping state.
+     *
+     * @param sdr   the SDR (display-encoded) base rendition, already computed by {@link #Run}
+     * @param down  downsample factor per axis for the gain map (1/down^2 pixels)
+     * @param scale total log2 range of the encoding; must equal {@link GainMapComputer#SCALE}
+     * @return the encoded RGBA8 gain map plus its dimensions, downsample and scale
      */
     public GainMapRaw RunHDRGainMap(ByteBuffer inBuffer, Parameters parameters, Bitmap sdr, int down, float scale) {
-        if (demosaicLinear == null) {
-            throw new IllegalStateException("No demosaiced linear buffer captured; Run() must run first with ultraHdr enabled");
+        if (demosaicLinear == null || demosaicLinearSize == null) {
+            throw new IllegalStateException("Linear buffer missing; Run() must complete first with ultraHdr enabled");
         }
         mParameters = parameters;
         mSettings = PhotonCamera.getSettings();
         workSize = new Point(mParameters.rawSize.x, mParameters.rawSize.y);
         computeNoise(parameters);
-        hdrOutput = true;
         captureDemosaic = false;
         Point rawSliced = parameters.rawSize;
         cropSize = new Point(parameters.rawSize);
@@ -233,120 +246,192 @@ public class PostPipeline extends GLBasePipeline {
             cropSize =  new Point(rawSliced);
         }
         Point rotatedSize = getRotatedCoords(rawSliced);
-        // The gain-map shader samples the SDR base and the HDR render at identical
-        // texel coordinates. Any size/orientation mismatch displaces the boost
-        // field from the scene; fail loudly -> caller falls back to SDR JPEG.
+        // The gain map must be pixel-aligned with the stored SDR base; any
+        // size/orientation mismatch displaces the boost field from the scene.
+        // Fail loudly -> caller falls back to a plain SDR JPEG.
         if (sdr.getWidth() != rotatedSize.x || sdr.getHeight() != rotatedSize.y) {
-            throw new IllegalStateException("SDR/HDR size mismatch: sdr="
+            throw new IllegalStateException("SDR/gain-map size mismatch: sdr="
                     + sdr.getWidth() + "x" + sdr.getHeight()
-                    + " hdr=" + rotatedSize.x + "x" + rotatedSize.y);
+                    + " map=" + rotatedSize.x + "x" + rotatedSize.y);
         }
-        GLFormat format = new GLFormat(GLFormat.DataType.FLOAT_32, 4);
+        GLFormat format = new GLFormat(GLFormat.DataType.FLOAT_16, 4);
+        // Dummy output keeps the original driver path (Direct allocation) while
+        // GLImage/GLCoreBlockProcessing null-guards prevent the NPE.
         GLImage output = new GLImage(rotatedSize, format, false);
         GLCoreBlockProcessing glproc = new GLCoreBlockProcessing(rotatedSize, output, format, GLDrawParams.Allocate.Direct);
+        // Do not destroy the previous EGL context here: PostPipeline historically
+        // leaked the first context until final pipeline.close(), and destroying
+        // it before GLTexture re-creation caused SEGV_MAPERR on waffle/Adreno.
+        // The leaked context is reclaimed at final pipeline.close().
         glint = new GLInterface(glproc);
         stackFrame = inBuffer;
         glint.parameters = parameters;
 
-        com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
-
-        // Defensive: the replayed linear buffer must match the pipeline input size,
-        // otherwise the passthrough samples out of bounds and the HDR rendition is
-        // garbage.
-        if (demosaicLinearSize == null
-                || demosaicLinearSize.x != workSize.x || demosaicLinearSize.y != workSize.y) {
+        // Defensive: the measured linear buffer must match the pipeline input size,
+        // otherwise the scene sampling is out of bounds and the gain map is garbage.
+        if (demosaicLinearSize.x != workSize.x || demosaicLinearSize.y != workSize.y) {
             throw new IllegalStateException("Linear buffer size " + demosaicLinearSize
                     + " does not match workSize " + workSize
-                    + "; cannot replay cheap HDR pass");
+                    + "; cannot measure scene plane");
         }
 
+        GLTexture gainTex = null;
         try {
-            // Restore the GainMap / FusionMap that Bayer2Float / ExposureFusionBayer2
-            // would have built, otherwise Initial's tonemap diverges and ~35% of the
-            // HDR rendition is invalid (see restoreHdrMaps()).
-            restoreHdrMaps();
-            BuildHdrPipeline();
-            GLImage hdrOut = runAll();
-            // runAll() returns the full-frame linear HDR rendition. Read it back as
-            // a texture (not from the scratch renderbuffer) so the gain map sees
-            // the complete image.
-            GLTexture hdrTex = new GLTexture(hdrOut);
+            demosaicLinear.rewind();
+            GLTexture linTex = new GLTexture(demosaicLinearSize,
+                    new GLFormat(GLFormat.DataType.FLOAT_16, 4), demosaicLinear);
             GLImage sdrImage = new GLImage(sdr);
             GLTexture sdrTex = new GLTexture(sdrImage);
+
+            // Lens-shading GainMap for flat-fielding the scene plane (see sceneluma.glsl).
+            // Must match the map used on the SDR path (Initial / tofloat) so the ratio
+            // is vignette-free. Re-upload from Parameters; the pipeline's GainMap field
+            // was deleted by Run()'s closeAll().
+            try {
+                Point mapSz = mParameters.mapSize != null ? mParameters.mapSize : new Point(1, 1);
+                float[] gmArr = mParameters.gainMap;
+                if (gmArr == null || gmArr.length < 4) {
+                    gmArr = new float[]{1f, 1f, 1f, 1f};
+                    mapSz = new Point(1, 1);
+                }
+                gainTex = new GLTexture(mapSz, new GLFormat(GLFormat.DataType.FLOAT_16, 4),
+                        BufferUtils.getFrom(gmArr), GL_LINEAR, GL_CLAMP_TO_EDGE);
+            } catch (Exception e) {
+                Log.e("PostPipeline", "Failed to upload GainMap for UltraHDR, falling back to identity", e);
+                gainTex = new GLTexture(new Point(1, 1), new GLFormat(GLFormat.DataType.FLOAT_16, 4),
+                        BufferUtils.getFrom(new float[]{1f, 1f, 1f, 1f}), GL_LINEAR, GL_CLAMP_TO_EDGE);
+            }
+
+            // Scene-luma plane at full resolution, pixel-aligned with the base.
+            GLTexture lTex = new GLTexture(new Point(rotatedSize.x, rotatedSize.y),
+                    new GLFormat(GLFormat.DataType.FLOAT_16, 4));
+            lTex.BufferLoad();
+
+            GLProg prog = glint.glProgram;
+            prog.useAssetProgram("ultrahdr/sceneluma");
+            prog.setTexture("InputBuffer", linTex);
+            prog.setTexture("GainMap", gainTex);
+            prog.setVar("rotate", rotationIndex());
+            prog.setVar("mirror", parameters.mirror ? 1 : 0);
+            prog.setVar("cropSize", cropSize);
+            prog.setVar("rawSize", mParameters.rawSize);
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, lTex.mBuffer);
+            GLES30.glViewport(0, 0, rotatedSize.x, rotatedSize.y);
+            prog.draw();
+            checkGlError("scene-luma draw");
+
+            // Anchor: medians of the rendering and of the scene plane. Median
+            // (not top-percentile) anchoring is required - with large blown
+            // regions both top percentiles land inside the same saturated area
+            // and would cancel out, while matched medians keep the scene/render
+            // ratio growing monotonically toward saturation.
+            final int histSize = 256;
+            float lMed;
+            float sMedLin;
+            GLHistogram hist = new GLHistogram(prog, histSize);
+            try {
+                lMed = Math.max(histogramMedian(hist.Compute(lTex), histSize), 1e-4f);
+                float sMedDisp = histogramMedian(hist.Compute(sdrTex), histSize);
+                sMedLin = srgbToLinear(sMedDisp);
+            } finally {
+                hist.close();
+            }
+            float anchor = sMedLin / lMed;
+            Log.d("PostPipeline", "UltraHDR anchor:" + anchor + " Lmed:" + lMed + " SmedLin:" + sMedLin);
 
             int gw = Math.max(1, rotatedSize.x / down);
             int gh = Math.max(1, rotatedSize.y / down);
             GLTexture outTex = new GLTexture(new Point(gw, gh), new GLFormat(GLFormat.DataType.SIMPLE_8, 4));
             outTex.BufferLoad();
 
-            GLProg prog = glint.glProgram;
             prog.useAssetProgram("ultrahdr/gainmap");
             prog.setTexture("InputBuffer", sdrTex);
-            prog.setTexture("HDRBuffer", hdrTex);
+            prog.setTexture("LBuffer", lTex);
+            prog.setVar("uAnchor", anchor);
             prog.setVar("uDown", down);
             prog.setVar("uScale", scale);
-            prog.setVar("uEps", GainMapComputer.epsilon());
-            GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
+            prog.setVar("uEps", GainMapComputer.DECODE_OFFSET);
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, outTex.mBuffer);
             GLES30.glViewport(0, 0, gw, gh);
             prog.draw();
-            int drawErr = GLES30.glGetError();
-            if (drawErr != GLES30.GL_NO_ERROR) {
-                Log.e("PostPipeline", "GL error 0x" + Integer.toHexString(drawErr) + " in gain map pass");
-            }
+            checkGlError("gain-map comparison draw");
+
             ByteBuffer gm = outTex.textureBuffer(new GLFormat(GLFormat.DataType.SIMPLE_8, 4), false);
             gm.position(0);
+            Bitmap gmBmp = Bitmap.createBitmap(gw, gh, Bitmap.Config.ARGB_8888);
+            gmBmp.copyPixelsFromBuffer(gm);
 
             sdrTex.close();
-            hdrTex.close();
+            linTex.close();
+            lTex.close();
             outTex.close();
-            return new GainMapRaw(gm, gw, gh, scale);
+            if (gainTex != null) {
+                try { gainTex.close(); } catch (Exception ignored) {}
+                gainTex = null;
+            }
+            return new GainMapRaw(gmBmp, gw, gh, down, scale);
         } finally {
-            // Ensure subsequent SDR runs see hdrOutput=false.
-            hdrOutput = false;
+            if (gainTex != null) {
+                try { gainTex.close(); } catch (Exception ignored) {}
+            }
             GLTexture.closeAll();
         }
     }
 
-    /**
-     * Rebuilds the {@code GainMap}/{@code FusionMap} that the cheap HDR pass would
-     * otherwise be missing: those textures are created only by Bayer2Float and
-     * ExposureFusionBayer2, which BuildHdrPipeline skips. closeAll() deleted the
-     * first pass's GL textures but left the Java references dangling, so they are
-     * nulled first - otherwise Initial binds a deleted texture and its tonemap
-     * diverges, leaving ~35% of the HDR rendition invalid.
-     */
-    private void restoreHdrMaps() {
-        GainMap = null;
-        FusionMap = null;
-        // GainMap is exactly mParameters.gainMap uploaded (see Bayer2Float) - the
-        // canonical source, so it matches the full pass byte-for-byte.
-        if (mParameters.gainMap != null && mParameters.mapSize != null) {
-            GainMap = new GLTexture(mParameters.mapSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, 4),
-                    BufferUtils.getFrom(mParameters.gainMap), GL_LINEAR, GL_CLAMP_TO_EDGE);
-        }
-        // FusionMap is computed from fusion internals with no Parameters source, so
-        // replay the texture captured from the first pass. Keying off the captured
-        // buffer mirrors Initial, which defines FUSION solely when
-        // basePipeline.FusionMap != null.
-        if (fusionMapBuf != null && fusionMapSize != null) {
-            fusionMapBuf.rewind();
-            FusionMap = new GLTexture(fusionMapSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, 4),
-                    fusionMapBuf, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    private void checkGlError(String what) {
+        int err = GLES30.glGetError();
+        if (err != GLES30.GL_NO_ERROR) {
+            Log.e("PostPipeline", "GL error 0x" + Integer.toHexString(err) + " in " + what);
         }
     }
 
+    /** Rotation index used by the rotate-style shaders: 90->3, 180->2, 270->1, else 0. */
+    private int rotationIndex() {
+        switch (getRotation()) {
+            case 90: return 3;
+            case 180: return 2;
+            case 270: return 1;
+            default: return 0;
+        }
+    }
+
+    /**
+     * Median of a {@link GLHistogram} result across RGB channels: the bin
+     * where the cumulative count from the top crosses half of all samples.
+     * Returns the bin value normalized to [0,1].
+     */
+    private static float histogramMedian(int[][] result, int histSize) {
+        long total = 0L;
+        for (int i = 0; i < histSize; i++) {
+            total += (long) result[0][i] + (long) result[1][i] + (long) result[2][i];
+        }
+        if (total <= 0L) return 0f;
+        final long threshold = total / 2L;
+        long acc = 0;
+        for (int i = histSize - 1; i >= 0; i--) {
+            acc += (long) result[0][i] + (long) result[1][i] + (long) result[2][i];
+            if (acc > threshold) return (float) i / (float) (histSize - 1);
+        }
+        return 1f;
+    }
+
+    private static float srgbToLinear(float c) {
+        c = Math.min(Math.max(c, 0f), 1f);
+        return c <= 0.04045f ? c / 12.92f : (float) Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
     public static class GainMapRaw {
-        public final ByteBuffer buffer;
+        public final Bitmap bitmap;
         public final int w;
         public final int h;
+        public final int down;
         public final float scale;
-        GainMapRaw(ByteBuffer buffer, int w, int h, float scale) {
-            this.buffer = buffer;
+        GainMapRaw(Bitmap bitmap, int w, int h, int down, float scale) {
+            this.bitmap = bitmap;
             this.w = w;
             this.h = h;
+            this.down = down;
             this.scale = scale;
         }
     }
@@ -391,55 +476,5 @@ public class PostPipeline extends GLBasePipeline {
         add(new CorrectingFlow());
         add(new Sharpen2());
         add(new RotateWatermark(getRotation()));
-    }
-
-    /**
-     * Cheap second pass for Ultra HDR: replays the already-captured post-demosaic
-     * linear buffer ({@link #demosaicLinear}) through color + tone (Initial in HDR
-     * mode) and the same post-Initial chain as the full pipeline, ending at
-     * rotation. The expensive Bayer / demosaic / fusion / denoise / ABLC stages
-     * are skipped entirely.
-     *
-     * <p>{@code basePipeline.main1/main2/main3} were deleted (but not nulled) by
-     * {@link GLTexture#closeAll()} at the end of the first {@link #Run}, so they
-     * must be recreated unconditionally here - a null-check would reuse the dead
-     * GL textures and yield a garbage HDR rendition.
-     */
-    private void BuildHdrPipeline() {
-        add(new DemosaicSourceNode());
-        add(new Initial());
-        add(new AutoExposure());
-        add(new CaptureSharpening());
-        add(new CorrectingFlow());
-        add(new Sharpen2());
-        add(new RotateWatermark(getRotation()));
-    }
-
-    /** First node of the cheap HDR pipeline: feeds the captured linear buffer forward. */
-    private class DemosaicSourceNode extends Node {
-        DemosaicSourceNode() {
-            super("ultrahdr/source", "DemosaicSource");
-        }
-
-        @Override
-        public void Run() {
-            // Recreate the main ping-pong textures unconditionally (see BuildHdrPipeline).
-            basePipeline.main1 = new GLTexture(basePipeline.workSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim),
-                    null, GL_LINEAR, GL_CLAMP_TO_EDGE);
-            basePipeline.main2 = new GLTexture(basePipeline.workSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim),
-                    null, GL_LINEAR, GL_CLAMP_TO_EDGE);
-            basePipeline.main3 = new GLTexture(basePipeline.workSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, GLDrawParams.WorkDim),
-                    null, GL_LINEAR, GL_CLAMP_TO_EDGE);
-            GLTexture src = new GLTexture(demosaicLinearSize,
-                    new GLFormat(GLFormat.DataType.FLOAT_16, 4), demosaicLinear);
-            glProg.setTexture("InputBuffer", src);
-            WorkingTexture = basePipeline.getMain();
-            glProg.drawBlocks(WorkingTexture);
-            src.close();
-            glProg.closed = true;
-        }
     }
 }

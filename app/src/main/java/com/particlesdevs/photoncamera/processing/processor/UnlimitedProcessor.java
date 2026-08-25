@@ -136,8 +136,12 @@ public class UnlimitedProcessor extends ProcessorBase {
 
         PostPipeline.GainMapRaw gm = null;
         if (PhotonCamera.getSettings().ultraHdr) {
-            gm = pipeline.RunHDRGainMap(unlimitedBuffer, parameters, bitmap,
-                    GainMapComputer.SCALE_DOWN, GainMapComputer.SCALE);
+            try {
+                gm = pipeline.RunHDRGainMap(unlimitedBuffer, parameters, bitmap,
+                        GainMapComputer.SCALE_DOWN, GainMapComputer.SCALE);
+            } catch (Exception e) {
+                Log.e("UnlimitedProcessor", "Ultra HDR gain-map pass failed, falling back to SDR JPEG", e);
+            }
         }
 
         processingEventsListener.onProcessingFinished("Unlimited JPG Processing Finished");
@@ -145,7 +149,7 @@ public class UnlimitedProcessor extends ProcessorBase {
         boolean imageSaved;
         if (PhotonCamera.getSettings().ultraHdr && gm != null) {
             try {
-                GainMapComputer.Result res = GainMapComputer.compute(gm.buffer, gm.w, gm.h, gm.scale);
+                GainMapComputer.Result res = GainMapComputer.compute(gm.bitmap, gm.down, gm.scale);
                 byte[] uhdr = UltraHdrEncoder.encode(bitmap, res, exifData);
                 Files.write(imageFile, uhdr);
                 bitmap.recycle();
