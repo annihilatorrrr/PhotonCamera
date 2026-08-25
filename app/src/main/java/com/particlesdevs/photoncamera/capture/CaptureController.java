@@ -618,11 +618,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         @Override
         public void onSurfaceTextureAvailable(@NonNull SurfaceTexture texture, int width, int height) {
             // The availability callback is delivered through the main-thread
-            // handler; if the GL surface was recreated in the meantime, this
-            // event still refers to a texture the renderer has already
-            // replaced - opening the camera against it would show a black
-            // viewfinder.
-            if (mTextureView != null && texture != mTextureView.getSurfaceTexture()) {
+            // handler; if the GL surface was recreated in the meantime, verify
+            // against an already active texture before dropping the request.
+            SurfaceTexture currentTexture = (mTextureView != null) ? mTextureView.getSurfaceTexture() : null;
+            if (currentTexture != null && texture != currentTexture) {
                 Log.d(TAG, "onSurfaceTextureAvailable(): stale texture ignored");
                 return;
             }
@@ -1035,6 +1034,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     
     public void rebuildPreviewBuilder() {
         if(burst) return;
+        if(mPreviewRequestBuilder == null || mCaptureSession == null) return;
         try {
 //            mCaptureSession.stopRepeating();
             mCaptureSession.setRepeatingRequest(mPreviewInputRequest = mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
@@ -1829,6 +1829,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * finished.
      */
     public void unlockFocus() {
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            Log.d(TAG, "unlockFocus(): camera not ready (builder=" + mPreviewRequestBuilder + ", session=" + mCaptureSession + ")");
+            return;
+        }
         try {
             // Reset the auto-focus trigger
             //mCaptureSession.stopRepeating();

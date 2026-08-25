@@ -443,7 +443,13 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         mCameraUIView = null;
         mCameraUIEventsListener = null;
         manualModeConsole.onDestroy();
-        PhotonCamera.setCaptureController(captureController = null);
+
+        // Only clear global controller reference if it still points to this dying fragment instance
+        if (PhotonCamera.getCaptureController() == this.captureController) {
+            PhotonCamera.setCaptureController(null);
+        }
+        this.captureController = null;
+
         processExecutorService.shutdown();
         Log.d(TAG, "onDestroy() finished");
     }
