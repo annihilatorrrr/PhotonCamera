@@ -1235,6 +1235,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         //UpdateCameraCharacteristics(physicalID);
         startBackgroundThread();
 
+        if (mCameraCharacteristics == null) {
+            if (mCameraCharacteristicsMap == null || mCameraCharacteristicsMap.isEmpty()) {
+                fillInCameraCharacteristics();
+            }
+            mCameraCharacteristics = mCameraCharacteristicsMap.get(physicalID);
+        }
+
         Size optimal = getPreviewOutputSize(getSafeDisplay(), mCameraCharacteristics, CameraFragment.mSelectedMode);
 
         setUpCameraOutputs(optimal.getWidth(), optimal.getHeight());
@@ -1279,18 +1286,38 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             CameraCharacteristics characteristics,
             CameraMode targetMode
     ) {
+        if (characteristics == null) {
+            if (mCameraCharacteristicsMap == null || mCameraCharacteristicsMap.isEmpty()) {
+                fillInCameraCharacteristics();
+            }
+            if (mCameraCharacteristicsMap != null && mCameraCharacteristicsMap.containsKey(physicalID)) {
+                characteristics = mCameraCharacteristicsMap.get(physicalID);
+                mCameraCharacteristics = characteristics;
+            }
+        }
+
         Size aspectRatio = getAspect(targetMode);
         Point displayPoint = new Point();
         display.getRealSize(displayPoint);
         int shortSide = Math.min(displayPoint.x, displayPoint.y);
         int longSide = shortSide / aspectRatio.getWidth() * aspectRatio.getHeight();
 
+        if (characteristics == null) {
+            return new Size(800, 600);
+        }
 
         // If image format is provided, use it to determine supported sizes; else use target class
         StreamConfigurationMap config = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
+        if (config == null) {
+            return new Size(800, 600);
+        }
+
         Size[] allSizes = config.getOutputSizes(SurfaceTexture.class);
+        if (allSizes == null || allSizes.length == 0) {
+            return new Size(800, 600);
+        }
 
         Size retsize = null;
         for (Size size : allSizes) {
