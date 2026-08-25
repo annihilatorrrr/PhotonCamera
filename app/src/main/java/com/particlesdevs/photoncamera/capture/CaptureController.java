@@ -1047,6 +1047,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
 
     public void rebuildPreviewBuilderOneShot() {
         if(burst) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
             Log.d(TAG, "rebuildPreviewBuilderOneShot: " + mCaptureSession + " " + mPreviewRequestBuilder + " " + mCaptureCallback + " " + mBackgroundHandler);
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
@@ -1371,6 +1374,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      */
     private void runPreCaptureSequence() {
         if(burst) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
             // This is how to tell the camera to trigger.
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
@@ -2461,9 +2467,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     }
 
     public void abortCaptures() {
+        if (mCaptureSession == null) {
+            return;
+        }
         try {
             mCaptureSession.abortCaptures();
-        } catch (CameraAccessException e) {
+        } catch (CameraAccessException | IllegalStateException e) {
             Log.e(TAG, Log.getStackTraceString(e));
         }
     }
