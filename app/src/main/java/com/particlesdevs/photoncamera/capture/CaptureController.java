@@ -577,12 +577,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             // This method is called when the camera is opened.  We start camera preview here.
             mCameraOpenCloseLock.release();
+            mCameraOpening.set(false);
             if (!isCameraResumed) {
                 // The app was backgrounded while the open was in flight; a
                 // hidden activity must not hold the camera device.
                 Log.d(TAG, "onOpened(): fragment already paused, closing device");
                 cameraDevice.close();
-                mCameraOpening.set(false);
                 return;
             }
             mCameraDevice = cameraDevice;
@@ -1034,7 +1034,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     
     public void rebuildPreviewBuilder() {
         if(burst) return;
-        if(mPreviewRequestBuilder == null || mCaptureSession == null) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
 //            mCaptureSession.stopRepeating();
             mCaptureSession.setRepeatingRequest(mPreviewInputRequest = mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
@@ -1045,7 +1047,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         }
     }
 
-    public void rebuildPreviewBuilderOneShot() {
+     public void rebuildPreviewBuilderOneShot() {
         if(burst) return;
         if (mPreviewRequestBuilder == null || mCaptureSession == null) {
             return;
