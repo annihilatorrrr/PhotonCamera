@@ -148,11 +148,13 @@
     <string-array name="afdata_entries">
         <item>Off</item>
         <item>HUD</item>
+        <item>HUD + Histogram</item>
         <item>Full Debug</item>
     </string-array>
     <string-array name="afdata_entryValues">
         <item>0</item>
         <item>1</item>
         <item>2</item>
+        <item>3</item>
     </string-array>
 </resources>

@@ -19,7 +19,7 @@
  */
 
 package com.particlesdevs.photoncamera.ui.camera;
-
+import android.graphics.Bitmap;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -451,16 +451,18 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     @SuppressLint("DefaultLocale")
     private void updateScreenLog(CaptureResult result) {
         surfaceView.post(() -> {
+            int orientation = getCameraFragmentViewModel().getCameraFragmentModel().getOrientation();
             if (mHorizonIndicatorView != null) {
-                mHorizonIndicatorView.updateDisplayRotation(getCameraFragmentViewModel().getCameraFragmentModel().getOrientation());
+                mHorizonIndicatorView.updateDisplayRotation(orientation);
             }
+            surfaceView.setOrientation(orientation);
             mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
             int afDataMode = PreferenceKeys.getAfDataValue();
-            if (afDataMode == 1) {
-                // Camera HUD Mode
-                updateViewfinderHud(result);
-            } else if (afDataMode == 2) {
-                // Full Raw Debug Mode
+            if (afDataMode == 1 || afDataMode == 2) {
+                // Mode 1: HUD, Mode 2: HUD + Histogram
+                updateViewfinderHud(result, afDataMode);
+            } else if (afDataMode == 3) {
+                // Mode 3: Full Raw Debug Mode
                 boolean isZsl = (captureController != null && captureController.isZslMode());
                 String exposureStr;
                 String isoStr;
@@ -526,7 +528,7 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     private long lastHudUpdateTime = 0;
     private static final long HUD_UPDATE_INTERVAL_MS = 150; // Smooth 6.6 Hz update rate to eliminate jitter
 
-    private void updateViewfinderHud(CaptureResult result) {
+    private void updateViewfinderHud(CaptureResult result, int afDataMode) {
         long now = android.os.SystemClock.uptimeMillis();
         if (now - lastHudUpdateTime < HUD_UPDATE_INTERVAL_MS) {
             return; // Damping: skip intermediate frame fluctuations to keep HUD rock-steady
@@ -627,6 +629,84 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
 
         surfaceView.setHudData(exposureStr, isoStr, focalStr, focusStr, isTripod, oisSupported, oisActive);
         surfaceView.refresh();
+
+        // Trigger live histogram sampling if mode 2 (HUD + Histogram) is active
+        if (afDataMode == 2) {
+            requestLiveHistogram();
+        }
+    }
+
+    private Bitmap mHistBitmap = null;
+    private long lastHistTime = 0;
+    private static final long HIST_INTERVAL_MS = 120; // 8.3 Hz sampling rate for zero CPU load
+    private final int[] mHistPixels = new int[128 * 96];
+    private final int[][] mHistData = new int[3][64];
+
+    private void requestLiveHistogram() {
+        if (textureView == null || surfaceView == null) return;
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastHistTime < HIST_INTERVAL_MS) {
+            return;
+        }
+        lastHistTime = now;
+
+        if (mHistBitmap == null) {
+            mHistBitmap = Bitmap.createBitmap(128, 96, Bitmap.Config.ARGB_8888);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                android.view.PixelCopy.request(textureView, mHistBitmap, copyResult -> {
+                    if (copyResult == android.view.PixelCopy.SUCCESS) {
+                        processExecutorService.execute(this::processHistogramData);
+                    }
+                }, surfaceView.getHandler() != null ? surfaceView.getHandler() : new android.os.Handler(android.os.Looper.getMainLooper()));
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void processHistogramData() {
+        if (mHistBitmap == null || mHistBitmap.isRecycled()) return;
+        int w = mHistBitmap.getWidth();
+        int h = mHistBitmap.getHeight();
+        int size = 64;
+        mHistBitmap.getPixels(mHistPixels, 0, w, 0, 0, w, h);
+
+        // Clear previous histogram bins
+        for (int i = 0; i < 3; i++) {
+            Arrays.fill(mHistData[i], 0);
+        }
+
+        int total = w * h;
+        for (int i = 0; i < total; i += 2) { // 2x subsampling for maximum performance
+            int c = mHistPixels[i];
+            int r = (c >> 16) & 0xFF;
+            int g = (c >> 8) & 0xFF;
+            int b = c & 0xFF;
+
+            mHistData[0][r * size / 256]++;
+            mHistData[1][g * size / 256]++;
+            mHistData[2][b * size / 256]++;
+        }
+
+        // Square-root compression as in original Histogram.java
+        int maxY = 1;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < size; j++) {
+                mHistData[i][j] = (int) Math.sqrt(mHistData[i][j]);
+                if (mHistData[i][j] > maxY) {
+                    maxY = mHistData[i][j];
+                }
+            }
+        }
+
+        final int calculatedMaxY = maxY;
+        if (surfaceView != null) {
+            surfaceView.post(() -> {
+                surfaceView.setHistogramData(mHistData, calculatedMaxY, size);
+            });
+        }
     }
 
     private RectF getScreenRectFromMeteringRect(MeteringRectangle meteringRectangle) {
