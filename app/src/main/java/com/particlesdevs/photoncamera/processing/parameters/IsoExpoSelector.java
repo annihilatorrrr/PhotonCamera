@@ -159,7 +159,7 @@ public class IsoExpoSelector {
             
             boolean hasMultiplier = (mult != 1.0f);
             boolean hasIsoLimit = (isoLimit != -1);
-            boolean hasShutterLimit = (shutterLimit > 0.0f);
+            boolean hasShutterLimit = (shutterLimit > 0.0f || shutterLimit == -2.0f);
 
             if ((hasMultiplier || hasIsoLimit || hasShutterLimit) && (mode == CameraMode.PHOTO || mode == CameraMode.NIGHT)) {
                 pair.applyExposureBalance(mult, isoLimit, shutterLimit);
@@ -337,6 +337,24 @@ public class IsoExpoSelector {
                 " (Focal=" + String.format(Locale.US, "%.2f", effectiveFocalLength) + "mm, " +
                 "Stability=" + (PhotonCamera.getGyro() != null ? PhotonCamera.getGyro().getFilteredShakiness() : "N/A") + ")");
         return finalFactor;
+    }
+
+    private static long getAutoSafeShutterNs() {
+        double efl = 24.0;
+        boolean hasOis = false;
+        CameraCharacteristics characteristics = CaptureController.mCameraCharacteristics;
+        if (characteristics != null) {
+            float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            if (focalLengths != null && focalLengths.length > 0 && sensorSize != null && sensorSize.getWidth() > 0) {
+                efl = (36.0f / sensorSize.getWidth()) * focalLengths[0];
+            }
+            int[] oisModes = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
+            hasOis = (oisModes != null && oisModes.length > 1);
+        }
+        // Reciprocal rule: 8/EFL for OIS (+3 stops), 1/EFL for non-OIS
+        double safeSec = (hasOis ? 8.0 : 1.0) / Math.max(efl, 10.0);
+        return (long) (safeSec * ExposureIndex.sec);
     }
 
 
@@ -570,7 +588,12 @@ public class IsoExpoSelector {
             // 4. Calculate effective upper Shutter bound (in nanoseconds), waiving user limit on tripod
             long effectiveExposureHigh = exposurehigh;
             long userShutterNs = -1;
-            if (shutterLimitSec > 0.0f) {
+            if (shutterLimitSec == -2.0f) {
+                userShutterNs = getAutoSafeShutterNs();
+                if (!useTripod && userShutterNs > 0) {
+                    effectiveExposureHigh = Math.min(exposurehigh, userShutterNs);
+                }
+            } else if (shutterLimitSec > 0.0f) {
                 userShutterNs = (long) (shutterLimitSec * ExposureIndex.sec);
                 if (!useTripod) {
                     effectiveExposureHigh = Math.min(exposurehigh, userShutterNs);

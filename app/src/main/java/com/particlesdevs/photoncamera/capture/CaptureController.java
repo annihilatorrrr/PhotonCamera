@@ -269,12 +269,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             entries = {
                     "1/125", "1/90", "1/60", "1/45", "1/30", "1/20", 
                     "1/15", "1/10", "1/8", "1/6", "1/4", 
-                    "1/3", "1/2", "1.0", "2.0", "Sensor Max Time"
+                    "1/3", "1/2", "1.0", "2.0", "Auto Safe (Lens Reciprocal)", "Sensor Max Time"
             },
             entryValues = {
                     "0.008", "0.0111", "0.0167", "0.0222", "0.0333", "0.05", 
                     "0.0667", "0.1", "0.125", "0.1667", "0.25", 
-                    "0.3333", "0.5", "1.0", "2.0", "-1"
+                    "0.3333", "0.5", "1.0", "2.0", "-2", "-1"
             },
             defaultValue = -1.0f
     )
