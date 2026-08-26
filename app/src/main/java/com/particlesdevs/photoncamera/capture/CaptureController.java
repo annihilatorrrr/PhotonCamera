@@ -255,13 +255,30 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     public float exposureBalanceMultiplier = 1.0f;
 
     @SensorConfig(
-            title = "Exposure Balance ISO Limit",
-            description = "Limit the maximum sensitivity allowed when shifting exposure balance",
-            entries = {"400", "800", "1600", "3200", "6400", "12800", "Max Analog ISO", "Sensor Max ISO"},
-            entryValues = {"400", "800", "1600", "3200", "6400", "12800", "-2", "-1"},
-            defaultValue = -2
+            title = "ISO Limit",
+            description = "Limit the maximum sensitivity allowed",
+            entries = {"400", "800", "1600", "3200", "6400", "12800", "Max Analog ISO / 4", "Max Analog ISO / 2", "Max Analog ISO", "Sensor Max ISO"},
+            entryValues = {"400", "800", "1600", "3200", "6400", "12800", "-4", "-3", "-2", "-1"},
+            defaultValue = -1
     )
-    public int exposureBalanceIsoLimit = -2;
+    public int exposureBalanceIsoLimit = -1;
+
+    @SensorConfig(
+            title = "Shutter Limit",
+            description = "Limit the maximum exposure duration allowed",
+            entries = {
+                    "1/500", "1/250", "1/125", "1/90", "1/60", "1/45", "1/30", "1/20", 
+                    "1/15", "1/10", "1/8", "1/6", "1/4", 
+                    "1/3", "1/2", "1.0", "2.0", "Auto Safe (Lens Reciprocal)", "Sensor Max Time"
+            },
+            entryValues = {
+                    "0.002", "0.004", "0.008", "0.0111", "0.0167", "0.0222", "0.0333", "0.05", 
+                    "0.0667", "0.1", "0.125", "0.1667", "0.25", 
+                    "0.3333", "0.5", "1.0", "2.0", "-2", "-1"
+            },
+            defaultValue = -1.0f
+    )
+    public float exposureBalanceShutterLimit = -1.0f;
 
     private static int mTargetFormat = RAW_FORMAT;
     private ManualModeConsole manualModeConsole;
@@ -577,12 +594,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             // This method is called when the camera is opened.  We start camera preview here.
             mCameraOpenCloseLock.release();
+            mCameraOpening.set(false);
             if (!isCameraResumed) {
                 // The app was backgrounded while the open was in flight; a
                 // hidden activity must not hold the camera device.
                 Log.d(TAG, "onOpened(): fragment already paused, closing device");
                 cameraDevice.close();
-                mCameraOpening.set(false);
                 return;
             }
             mCameraDevice = cameraDevice;
@@ -618,11 +635,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         @Override
         public void onSurfaceTextureAvailable(@NonNull SurfaceTexture texture, int width, int height) {
             // The availability callback is delivered through the main-thread
-            // handler; if the GL surface was recreated in the meantime, this
-            // event still refers to a texture the renderer has already
-            // replaced - opening the camera against it would show a black
-            // viewfinder.
-            if (mTextureView != null && texture != mTextureView.getSurfaceTexture()) {
+            // handler; if the GL surface was recreated in the meantime, verify
+            // against an already active texture before dropping the request.
+            SurfaceTexture currentTexture = (mTextureView != null) ? mTextureView.getSurfaceTexture() : null;
+            if (currentTexture != null && texture != currentTexture) {
                 Log.d(TAG, "onSurfaceTextureAvailable(): stale texture ignored");
                 return;
             }
@@ -1035,6 +1051,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     
     public void rebuildPreviewBuilder() {
         if(burst) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
 //            mCaptureSession.stopRepeating();
             mCaptureSession.setRepeatingRequest(mPreviewInputRequest = mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
@@ -1045,8 +1064,11 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         }
     }
 
-    public void rebuildPreviewBuilderOneShot() {
+     public void rebuildPreviewBuilderOneShot() {
         if(burst) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
             Log.d(TAG, "rebuildPreviewBuilderOneShot: " + mCaptureSession + " " + mPreviewRequestBuilder + " " + mCaptureCallback + " " + mBackgroundHandler);
             mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
@@ -1235,6 +1257,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
         //UpdateCameraCharacteristics(physicalID);
         startBackgroundThread();
 
+        if (mCameraCharacteristics == null) {
+            if (mCameraCharacteristicsMap == null || mCameraCharacteristicsMap.isEmpty()) {
+                fillInCameraCharacteristics();
+            }
+            mCameraCharacteristics = mCameraCharacteristicsMap.get(physicalID);
+        }
+
         Size optimal = getPreviewOutputSize(getSafeDisplay(), mCameraCharacteristics, CameraFragment.mSelectedMode);
 
         setUpCameraOutputs(optimal.getWidth(), optimal.getHeight());
@@ -1279,18 +1308,38 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
             CameraCharacteristics characteristics,
             CameraMode targetMode
     ) {
+        if (characteristics == null) {
+            if (mCameraCharacteristicsMap == null || mCameraCharacteristicsMap.isEmpty()) {
+                fillInCameraCharacteristics();
+            }
+            if (mCameraCharacteristicsMap != null && mCameraCharacteristicsMap.containsKey(physicalID)) {
+                characteristics = mCameraCharacteristicsMap.get(physicalID);
+                mCameraCharacteristics = characteristics;
+            }
+        }
+
         Size aspectRatio = getAspect(targetMode);
         Point displayPoint = new Point();
         display.getRealSize(displayPoint);
         int shortSide = Math.min(displayPoint.x, displayPoint.y);
         int longSide = shortSide / aspectRatio.getWidth() * aspectRatio.getHeight();
 
+        if (characteristics == null) {
+            return new Size(800, 600);
+        }
 
         // If image format is provided, use it to determine supported sizes; else use target class
         StreamConfigurationMap config = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
+        if (config == null) {
+            return new Size(800, 600);
+        }
+
         Size[] allSizes = config.getOutputSizes(SurfaceTexture.class);
+        if (allSizes == null || allSizes.length == 0) {
+            return new Size(800, 600);
+        }
 
         Size retsize = null;
         for (Size size : allSizes) {
@@ -1344,6 +1393,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      */
     private void runPreCaptureSequence() {
         if(burst) return;
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            return;
+        }
         try {
             // This is how to tell the camera to trigger.
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
@@ -1802,6 +1854,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
      * finished.
      */
     public void unlockFocus() {
+        if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+            Log.d(TAG, "unlockFocus(): camera not ready (builder=" + mPreviewRequestBuilder + ", session=" + mCaptureSession + ")");
+            return;
+        }
         try {
             // Reset the auto-focus trigger
             //mCaptureSession.stopRepeating();
@@ -2430,9 +2486,12 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     }
 
     public void abortCaptures() {
+        if (mCaptureSession == null) {
+            return;
+        }
         try {
             mCaptureSession.abortCaptures();
-        } catch (CameraAccessException e) {
+        } catch (CameraAccessException | IllegalStateException e) {
             Log.e(TAG, Log.getStackTraceString(e));
         }
     }

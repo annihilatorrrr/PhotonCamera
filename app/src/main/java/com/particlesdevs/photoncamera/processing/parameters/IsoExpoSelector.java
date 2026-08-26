@@ -2,6 +2,7 @@ package com.particlesdevs.photoncamera.processing.parameters;
 
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import com.particlesdevs.photoncamera.util.Log;
@@ -150,20 +151,47 @@ public class IsoExpoSelector {
             // pair.UseIso(Math.max(pair.isoanalog/6.0,101)); // Replaced by applyShutterPriorityCurve
         }
 
-        // Apply dynamic exposure balance shifting (shutter/ISO priority)
+        // Apply dynamic exposure balance shifting and hard limits (shutter/ISO priority)
         if (captureController != null) {
             float mult = captureController.exposureBalanceMultiplier;
             int isoLimit = captureController.exposureBalanceIsoLimit;
+            float shutterLimit = captureController.exposureBalanceShutterLimit;
             CameraMode mode = PhotonCamera.getSettings().selectedMode;
-            if (mult != 1.0f && (mode == CameraMode.PHOTO || mode == CameraMode.NIGHT)) {
-                pair.applyExposureBalance(mult, isoLimit);
+            
+            boolean hasMultiplier = (mult != 1.0f);
+            boolean hasIsoLimit = (isoLimit != -1);
+            boolean hasShutterLimit = (shutterLimit > 0.0f || shutterLimit == -2.0f);
+
+            if ((hasMultiplier || hasIsoLimit || hasShutterLimit) && (mode == CameraMode.PHOTO || mode == CameraMode.NIGHT)) {
+                pair.applyExposureBalance(mult, isoLimit, shutterLimit);
             }
         }
 
         double currentManExp = captureController.getParamController().getCurrentExposureValue();
         double currentManISO = captureController.getParamController().getCurrentISOValue();
-        pair.exposure = currentManExp != 0 ? (long) currentManExp : pair.exposure;
-        pair.iso = currentManISO != 0 ? (int) (currentManISO * 100.0 / pair.isolow) : pair.iso;
+
+        if (currentManExp != 0) {
+            pair.exposure = (long) currentManExp;
+            pair.isShutterLimited = false;
+            pair.isShutterTripodBypassed = false;
+            if (!useTripod && captureController != null) {
+                long limit = pair.resolveShutterLimit(captureController.exposureBalanceShutterLimit, captureController);
+                if (limit < pair.exposurehigh && pair.exposure > limit) {
+                    pair.isShutterManualOverLimit = true;
+                }
+            }
+        }
+
+        if (currentManISO != 0) {
+            pair.iso = (int) (currentManISO * 100.0 / pair.isolow);
+            pair.isIsoLimited = false;
+            if (captureController != null && captureController.exposureBalanceIsoLimit != -1) {
+                if (pair.iso > pair.resolveIsoLimit(captureController.exposureBalanceIsoLimit)) {
+                    pair.isIsoManualOverLimit = true;
+                }
+            }
+        }
+
         pair.curlayer = ExpoPair.exposureLayer.Normal;
         /*if (step%patternSize == 1 && HDR) {
             pair.ExpoCompensateLower(2.0 / 1.0);
@@ -333,6 +361,47 @@ public class IsoExpoSelector {
         return finalFactor;
     }
 
+    private static long getAutoSafeShutterNs(CaptureController captureController) {
+        double efl = 24.0;
+        boolean oisActive = false;
+
+        CameraCharacteristics characteristics = CaptureController.mCameraCharacteristics;
+        if (characteristics != null) {
+            float fl = 4.75f;
+            float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            if (focalLengths != null && focalLengths.length > 0) {
+                fl = focalLengths[0];
+            }
+
+            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            if (sensorSize != null && sensorSize.getWidth() > 0) {
+                efl = (36.0f / sensorSize.getWidth()) * fl;
+            }
+
+            // Explicit and safe OIS capability check
+            boolean hasHardwareOis = false;
+            int[] oisModes = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
+            if (oisModes != null) {
+                for (int mode : oisModes) {
+                    if (mode == CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) {
+                        hasHardwareOis = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasHardwareOis) {
+                oisActive = (captureController == null || captureController.oisMode != 2);
+            }
+        }
+
+        if (efl <= 0.0) efl = 24.0;
+
+        // Reciprocal rule: 8/EFL if OIS is enabled (+3 stops), 1/EFL without OIS
+        double safeSec = (oisActive ? 8.0 : 1.0) / efl;
+        return (long) (safeSec * ExposureIndex.sec);
+    }
+
 
     //==================================Class : ExpoPair==================================//
 
@@ -348,6 +417,12 @@ public class IsoExpoSelector {
         public int iso;
         long exposurehigh, exposurelow;
         int isolow, isohigh,isoanalog;
+
+        public boolean isIsoLimited = false;
+        public boolean isShutterLimited = false;
+        public boolean isShutterTripodBypassed = false;
+        public boolean isIsoManualOverLimit = false;
+        public boolean isShutterManualOverLimit = false;
 
         public ExpoPair(ExpoPair pair) {
             copyfrom(pair);
@@ -482,7 +557,7 @@ public class IsoExpoSelector {
             if (isoMinToFit <= MIN_ISO_NORMALIZED) {
                 iso = MIN_ISO_NORMALIZED; // plenty of light, minimum ISO alone already fits under the cap
             } else {
-                long cleanIso = snapToCleanIso(isoMinToFit);
+                long cleanIso = snapToCleanIso(isoMinToFit, true);
                 double shutterAtCleanIso = totalExposureEnergy / cleanIso;
 
                 // If snapping up to a "clean" hardware gain stage would drop our shutter time
@@ -515,77 +590,111 @@ public class IsoExpoSelector {
         }        
 
         /**
+         * Resolves the effective normalized ISO ceiling based on the configured limit flag/number.
+         */
+        public double resolveIsoLimit(int isoLimit) {
+            if (isoLimit == -4) return Math.max(100.0, (double) isoanalog / 4.0);
+            if (isoLimit == -3) return Math.max(100.0, (double) isoanalog / 2.0);
+            if (isoLimit == -2) return (double) isoanalog;
+            if (isoLimit == -1) return (double) isohigh * (100.0 / isolow);
+            return Math.min((double) isohigh, (double) isoLimit) * (100.0 / isolow);
+        }
+
+        /**
+         * Resolves the effective shutter duration limit in nanoseconds.
+         */
+        public long resolveShutterLimit(float shutterLimitSec, CaptureController cc) {
+            if (shutterLimitSec == -2.0f) return getAutoSafeShutterNs(cc);
+            if (shutterLimitSec > 0.0f) return (long) (shutterLimitSec * ExposureIndex.sec);
+            return exposurehigh;
+        }
+
+        /**
          * Shifts the exposure balance by the given multiplier k (shutter/ISO trade-off).
          * A multiplier > 1.0 reduces shutter duration and increases ISO (freezing motion).
          * A multiplier < 1.0 increases shutter duration and reduces ISO (cleaner image).
          *
-         * Uses a Backtracking Clamping algorithm: if one of the parameters hits a physical 
-         * sensor limit or the configured ISO limit, the other parameter is dynamically 
-         * recalculated to maintain the exact target exposure energy (brightness), maximizing user preference safely.
+         * Uses a Dual-Axis Backtracking Clamping algorithm with Tripod Awareness.
          *
-         * @param k            the multiplier to adjust balance
-         * @param limitSetting the configured ISO limit (-1 = Sensor Max, -2 = Max Analog, >0 = Custom limit)
+         * @param k               the multiplier to adjust balance
+         * @param isoLimit        the configured ISO limit (-1 = Sensor Max, -2 = Max Analog, -3 = Max Analog / 2, -4 = Max Analog / 4, >0 = Custom limit)
+         * @param shutterLimitSec the configured shutter duration limit in seconds (-1.0f = Sensor Max, >0 = Custom limit in seconds)
          */
-        public void applyExposureBalance(double k, int limitSetting) {
-            // 1. Save the target exposure energy (brightness) before shifting
+        public void applyExposureBalance(double k, int isoLimit, float shutterLimitSec) {
+            isIsoLimited = false;
+            isShutterLimited = false;
+            isShutterTripodBypassed = false;
+            isIsoManualOverLimit = false;
+            isShutterManualOverLimit = false;
+
+            // 1. Save target exposure energy
             double targetEnergy = (double) exposure * iso;
 
-            // 2. Apply the theoretical shift
+            // 2. Apply theoretical shift
             exposure = (long) (exposure / k);
             iso = (int) (iso * k);
 
-            // 3. ISO limits check with backtracking to exposure
-            double isoHighNormalized;
-            if (limitSetting == -2) {
-                // Limit to maximum pure analog ISO of the active sensor (already normalized)
-                isoHighNormalized = (double) isoanalog;
-            } else if (limitSetting == -1) {
-                // Unlimited (Absolute Sensor Max)
-                isoHighNormalized = isohigh * (100.0 / isolow);
-            } else {
-                // Specific user defined ISO limit (e.g. 1600, 3200), capped by physical sensor limit
-                double maxPhysicalIso = Math.min((double) isohigh, (double) limitSetting);
-                isoHighNormalized = maxPhysicalIso * (100.0 / isolow);
-            }
+            // 3. Resolve bounds using helper methods
+            double isoHighNormalized = resolveIsoLimit(isoLimit);
+            long userShutterNs = resolveShutterLimit(shutterLimitSec, PhotonCamera.getCaptureController());
+            long effectiveExposureHigh = useTripod ? exposurehigh : Math.min(exposurehigh, userShutterNs);
 
+            // 4. ISO limits check with backtracking to exposure
             if (iso > isoHighNormalized) {
                 iso = (int) Math.round(isoHighNormalized);
-                // ISO is maxed out; we must make the shutter slower to preserve brightness
+                if (isoLimit != -1) isIsoLimited = true;
                 exposure = (long) (targetEnergy / iso);
             } else if (iso < 100) {
                 iso = 100;
-                // ISO is at minimum; we must make the shutter faster to preserve brightness
                 exposure = (long) (targetEnergy / iso);
             }
 
-            // 4. Exposure limits check with backtracking to ISO
-            if (exposure > exposurehigh) {
-                exposure = exposurehigh;
-                // Shutter cannot be longer; we must raise ISO to preserve brightness
-                iso = (int) (targetEnergy / exposure);
+            // 5. Exposure limits check with clean ISO snapping down
+            if (exposure > effectiveExposureHigh) {
+                exposure = effectiveExposureHigh;
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) isShutterLimited = true;
+                double continuousIso = targetEnergy / exposure;
+                iso = (int) snapToCleanIso(continuousIso, false);
             } else if (exposure < exposurelow) {
                 exposure = exposurelow;
-                // Shutter cannot be faster; we must lower ISO to preserve brightness
-                iso = (int) (targetEnergy / exposure);
+                double continuousIso = targetEnergy / exposure;
+                iso = (int) snapToCleanIso(continuousIso, false);
             }
 
-            // 5. Final safety clamps for rounding errors
-            if (iso > isoHighNormalized) iso = (int) Math.round(isoHighNormalized);
+            // 6. Final safety clamps
+            if (iso > isoHighNormalized) {
+                iso = (int) Math.round(isoHighNormalized);
+                if (isoLimit != -1) isIsoLimited = true;
+            }
             if (iso < 100) iso = 100;
-            if (exposure > exposurehigh) exposure = exposurehigh;
+
+            if (exposure > effectiveExposureHigh) {
+                exposure = effectiveExposureHigh;
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) isShutterLimited = true;
+            }
             if (exposure < exposurelow) exposure = exposurelow;
+
+            // 7. Check if tripod mode bypassed the user's handheld shutter limit
+            if (useTripod && userShutterNs < exposurehigh && exposure > userShutterNs) {
+                isShutterTripodBypassed = true;
+                isShutterLimited = false;
+            }
         }
 
         /**
-         * Snaps up to the nearest ISO the sensor can realize as a clean hardware gain
-         * step at or above {@code isoMinToFit} (normalized ISO-100 basis): the base ISO
-         * doubled some number of times, plus the sensor's own reported max-pure-analog
-         * gain point ({@code isoanalog} / SENSOR_MAX_ANALOG_SENSITIVITY) inserted as an
-         * extra rung even when it doesn't fall on a doubling, since that boundary is
-         * real hardware data rather than an assumption about gain-stage spacing.
+         * Snaps to the nearest ISO the sensor can realize as a clean hardware gain step (normalized ISO-100 basis):
+         * the base ISO doubled some number of times, plus the sensor's own reported max-pure-analog gain point
+         * ({@code isoanalog} / SENSOR_MAX_ANALOG_SENSITIVITY) inserted as an extra rung even when it doesn't fall
+         * on a doubling, since that boundary is real hardware data rather than an assumption about gain-stage spacing.
          * Falls back to the sensor's true ISO ceiling if nothing smaller fits.
+         *
+         * @param targetIso target normalized ISO value to snap
+         * @param snapUp    if true, snaps UP (ceiling, >= targetIso) to guarantee safe exposure duration in auto curves;
+         *                  if false, snaps DOWN (floor, <= targetIso) to guarantee pure analog gain without HAL digital
+         *                  scaling noise when bounded by shutter limits.
+         * @return snapped clean normalized ISO value
          */
-        private long snapToCleanIso(double isoMinToFit) {
+        private long snapToCleanIso(double targetIso, boolean snapUp) {
             double isoHighNormalized = isohigh * (100.0 / isolow);
             double isoAnalogNormalized = isoanalog * (100.0 / isolow);
 
@@ -600,10 +709,22 @@ public class IsoExpoSelector {
             ladder[n++] = isoHighNormalized; // true sensor ceiling, always available as a last resort
             java.util.Arrays.sort(ladder, 0, n);
 
-            for (int i = 0; i < n; i++) {
-                if (ladder[i] >= isoMinToFit) return Math.round(ladder[i]);
+            if (snapUp) {
+                for (int i = 0; i < n; i++) {
+                    if (ladder[i] >= targetIso) return Math.round(ladder[i]);
+                }
+                return Math.round(isoHighNormalized);
+            } else {
+                long result = Math.round(ladder[0]);
+                for (int i = 0; i < n; i++) {
+                    if (ladder[i] <= targetIso) {
+                        result = Math.round(ladder[i]);
+                    } else {
+                        break;
+                    }
+                }
+                return result;
             }
-            return Math.round(isoHighNormalized);
         }
 
         private static double log2(double x) {

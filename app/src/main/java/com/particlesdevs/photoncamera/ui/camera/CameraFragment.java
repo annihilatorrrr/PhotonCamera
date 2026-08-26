@@ -182,10 +182,9 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
     public CameraFragmentViewModel getCameraFragmentViewModel() {
         return cameraFragmentViewModel;
     }
-    @Override
+   @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setRetainInstance(true);
         activity = getActivity();
         assert activity != null;
         notificationManager = NotificationManagerCompat.from(activity);
@@ -430,7 +429,6 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         } catch (Exception e) {
             e.printStackTrace();
         }
-        getParentFragmentManager().beginTransaction().remove(CameraFragment.this).commitAllowingStateLoss();
         for (Future<?> taskResult : captureController.taskResults) {
             try {
                 taskResult.get(); //wait for all tasks to complete
@@ -443,7 +441,13 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         mCameraUIView = null;
         mCameraUIEventsListener = null;
         manualModeConsole.onDestroy();
-        PhotonCamera.setCaptureController(captureController = null);
+
+        // Only clear global controller reference if it still points to this dying fragment instance
+        if (PhotonCamera.getCaptureController() == this.captureController) {
+            PhotonCamera.setCaptureController(null);
+        }
+        this.captureController = null;
+
         processExecutorService.shutdown();
         Log.d(TAG, "onDestroy() finished");
     }
@@ -476,7 +480,20 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 } else {
                     IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
                     exposureStr = expoPair.ExposureString() + "s";
+                    if (expoPair.isShutterTripodBypassed) {
+                        exposureStr += " · UNLMT";
+                    } else if (expoPair.isShutterLimited) {
+                        exposureStr += " · LMT";
+                    } else if (expoPair.isShutterManualOverLimit) {
+                        exposureStr += " · >LMT";
+                    }
+
                     isoStr = String.valueOf(expoPair.iso);
+                    if (expoPair.isIsoLimited) {
+                        isoStr += " · LMT";
+                    } else if (expoPair.isIsoManualOverLimit) {
+                        isoStr += " · >LMT";
+                    }
                 }
 
                 LinkedHashMap<String, String> stringMap = new LinkedHashMap<>();
@@ -553,11 +570,25 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
         } else {
             IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.GenerateExpoPair(-1, captureController);
             exposureStr = expoPair.ExposureString() + "s";
+            if (expoPair.isShutterTripodBypassed) {
+                exposureStr += " · UNLMT";
+            } else if (expoPair.isShutterLimited) {
+                exposureStr += " · LMT";
+            } else if (expoPair.isShutterManualOverLimit) {
+                exposureStr += " · >LMT";
+            }
+
             isoStr = "ISO " + expoPair.iso;
+            if (expoPair.isIsoLimited) {
+                isoStr += " · LMT";
+            } else if (expoPair.isIsoManualOverLimit) {
+                isoStr += " · >LMT";
+            }
         }
 
-        // 35mm equivalent focal length calculation
+        // 35mm equivalent focal length & aperture calculation (Lens specs)
         int eqFocalLength = 24;
+        float aperture = 1.8f;
         CameraCharacteristics chars = CaptureController.mCameraCharacteristics;
         if (chars != null) {
             float[] focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
@@ -577,12 +608,23 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             if (sensorSize != null && sensorSize.getWidth() > 0) {
                 eqFocalLength = Math.round((36.0f / sensorSize.getWidth()) * fl * zoom);
             }
-        }
-        String focalStr = eqFocalLength + "mm";
 
-        // Focus mode & distance in meters
+            Float apVal = result.get(CaptureResult.LENS_APERTURE);
+            if (apVal != null && apVal > 0.0f) {
+                aperture = apVal;
+            } else {
+                float[] apertures = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES);
+                if (apertures != null && apertures.length > 0) {
+                    aperture = apertures[0];
+                }
+            }
+        }
+        String lensStr = eqFocalLength + "mm · f/" + String.format(Locale.ROOT, "%.1f", aperture);
+
+        // Focus mode, dynamic AF state & manual distance
         String focusStr;
         Integer afMode = result.get(CaptureResult.CONTROL_AF_MODE);
+        Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
         Float focusDist = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
         boolean isManual = (manualModeConsole != null && manualModeConsole.isManualFocusModeActive())
                 || (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_OFF);
@@ -595,14 +637,42 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 focusStr = String.format(Locale.ROOT, "MF · %.1fm", meters);
             }
         } else {
+            String modePrefix;
             if (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_AUTO) {
-                focusStr = "AF-S";
+                modePrefix = "AF-S";
             } else if (afMode != null && afMode == CaptureRequest.CONTROL_AF_MODE_MACRO) {
-                focusStr = "AF-Macro";
+                modePrefix = "AF-Macro";
             } else {
-                focusStr = "AF-C";
+                modePrefix = "AF-C";
+            }
+
+            if (afState != null) {
+                switch (afState) {
+                    case CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN:
+                    case CaptureResult.CONTROL_AF_STATE_ACTIVE_SCAN:
+                        focusStr = modePrefix + " · SCAN";
+                        break;
+                    case CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED:
+                    case CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED:
+                        focusStr = modePrefix + " · LOCK";
+                        break;
+                    case CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED:
+                        focusStr = modePrefix + " · FAIL";
+                        break;
+                    case CaptureResult.CONTROL_AF_STATE_PASSIVE_UNFOCUSED:
+                        focusStr = modePrefix + " · LOST";
+                        break;
+                    default:
+                        focusStr = modePrefix;
+                        break;
+                }
+            } else {
+                focusStr = modePrefix;
             }
         }
+
+        // White Balance / CCT in Kelvin
+        String wbStr = calculateWhitebalanceString(result);
 
         // Tripod indicator
         boolean isTripod = PhotonCamera.getGyro() != null && PhotonCamera.getGyro().getTripod();
@@ -627,13 +697,39 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
             }
         }
 
-        surfaceView.setHudData(exposureStr, isoStr, focalStr, focusStr, isTripod, oisSupported, oisActive);
+        surfaceView.setHudData(exposureStr, isoStr, lensStr, focusStr, wbStr, isTripod, oisSupported, oisActive);
         surfaceView.refresh();
 
         // Trigger live histogram sampling if mode 2 (HUD + Histogram) is active
         if (afDataMode == 2) {
             requestLiveHistogram();
         }
+    }
+
+    private String calculateWhitebalanceString(CaptureResult result) {
+        Integer awbMode = result.get(CaptureResult.CONTROL_AWB_MODE);
+        String prefix = (awbMode != null && awbMode == CaptureRequest.CONTROL_AWB_MODE_OFF) ? "MWB" : "AWB";
+
+        android.util.Rational[] neutralPoint = result.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
+        if (neutralPoint == null || neutralPoint.length < 3) {
+            if (captureController != null && captureController.mPreviewTemp != null && captureController.mPreviewTemp.length >= 3) {
+                neutralPoint = captureController.mPreviewTemp;
+            }
+        }
+
+        if (neutralPoint != null && neutralPoint.length >= 3) {
+            double r = neutralPoint[0].doubleValue();
+            double b = neutralPoint[2].doubleValue();
+            if (r > 0.001) {
+                // Approximate Correlated Color Temperature (CCT) in Kelvin from sensor neutral point
+                double ratio = b / r;
+                double kelvin = 3000.0 * Math.pow(ratio, 0.75);
+                int roundedKelvin = (int) (Math.round(kelvin / 100.0) * 100);
+                roundedKelvin = Math.max(2000, Math.min(10000, roundedKelvin));
+                return prefix + " · " + roundedKelvin + "K";
+            }
+        }
+        return prefix;
     }
 
     private Bitmap mHistBitmap = null;

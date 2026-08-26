@@ -35,6 +35,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
     private String mIsoText = null;
     private String mFocalText = null;
     private String mFocusText = null;
+    private String mWbText = null;
     private boolean mIsTripod = false;
     private boolean mIsOisSupported = false;
     private boolean mIsOisActive = false;
@@ -194,12 +195,13 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         this.debugText = debugText;
     }
 
-    public void setHudData(String expo, String iso, String focal, String focus,
+    public void setHudData(String expo, String iso, String focal, String focus, String wb,
                            boolean isTripod, boolean isOisSupported, boolean isOisActive) {
         this.mExpoText = expo;
         this.mIsoText = iso;
         this.mFocalText = focal;
         this.mFocusText = focus;
+        this.mWbText = wb;
         this.mIsTripod = isTripod;
         this.mIsOisSupported = isOisSupported;
         this.mIsOisActive = isOisActive;
@@ -270,9 +272,9 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         float marginTop = 12f * mDensity;
         float lineSpacing = 16f * mDensity;
 
-        int rowCount = 4 + (mIsTripod ? 1 : 0) + (mIsOisSupported ? 1 : 0);
+        int rowCount = 5 + (mIsTripod ? 1 : 0) + (mIsOisSupported ? 1 : 0);
         float hudHeight = rowCount * lineSpacing;
-        float hudWidth = 54f * mDensity;
+        float hudWidth = 64f * mDensity;
 
         boolean isLandscape = (mTargetOrientation == 90 || mTargetOrientation == 270);
 
@@ -296,7 +298,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         canvas.drawText(mIsoText, x, y, hudPaint);
         y += lineSpacing;
 
-        // Row 3: 35mm Equivalent Focal Length
+        // Row 3: Lens Specs (Focal Length & Aperture)
         canvas.drawText(mFocalText, x, y, hudPaint);
         y += lineSpacing;
 
@@ -304,7 +306,13 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         canvas.drawText(mFocusText, x, y, hudPaint);
         y += lineSpacing;
 
-        // Row 5: OIS Status (only if active lens has hardware OIS)
+        // Row 5: White Balance / CCT in Kelvin
+        if (mWbText != null) {
+            canvas.drawText(mWbText, x, y, hudPaint);
+            y += lineSpacing;
+        }
+
+        // Row 6: OIS Status (only if active lens has hardware OIS)
         if (mIsOisSupported) {
             canvas.drawText("OIS", x, y, hudPaint);
 
@@ -316,7 +324,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
             y += lineSpacing;
         }
 
-        // Row 6: Tripod Status (only when mounted on a tripod)
+        // Row 7: Tripod Status (only when mounted on a tripod)
         if (mIsTripod) {
             canvas.drawText("[TRIPOD]", x, y, hudPaint);
             y += lineSpacing;
@@ -413,6 +421,7 @@ public class SurfaceViewOverViewfinder extends SurfaceView {
         mIsoText = null;
         mFocalText = null;
         mFocusText = null;
+        mWbText = null;
         mHistColorsMap = null;
         isCanvasDrawn = false;
     }

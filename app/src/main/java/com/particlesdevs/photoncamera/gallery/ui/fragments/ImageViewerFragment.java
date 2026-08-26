@@ -95,7 +95,9 @@ public class ImageViewerFragment extends Fragment implements ImageAdapter.HdrSta
         fragmentGalleryImageViewerBinding = DataBindingUtil.inflate(inflater, R.layout.fragment_gallery_image_viewer, container, false);
         viewModel = new ViewModelProvider(requireActivity()).get(GalleryViewModel.class);
         initialiseDataMembers();
-        fragmentGalleryImageViewerBinding.hdrToggleText.setOnClickListener(this::onHdrToggleClicked);
+        if (fragmentGalleryImageViewerBinding.hdrToggleText != null) {
+            fragmentGalleryImageViewerBinding.hdrToggleText.setOnClickListener(this::onHdrToggleClicked);
+        }
         setClickListeners();
         return fragmentGalleryImageViewerBinding.getRoot();
     }
@@ -304,7 +306,7 @@ public class ImageViewerFragment extends Fragment implements ImageAdapter.HdrSta
     }
 
     private void updateHdrToggleUi(boolean isUltraHdr, boolean isHdr) {
-        if (fragmentGalleryImageViewerBinding == null) {
+        if (fragmentGalleryImageViewerBinding == null || fragmentGalleryImageViewerBinding.hdrToggleText == null) {
             return;
         }
         // Keep the HDR indicator synchronized with the normal gallery controls.
