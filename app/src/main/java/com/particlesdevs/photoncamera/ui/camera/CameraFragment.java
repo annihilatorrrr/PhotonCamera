@@ -484,11 +484,15 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                         exposureStr += " · UNLMT";
                     } else if (expoPair.isShutterLimited) {
                         exposureStr += " · LMT";
+                    } else if (expoPair.isShutterManualOverLimit) {
+                        exposureStr += " · >LMT";
                     }
 
                     isoStr = String.valueOf(expoPair.iso);
                     if (expoPair.isIsoLimited) {
                         isoStr += " · LMT";
+                    } else if (expoPair.isIsoManualOverLimit) {
+                        isoStr += " · >LMT";
                     }
                 }
 
@@ -570,11 +574,15 @@ public class CameraFragment extends Fragment implements BaseActivity.BackPressed
                 exposureStr += " · UNLMT";
             } else if (expoPair.isShutterLimited) {
                 exposureStr += " · LMT";
+            } else if (expoPair.isShutterManualOverLimit) {
+                exposureStr += " · >LMT";
             }
 
             isoStr = "ISO " + expoPair.iso;
             if (expoPair.isIsoLimited) {
                 isoStr += " · LMT";
+            } else if (expoPair.isIsoManualOverLimit) {
+                isoStr += " · >LMT";
             }
         }
 

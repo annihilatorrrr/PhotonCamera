@@ -169,8 +169,29 @@ public class IsoExpoSelector {
 
         double currentManExp = captureController.getParamController().getCurrentExposureValue();
         double currentManISO = captureController.getParamController().getCurrentISOValue();
-        pair.exposure = currentManExp != 0 ? (long) currentManExp : pair.exposure;
-        pair.iso = currentManISO != 0 ? (int) (currentManISO * 100.0 / pair.isolow) : pair.iso;
+
+        if (currentManExp != 0) {
+            pair.exposure = (long) currentManExp;
+            pair.isShutterLimited = false;
+            pair.isShutterTripodBypassed = false;
+            if (!useTripod && captureController != null) {
+                long limit = pair.resolveShutterLimit(captureController.exposureBalanceShutterLimit, captureController);
+                if (limit < pair.exposurehigh && pair.exposure > limit) {
+                    pair.isShutterManualOverLimit = true;
+                }
+            }
+        }
+
+        if (currentManISO != 0) {
+            pair.iso = (int) (currentManISO * 100.0 / pair.isolow);
+            pair.isIsoLimited = false;
+            if (captureController != null && captureController.exposureBalanceIsoLimit != -1) {
+                if (pair.iso > pair.resolveIsoLimit(captureController.exposureBalanceIsoLimit)) {
+                    pair.isIsoManualOverLimit = true;
+                }
+            }
+        }
+
         pair.curlayer = ExpoPair.exposureLayer.Normal;
         /*if (step%patternSize == 1 && HDR) {
             pair.ExpoCompensateLower(2.0 / 1.0);
@@ -400,6 +421,8 @@ public class IsoExpoSelector {
         public boolean isIsoLimited = false;
         public boolean isShutterLimited = false;
         public boolean isShutterTripodBypassed = false;
+        public boolean isIsoManualOverLimit = false;
+        public boolean isShutterManualOverLimit = false;
 
         public ExpoPair(ExpoPair pair) {
             copyfrom(pair);
@@ -567,6 +590,26 @@ public class IsoExpoSelector {
         }        
 
         /**
+         * Resolves the effective normalized ISO ceiling based on the configured limit flag/number.
+         */
+        public double resolveIsoLimit(int isoLimit) {
+            if (isoLimit == -4) return Math.max(100.0, (double) isoanalog / 4.0);
+            if (isoLimit == -3) return Math.max(100.0, (double) isoanalog / 2.0);
+            if (isoLimit == -2) return (double) isoanalog;
+            if (isoLimit == -1) return (double) isohigh * (100.0 / isolow);
+            return Math.min((double) isohigh, (double) isoLimit) * (100.0 / isolow);
+        }
+
+        /**
+         * Resolves the effective shutter duration limit in nanoseconds.
+         */
+        public long resolveShutterLimit(float shutterLimitSec, CaptureController cc) {
+            if (shutterLimitSec == -2.0f) return getAutoSafeShutterNs(cc);
+            if (shutterLimitSec > 0.0f) return (long) (shutterLimitSec * ExposureIndex.sec);
+            return exposurehigh;
+        }
+
+        /**
          * Shifts the exposure balance by the given multiplier k (shutter/ISO trade-off).
          * A multiplier > 1.0 reduces shutter duration and increases ISO (freezing motion).
          * A multiplier < 1.0 increases shutter duration and reduces ISO (cleaner image).
@@ -581,98 +624,58 @@ public class IsoExpoSelector {
             isIsoLimited = false;
             isShutterLimited = false;
             isShutterTripodBypassed = false;
+            isIsoManualOverLimit = false;
+            isShutterManualOverLimit = false;
 
-            // 1. Save the target exposure energy (brightness) before shifting
+            // 1. Save target exposure energy
             double targetEnergy = (double) exposure * iso;
 
-            // 2. Apply the theoretical shift
+            // 2. Apply theoretical shift
             exposure = (long) (exposure / k);
             iso = (int) (iso * k);
 
-            // 3. Calculate effective upper ISO bound (normalized)
-            double isoHighNormalized;
-            if (isoLimit == -4) {
-                // Max Analog ISO / 4 (not lower than normalized minimum 100)
-                isoHighNormalized = Math.max(100.0, (double) isoanalog / 4.0);
-            } else if (isoLimit == -3) {
-                // Max Analog ISO / 2 (not lower than normalized minimum 100)
-                isoHighNormalized = Math.max(100.0, (double) isoanalog / 2.0);
-            } else if (isoLimit == -2) {
-                // Max Analog ISO
-                isoHighNormalized = (double) isoanalog;
-            } else if (isoLimit == -1) {
-                // Unlimited (Absolute Sensor Max)
-                isoHighNormalized = isohigh * (100.0 / isolow);
-            } else {
-                // Specific user defined ISO limit (e.g. 1600, 3200), capped by physical sensor limit
-                double maxPhysicalIso = Math.min((double) isohigh, (double) isoLimit);
-                isoHighNormalized = maxPhysicalIso * (100.0 / isolow);
-            }
+            // 3. Resolve bounds using helper methods
+            double isoHighNormalized = resolveIsoLimit(isoLimit);
+            long userShutterNs = resolveShutterLimit(shutterLimitSec, PhotonCamera.getCaptureController());
+            long effectiveExposureHigh = useTripod ? exposurehigh : Math.min(exposurehigh, userShutterNs);
 
-            // 4. Calculate effective upper Shutter bound (in nanoseconds), waiving user limit on tripod
-            long effectiveExposureHigh = exposurehigh;
-            long userShutterNs = -1;
-            if (shutterLimitSec == -2.0f) {
-                userShutterNs = getAutoSafeShutterNs(PhotonCamera.getCaptureController());
-                if (!useTripod && userShutterNs > 0) {
-                    effectiveExposureHigh = Math.min(exposurehigh, userShutterNs);
-                }
-            } else if (shutterLimitSec > 0.0f) {
-                userShutterNs = (long) (shutterLimitSec * ExposureIndex.sec);
-                if (!useTripod) {
-                    effectiveExposureHigh = Math.min(exposurehigh, userShutterNs);
-                }
-            }
-
-            // 5. ISO limits check with backtracking to exposure
+            // 4. ISO limits check with backtracking to exposure
             if (iso > isoHighNormalized) {
                 iso = (int) Math.round(isoHighNormalized);
-                if (isoLimit != -1) {
-                    isIsoLimited = true;
-                }
-                // ISO is maxed out; we must make the shutter slower to preserve brightness
+                if (isoLimit != -1) isIsoLimited = true;
                 exposure = (long) (targetEnergy / iso);
             } else if (iso < 100) {
                 iso = 100;
-                // ISO is at minimum; we must make the shutter faster to preserve brightness
                 exposure = (long) (targetEnergy / iso);
             }
 
-            // 6. Exposure limits check with clean ISO snapping down
+            // 5. Exposure limits check with clean ISO snapping down
             if (exposure > effectiveExposureHigh) {
                 exposure = effectiveExposureHigh;
-                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) {
-                    isShutterLimited = true;
-                }
-                // Shutter hit max time limit; snap required ISO down to nearest clean analog rung
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) isShutterLimited = true;
                 double continuousIso = targetEnergy / exposure;
                 iso = (int) snapToCleanIso(continuousIso, false);
             } else if (exposure < exposurelow) {
                 exposure = exposurelow;
-                // Shutter hit sensor fastest speed; snap down to clean analog rung
                 double continuousIso = targetEnergy / exposure;
                 iso = (int) snapToCleanIso(continuousIso, false);
             }
 
-            // 7. Final safety clamps for rounding errors and dual-limit collisions
+            // 6. Final safety clamps
             if (iso > isoHighNormalized) {
                 iso = (int) Math.round(isoHighNormalized);
-                if (isoLimit != -1) {
-                    isIsoLimited = true;
-                }
+                if (isoLimit != -1) isIsoLimited = true;
             }
             if (iso < 100) iso = 100;
 
             if (exposure > effectiveExposureHigh) {
                 exposure = effectiveExposureHigh;
-                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) {
-                    isShutterLimited = true;
-                }
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) isShutterLimited = true;
             }
             if (exposure < exposurelow) exposure = exposurelow;
 
-            // 8. Check if tripod mode bypassed the user's handheld shutter limit
-            if (useTripod && userShutterNs > 0 && exposure > userShutterNs) {
+            // 7. Check if tripod mode bypassed the user's handheld shutter limit
+            if (useTripod && userShutterNs < exposurehigh && exposure > userShutterNs) {
                 isShutterTripodBypassed = true;
                 isShutterLimited = false;
             }
