@@ -534,7 +534,7 @@ public class IsoExpoSelector {
             if (isoMinToFit <= MIN_ISO_NORMALIZED) {
                 iso = MIN_ISO_NORMALIZED; // plenty of light, minimum ISO alone already fits under the cap
             } else {
-                long cleanIso = snapToCleanIso(isoMinToFit);
+                long cleanIso = snapToCleanIso(isoMinToFit, true);
                 double shutterAtCleanIso = totalExposureEnergy / cleanIso;
 
                 // If snapping up to a "clean" hardware gain stage would drop our shutter time
@@ -638,18 +638,20 @@ public class IsoExpoSelector {
                 exposure = (long) (targetEnergy / iso);
             }
 
-            // 6. Exposure limits check with backtracking to ISO
+            // 6. Exposure limits check with clean ISO snapping down
             if (exposure > effectiveExposureHigh) {
                 exposure = effectiveExposureHigh;
                 if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) {
                     isShutterLimited = true;
                 }
-                // Shutter hit max time limit; we must raise ISO to preserve brightness
-                iso = (int) (targetEnergy / exposure);
+                // Shutter hit max time limit; snap required ISO down to nearest clean analog rung
+                double continuousIso = targetEnergy / exposure;
+                iso = (int) snapToCleanIso(continuousIso, false);
             } else if (exposure < exposurelow) {
                 exposure = exposurelow;
-                // Shutter hit sensor fastest speed; we must lower ISO to preserve brightness
-                iso = (int) (targetEnergy / exposure);
+                // Shutter hit sensor fastest speed; snap down to clean analog rung
+                double continuousIso = targetEnergy / exposure;
+                iso = (int) snapToCleanIso(continuousIso, false);
             }
 
             // 7. Final safety clamps for rounding errors and dual-limit collisions
@@ -677,15 +679,19 @@ public class IsoExpoSelector {
         }
 
         /**
-         * Snaps up to the nearest ISO the sensor can realize as a clean hardware gain
-         * step at or above {@code isoMinToFit} (normalized ISO-100 basis): the base ISO
-         * doubled some number of times, plus the sensor's own reported max-pure-analog
-         * gain point ({@code isoanalog} / SENSOR_MAX_ANALOG_SENSITIVITY) inserted as an
-         * extra rung even when it doesn't fall on a doubling, since that boundary is
-         * real hardware data rather than an assumption about gain-stage spacing.
+         * Snaps to the nearest ISO the sensor can realize as a clean hardware gain step (normalized ISO-100 basis):
+         * the base ISO doubled some number of times, plus the sensor's own reported max-pure-analog gain point
+         * ({@code isoanalog} / SENSOR_MAX_ANALOG_SENSITIVITY) inserted as an extra rung even when it doesn't fall
+         * on a doubling, since that boundary is real hardware data rather than an assumption about gain-stage spacing.
          * Falls back to the sensor's true ISO ceiling if nothing smaller fits.
+         *
+         * @param targetIso target normalized ISO value to snap
+         * @param snapUp    if true, snaps UP (ceiling, >= targetIso) to guarantee safe exposure duration in auto curves;
+         *                  if false, snaps DOWN (floor, <= targetIso) to guarantee pure analog gain without HAL digital
+         *                  scaling noise when bounded by shutter limits.
+         * @return snapped clean normalized ISO value
          */
-        private long snapToCleanIso(double isoMinToFit) {
+        private long snapToCleanIso(double targetIso, boolean snapUp) {
             double isoHighNormalized = isohigh * (100.0 / isolow);
             double isoAnalogNormalized = isoanalog * (100.0 / isolow);
 
@@ -700,10 +706,22 @@ public class IsoExpoSelector {
             ladder[n++] = isoHighNormalized; // true sensor ceiling, always available as a last resort
             java.util.Arrays.sort(ladder, 0, n);
 
-            for (int i = 0; i < n; i++) {
-                if (ladder[i] >= isoMinToFit) return Math.round(ladder[i]);
+            if (snapUp) {
+                for (int i = 0; i < n; i++) {
+                    if (ladder[i] >= targetIso) return Math.round(ladder[i]);
+                }
+                return Math.round(isoHighNormalized);
+            } else {
+                long result = Math.round(ladder[0]);
+                for (int i = 0; i < n; i++) {
+                    if (ladder[i] <= targetIso) {
+                        result = Math.round(ladder[i]);
+                    } else {
+                        break;
+                    }
+                }
+                return result;
             }
-            return Math.round(isoHighNormalized);
         }
 
         private static double log2(double x) {
