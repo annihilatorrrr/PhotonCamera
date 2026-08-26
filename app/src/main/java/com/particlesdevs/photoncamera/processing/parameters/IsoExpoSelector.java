@@ -617,7 +617,7 @@ public class IsoExpoSelector {
             // 6. Exposure limits check with backtracking to ISO
             if (exposure > effectiveExposureHigh) {
                 exposure = effectiveExposureHigh;
-                if (shutterLimitSec > 0.0f && !useTripod) {
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) {
                     isShutterLimited = true;
                 }
                 // Shutter hit max time limit; we must raise ISO to preserve brightness
@@ -639,7 +639,7 @@ public class IsoExpoSelector {
 
             if (exposure > effectiveExposureHigh) {
                 exposure = effectiveExposureHigh;
-                if (shutterLimitSec > 0.0f && !useTripod) {
+                if ((shutterLimitSec > 0.0f || shutterLimitSec == -2.0f) && !useTripod) {
                     isShutterLimited = true;
                 }
             }
