@@ -2,6 +2,7 @@ package com.particlesdevs.photoncamera.processing.parameters;
 
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import com.particlesdevs.photoncamera.util.Log;
@@ -339,21 +340,44 @@ public class IsoExpoSelector {
         return finalFactor;
     }
 
-    private static long getAutoSafeShutterNs() {
+    private static long getAutoSafeShutterNs(CaptureController captureController) {
         double efl = 24.0;
-        boolean hasOis = false;
+        boolean oisActive = false;
+
         CameraCharacteristics characteristics = CaptureController.mCameraCharacteristics;
         if (characteristics != null) {
+            float fl = 4.75f;
             float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
-            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
-            if (focalLengths != null && focalLengths.length > 0 && sensorSize != null && sensorSize.getWidth() > 0) {
-                efl = (36.0f / sensorSize.getWidth()) * focalLengths[0];
+            if (focalLengths != null && focalLengths.length > 0) {
+                fl = focalLengths[0];
             }
+
+            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            if (sensorSize != null && sensorSize.getWidth() > 0) {
+                efl = (36.0f / sensorSize.getWidth()) * fl;
+            }
+
+            // Explicit and safe OIS capability check
+            boolean hasHardwareOis = false;
             int[] oisModes = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
-            hasOis = (oisModes != null && oisModes.length > 1);
+            if (oisModes != null) {
+                for (int mode : oisModes) {
+                    if (mode == CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON) {
+                        hasHardwareOis = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasHardwareOis) {
+                oisActive = (captureController == null || captureController.oisMode != 2);
+            }
         }
-        // Reciprocal rule: 8/EFL for OIS (+3 stops), 1/EFL for non-OIS
-        double safeSec = (hasOis ? 8.0 : 1.0) / Math.max(efl, 10.0);
+
+        if (efl <= 0.0) efl = 24.0;
+
+        // Reciprocal rule: 8/EFL if OIS is enabled (+3 stops), 1/EFL without OIS
+        double safeSec = (oisActive ? 8.0 : 1.0) / efl;
         return (long) (safeSec * ExposureIndex.sec);
     }
 
@@ -589,7 +613,7 @@ public class IsoExpoSelector {
             long effectiveExposureHigh = exposurehigh;
             long userShutterNs = -1;
             if (shutterLimitSec == -2.0f) {
-                userShutterNs = getAutoSafeShutterNs();
+                userShutterNs = getAutoSafeShutterNs(PhotonCamera.getCaptureController());
                 if (!useTripod && userShutterNs > 0) {
                     effectiveExposureHigh = Math.min(exposurehigh, userShutterNs);
                 }
