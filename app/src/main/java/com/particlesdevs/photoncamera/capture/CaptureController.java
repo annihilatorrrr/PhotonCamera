@@ -255,13 +255,30 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
     public float exposureBalanceMultiplier = 1.0f;
 
     @SensorConfig(
-            title = "Exposure Balance ISO Limit",
-            description = "Limit the maximum sensitivity allowed when shifting exposure balance",
-            entries = {"400", "800", "1600", "3200", "6400", "12800", "Max Analog ISO", "Sensor Max ISO"},
-            entryValues = {"400", "800", "1600", "3200", "6400", "12800", "-2", "-1"},
-            defaultValue = -2
+            title = "ISO Limit",
+            description = "Limit the maximum sensitivity allowed",
+            entries = {"400", "800", "1600", "3200", "6400", "12800", "Max Analog ISO / 4", "Max Analog ISO / 2", "Max Analog ISO", "Sensor Max ISO"},
+            entryValues = {"400", "800", "1600", "3200", "6400", "12800", "-4", "-3", "-2", "-1"},
+            defaultValue = -1
     )
-    public int exposureBalanceIsoLimit = -2;
+    public int exposureBalanceIsoLimit = -1;
+
+    @SensorConfig(
+            title = "Shutter Limit",
+            description = "Limit the maximum exposure duration allowed",
+            entries = {
+                    "1/125", "1/90", "1/60", "1/45", "1/30", "1/20", 
+                    "1/15", "1/10", "1/8", "1/6", "1/4", 
+                    "1/3", "1/2", "1.0", "2.0", "Sensor Max Time"
+            },
+            entryValues = {
+                    "0.008", "0.0111", "0.0167", "0.0222", "0.0333", "0.05", 
+                    "0.0667", "0.1", "0.125", "0.1667", "0.25", 
+                    "0.3333", "0.5", "1.0", "2.0", "-1"
+            },
+            defaultValue = -1.0f
+    )
+    public float exposureBalanceShutterLimit = -1.0f;
 
     private static int mTargetFormat = RAW_FORMAT;
     private ManualModeConsole manualModeConsole;
