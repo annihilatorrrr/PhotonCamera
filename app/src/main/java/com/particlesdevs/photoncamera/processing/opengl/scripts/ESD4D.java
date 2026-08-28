@@ -112,7 +112,8 @@ public class ESD4D extends GLOneScript {
             // Convert raw Bayer -> normalized rgba16f vec4 (one texel per 2x2 Bayer quad)
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge/merge00", true);
-            glProg.setVar("whiteLevel", (float) parameters.whiteLevel);
+            //glProg.setVar("whiteLevel", (float) parameters.whiteLevel);
+            glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
             glProg.setVar("blackLevel", blackLevel);
             glProg.setVar("exposure", 1.0f / images.get(0).pair.layerMpy);
             glProg.setVar("createDiff", 0);
@@ -306,14 +307,157 @@ public class ESD4D extends GLOneScript {
     @Tunable(title = "Flow refinement max shift", category = "Merge", description = "Unused by the brute-force diagonal refinement (candidates are fixed at half a texel); kept for settings compatibility", min = 1.0f, max = 4.0f, step = 1.0f, defaultValue = 2.0f)
     float flowRefineMaxDisp;
 
-    @Tunable(title = "Alignment tile size", category = "Alignment", description = "16=standard; 32=larger alignment tiles, much more robust on dark scenes but uses 16KB of compute shared memory and coarser motion field", min = 16, max = 32, step = 16, defaultValue = 16)
-    int alignmentTile;
-
     @Tunable(title = "Enable Adaptive Noise Storage", category = "Merge", description = "Persist fitted noise model into the dynamic multisample store", min = 0, max = 1, step = 1, defaultValue = 1)
     boolean enableNoiseStore;
 
     @Tunable(title = "Network merge noise multiplier", category = "Merge", description = "Scales the noise model fed to the kernel network", min = 0.1f, max = 20.0f, step = 0.05f, defaultValue = 1.0f)
     float noiseMpy;
+
+    @Tunable(title = "Noise blend max frames", category = "Merge", description = "Frames combined into the deliberately misaligned progressive Gaussian blend used for noise estimation (blurs scene detail while noise only drops by a known factor)", min = 1, max = 9, step = 1, defaultValue = 9)
+    int noiseBlendMaxFrames;
+
+    @Tunable(title = "Noise blend calibration", category = "Merge", description = "Trim multiplier on the Monte-Carlo noise blend calibration table (1.0 = table value)", min = 0.5f, max = 2.0f, step = 0.05f, defaultValue = 1.0f)
+    float noiseBlendCalMpy;
+
+    @Tunable(title = "Noise scan subsample", category = "Merge", description = "Stride between texels evaluated by the noise histogram; the cheap difference operator supports a dense stride (was fixed 3 in the median-chain era)", min = 1, max = 8, step = 1, defaultValue = 3)
+    int noiseScanSubsample;
+
+    @Tunable(title = "Noise fit variance bins", category = "Merge", description = "Per-brightness-row cutoff on occupied variance bins kept by the noise fit pass 1 (lower rejects texture harder but undershoots on texture-free scenes; was fixed 45)", min = 8, max = 45, step = 1, defaultValue = 45)
+    int noiseFitVarBins;
+
+    @Tunable(title = "Noise fit gate", category = "Merge", description = "Adaptive per-brightness gate: pass 2 keeps only histogram bins whose implied variance is within this multiple of the pass-1 fitted noise (the per-brightness lower part; rejects texture and saturated bins). 0 disables", min = 0.0f, max = 5.0f, step = 0.25f, defaultValue = 2.0f)
+    float noiseFitGateMpy;
+
+    @Tunable(title = "Read noise floor multiplier", category = "Merge", description = "Multiplier on the analytic OPlace read-noise floor applied to fitted O; the legacy 3.0 compensated texture leakage that the noise blend now removes", min = 0.5f, max = 4.0f, step = 0.25f, defaultValue = 1.0f)
+    float noiseOFloorMpy;
+
+    @Tunable(title = "Fit O correction", category = "Merge", description = "Legacy fitO += 3/8*fitS^2 correction that compensated the under-rescaled fit; keep off with the calibrated blend", min = 0, max = 1, step = 1, defaultValue = 0)
+    boolean enableFitOCorrection;
+
+    @Tunable(title = "Adaptive fallback min", category = "Merge", description = "Lower clamp of the fallback adaptive multiplier (was 1.0, up-only)", min = 0.25f, max = 2.0f, step = 0.25f, defaultValue = 0.5f)
+    float adaptiveFallbackMin;
+
+    @Tunable(title = "Adaptive fallback max", category = "Merge", description = "Upper clamp of the fallback adaptive multiplier (was 4.0)", min = 1.0f, max = 4.0f, step = 0.25f, defaultValue = 2.0f)
+    float adaptiveFallbackMax;
+
+    /** Progressive noise-blend grid, must match BLEND_GRID in
+     * tools/noise-blend-calibration/mc.py: center first, then edges, then
+     * corners, so the first f slots give the temporal kernel shape for f
+     * frames (9 -> full 3x3 Gaussian, 5 -> plus, 2 -> two-tap, 1 -> identity). */
+    private static final int[][] BLEND_GRID = {
+            {0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+    /** End-to-end calibration for the luma difference operator
+     * |quad luma - kernel mean| (fixed full 3x3 Gaussian, sigma_g = 1) on
+     * the progressive temporal blend, folded for the two-pass fit with the
+     * default gate (noiseFitGateMpy = 2.0): E[noisehist "var"] =
+     * VAR_STAT[f-1] * sigma for white per-frame noise through the blend,
+     * the luma operator, the histogram binning and the gated weighted fit
+     * (frame count f = 1..9). Measured by
+     * tools/noise-blend-calibration/fixed_mc.py; trim with the
+     * noiseBlendCalMpy tunable if device measurements disagree. */
+    private static final float[] NOISE_BLEND_VAR_STAT = {
+            0.23862f, 0.17435f, 0.14193f, 0.12277f, 0.10907f, 0.10082f, 0.09468f, 0.08916f, 0.08433f};
+    /** Variance-axis anchor: bin 63 maps to sigma = SIGMA_REF for every frame
+     * count (varScale = 63 / (VAR_STAT[f-1] * SIGMA_REF)), keeping bin
+     * resolution in sigma terms constant and 2.4x-31x finer than the old
+     * fixed 384 scale. */
+    private static final float NOISE_BLEND_SIGMA_REF = 0.12f;
+
+    /**
+     * Builds the noise-estimation input: up to {@code noiseBlendMaxFrames}
+     * frames (spaced across the burst) each sampled at its own slot of the
+     * progressive 3x3 grid (one packed texel = one 2x2 Bayer quad = 2 raw px,
+     * CFA-periodic so channels stay aligned) with normalized Gaussian
+     * weights (sigma_g = 1 texel). Scene detail is correlated across frames,
+     * so the fixed offsets convolve it with the kernel (fine texture
+     * suppressed), while frame-independent noise only drops by the known
+     * factor sum(w_i^2). noisehist.glsl then applies the luma difference
+     * operator |quad luma - kernel mean| with a FIXED full 3x3 Gaussian
+     * (sigma_g = 1, filled into spatialKernel, independent of frame count -
+     * the temporal kernel is the only f-adaptive part): chroma structure
+     * cancels exactly in the luma mean, the luma noise variance equals
+     * S*b + O in quad-mean brightness for any white point, and the
+     * symmetric kernel annihilates planes (gradients) precisely. Exposure
+     * differences are
+     * harmless: the conversion is linear, so every frame's variance obeys
+     * the same variance = S*brightness + O in normalized units. Reuses
+     * {@code alter} as the per-frame conversion target and ping-pongs
+     * between {@code baseAlter} and one new texture (both unused until the
+     * merge loop) - returns the accumulator, which may be either of the
+     * two; close it only if it is not baseAlter.
+     */
+    private GLTexture buildNoiseBlendFrame(float[] blackLevel, int tile, float[] spatialKernel) {
+        int frameCnt = Math.min(Math.min(noiseBlendMaxFrames, BLEND_GRID.length), images.size());
+        double[] weights = new double[frameCnt];
+        double wSum = 0;
+        for (int k = 0; k < frameCnt; k++) {
+            weights[k] = Math.exp(-(BLEND_GRID[k][0] * BLEND_GRID[k][0]
+                    + BLEND_GRID[k][1] * BLEND_GRID[k][1]) / 2.0);
+            wSum += weights[k];
+        }
+        java.util.Arrays.fill(spatialKernel, 0.0f);
+        double opSum = 0;
+        double[] opW = new double[BLEND_GRID.length];
+        for (int k = 0; k < BLEND_GRID.length; k++) {
+            opW[k] = Math.exp(-(BLEND_GRID[k][0] * BLEND_GRID[k][0]
+                    + BLEND_GRID[k][1] * BLEND_GRID[k][1]) / 2.0);
+            opSum += opW[k];
+        }
+        for (int k = 0; k < frameCnt; k++) {
+            weights[k] /= wSum;
+        }
+        for (int k = 0; k < BLEND_GRID.length; k++) {
+            int dx = BLEND_GRID[k][0], dy = BLEND_GRID[k][1];
+            spatialKernel[(dy + 1) * 3 + (dx + 1)] = (float) (opW[k] / opSum);
+        }
+
+        GLTexture blendAcc = new GLTexture(packedSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4), null, GL_NEAREST, GL_CLAMP_TO_EDGE);
+        GLTexture tempFloat = alter;
+        GLTexture tempRaw = frameCnt > 1
+                ? new GLTexture(parameters.rawSize, new GLFormat(GLFormat.DataType.UNSIGNED_16, 1), null, GL_NEAREST, GL_CLAMP_TO_EDGE)
+                : null;
+        GLTexture blendCurrent = baseAlter;
+        GLTexture blendNext = blendAcc;
+        for (int k = 0; k < frameCnt; k++) {
+            int idx = frameCnt == 1 ? 0
+                    : (int) Math.round((double) k * (images.size() - 1) / (frameCnt - 1));
+            GLTexture rawSrc = (idx == 0) ? inputBase : tempRaw;
+            if (idx > 0) tempRaw.loadData(images.get(idx).buffer);
+
+            // Convert raw Bayer -> normalized rgba16f vec4 (one texel per 2x2 quad)
+            glProg.setLayout(tile, tile, 1);
+            glProg.useAssetProgram("merge/merge00", true);
+            //glProg.setVar("whiteLevel", (float) parameters.whiteLevel);
+            glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
+            glProg.setVar("blackLevel", blackLevel);
+            glProg.setVar("exposure", 1.0f / images.get(0).pair.layerMpy);
+            glProg.setVar("createDiff", 0);
+            glProg.setVar("cfaShift", cfaShift);
+            glProg.setTexture("inTexture", rawSrc);
+            glProg.setTextureCompute("outTexture", tempFloat, true);
+            glProg.computeAuto(packedSize, 1);
+
+            // Progressive temporal blend accumulate at this frame's grid slot
+            glProg.setLayout(tile, tile, 1);
+            glProg.useAssetProgram("merge/noiseblend", true);
+            glProg.setTextureCompute("currentTexture", blendCurrent, false);
+            glProg.setTextureCompute("newTexture", tempFloat, false);
+            glProg.setTextureCompute("outTexture", blendNext, true);
+            glProg.setVar("weight", (float) weights[k]);
+            glProg.setVar("offset", BLEND_GRID[k][0], BLEND_GRID[k][1]);
+            glProg.setVar("firstPass", k == 0 ? 1 : 0);
+            glProg.computeAuto(packedSize, 1);
+
+            GLTexture swap = blendCurrent;
+            blendCurrent = blendNext;
+            blendNext = swap;
+        }
+        if (blendCurrent != blendAcc) blendAcc.close();
+        if (tempRaw != null) tempRaw.close();
+        Log.d(Name, "Noise blend: " + frameCnt + " frame(s), sum(w^2)="
+                + String.format(java.util.Locale.ROOT, "%.4f", java.util.stream.DoubleStream.of(weights).map(w -> w * w).sum()));
+        return blendCurrent;
+    }
 
     @Override
     public void Run() {
@@ -459,7 +603,8 @@ public class ESD4D extends GLOneScript {
         int tile = 8;
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge/merge00",true);
-        glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
+        //glProg.setVar("whiteLevel",(float)(parameters.whiteLevel));
+        glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
         glProg.setVar("blackLevel", blNorm);
         glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
         glProg.setVar("createDiff", 0);
@@ -700,7 +845,8 @@ public class ESD4D extends GLOneScript {
             // Convert inputAlter to alter (vec4 format)
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram("merge/merge00", true);
-            glProg.setVar("whiteLevel", (float)(parameters.whiteLevel));
+            //glProg.setVar("whiteLevel", (float)(parameters.whiteLevel));
+            glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
             glProg.setVar("blackLevel", blNorm);
             glProg.setVar("exposure", 1.f/images.get(0).pair.layerMpy);
             glProg.setVar("createDiff", 0);
@@ -715,7 +861,7 @@ public class ESD4D extends GLOneScript {
             glProg.setLayout(tile, tile, 1);
             glProg.useAssetProgram(useNcnnFlow ? "merge/mergeAlignFlow" : "merge/mergeAlign", true);
             glProg.setVar("rawHalf", rawHalf);
-            glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
+            glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
             glProg.setVar("whitePoint", parameters.whitePoint);
             glProg.setVar("blackLevel", blNorm);
             // Red-site origin shift for mergeAlign's noise-model repack
@@ -769,7 +915,7 @@ public class ESD4D extends GLOneScript {
             glProg.setTextureCompute("outTexture", base, true);
             glProg.setVar("noiseS", noiseS);
             glProg.setVar("noiseO", noiseO);
-            glProg.setVar("whiteLevel", (float) (parameters.whiteLevel));
+            glProg.setVarU("whitelevel", (int) parameters.whiteLevel);
             glProg.setVar("blackLevel", blNorm);
             glProg.setVar("analogBalance", analogBalance);
             glProg.setVar("exposure", exposure);

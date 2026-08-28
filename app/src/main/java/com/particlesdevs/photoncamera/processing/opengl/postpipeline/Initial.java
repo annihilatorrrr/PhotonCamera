@@ -277,7 +277,8 @@ import static com.particlesdevs.photoncamera.util.Math2.mix;
                 cube = basePipeline.mParameters.CCT.cubes[0].cube;
         }
         if(((PostPipeline)basePipeline).FusionMap != null) glProg.setDefine("FUSION", 1);
-        glProg.useAssetProgram("initial");
+        if(((PostPipeline)basePipeline).exposureCurve != null) glProg.setDefine("EXPOCURVE", 1);
+        glProg.useAssetProgram("Initial/initial");
         if(mode == ColorCorrectionTransform.CorrectionMode.CUBE || mode == ColorCorrectionTransform.CorrectionMode.CUBES){
             glProg.setVar("CUBE0",cube[0]);
             glProg.setVar("CUBE1",cube[1]);
