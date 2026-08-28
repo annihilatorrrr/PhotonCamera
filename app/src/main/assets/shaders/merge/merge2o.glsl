@@ -26,7 +26,7 @@ float hash12(vec2 p){
 
 uvec4 getBayerVec(ivec2 coords, ivec2 rawSite){
     float dither = hash12(vec2(rawSite));
-    return uvec4(floor(clamp(texelFetch(inTexture, coords, 0),0.0,1.0) * (vec4(WHITE_LEVEL)-vec4(BLACK_LEVEL)) + vec4(BLACK_LEVEL) + dither));
+    return min(uvec4(floor(clamp(texelFetch(inTexture, coords, 0),0.0,1.0) * (vec4(WHITE_LEVEL)-vec4(BLACK_LEVEL)) + vec4(BLACK_LEVEL) + dither)), uvec4(WHITE_LEVEL));
 }
 
 
