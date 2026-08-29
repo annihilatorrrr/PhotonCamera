@@ -494,6 +494,144 @@ vec3 softClip(vec3 v) {
     return vec3(softClip(v.r), softClip(v.g), softClip(v.b));
 }
 
+// ---------------------------------------------------------------------------
+// Highlight desaturation (alternative to softClip above)
+//
+// Fixes per-channel clipping artifacts (colour rings on gradients, warm bands
+// on warm->white transitions) caused by each channel reaching the ceiling at a
+// different scene luminance.
+//
+// Phase 1 (DESAT_START .. 1.0): in-range roll toward neutral. The max channel
+//   is preserved exactly, the lower channels are lifted toward it, so
+//   saturation falls smoothly instead of snapping at the ceiling.
+//   DESAT_AMOUNT keeps some colour in reserve for phase 2.
+//
+// Phase 2 (mx > 1.0): hue-preserving compression of over-range values down to
+//   1.0. base = rgb/mx holds the ratios, K is the mx at which the dimmest
+//   channel would also reach 1.0, and the smoothstep rolls the pixel to white
+//   over that interval instead of clipping channel by channel.
+//
+// OKLAB_HUE_LOCK: a straight RGB line to white does not preserve *perceived*
+//   hue - the Abney effect shifts it by up to ~9.5 deg (worst on orange), well
+//   above the ~2-3 deg visibility threshold. With the lock enabled the roll
+//   follows an arc that holds the Oklab hue angle constant. Costs two cube
+//   roots and an atan per affected pixel; only pixels above DESAT_START pay
+//   it. Set to 0 to fall back to the cheap straight line.
+//
+//   Caveat: the Oklab matrices assume linear sRGB. At this point in the
+//   pipeline the signal has already been tone-mapped, so the transform is an
+//   approximation rather than colorimetrically exact.
+//
+// DESAT_START   - luminance at which phase 1 begins.
+// DESAT_AMOUNT  - how far phase 1 is allowed to pull toward neutral by mx=1.0.
+// DESAT_DENSITY - shape of the ramp, not its endpoint. Higher values keep
+//                 chroma near full for longer then fall off faster; 3.0-4.0
+//                 is the practical ceiling (steeper slopes reintroduce the
+//                 visible edge this fix exists to remove).
+#define DESAT_START     0.92
+#define DESAT_AMOUNT    0.6
+#define DESAT_DENSITY   3.0
+#define OKLAB_HUE_LOCK  1
+
+#if OKLAB_HUE_LOCK
+vec3 rgbToOklab(vec3 c) {
+    float l = dot(c, vec3(0.4122214708, 0.5363325363, 0.0514459929));
+    float m = dot(c, vec3(0.2119034982, 0.6806995451, 0.1073969566));
+    float s = dot(c, vec3(0.0883024619, 0.2817188376, 0.6299787005));
+    vec3 lms = pow(max(vec3(l, m, s), vec3(0.0)), vec3(1.0 / 3.0));
+    return vec3(
+        dot(lms, vec3(0.2104542553,  0.7936177850, -0.0040720468)),
+        dot(lms, vec3(1.9779984951, -2.4285922050,  0.4505937099)),
+        dot(lms, vec3(0.0259040371,  0.7827717662, -0.8086757660))
+    );
+}
+
+vec3 oklabToRgb(vec3 lab) {
+    float l_ = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    float m_ = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    float s_ = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    vec3 lms = vec3(l_, m_, s_);
+    lms = lms * lms * lms;
+    return vec3(
+        dot(lms, vec3( 4.0767416621, -3.3077115913,  0.2309699292)),
+        dot(lms, vec3(-1.2684380046,  2.6097574011, -0.3413193965)),
+        dot(lms, vec3(-0.0041960863, -0.7034186147,  1.7076147010))
+    );
+}
+#endif
+
+// Roll a colour toward white by amount s, holding the perceptual hue constant.
+vec3 rollToWhite(vec3 base, float s) {
+    vec3 straight = mix(base, vec3(1.0), s);
+
+#if OKLAB_HUE_LOCK
+    // Take lightness and chroma magnitude from the straight path, but re-impose
+    // the original hue angle so the arc does not drift toward a neighbouring hue.
+    vec3  labBase = rgbToOklab(max(base, vec3(1e-6)));
+    float chBase  = length(labBase.yz);
+    if (chBase < 1e-5) return straight;          // already neutral, nothing to hold
+
+    vec3  lab = rgbToOklab(max(straight, vec3(1e-6)));
+    float ch  = length(lab.yz);
+    vec2  dir = labBase.yz / chBase;             // unit vector at the original hue
+    lab.yz    = ch * dir;
+
+    return oklabToRgb(lab);
+#else
+    return straight;
+#endif
+}
+
+vec3 desaturateHighlights(vec3 rgb) {
+    float mx = max(rgb.r, max(rgb.g, rgb.b));
+
+    // Phase 1 - smooth approach to white below the ceiling.
+    // Nothing has clipped here yet, so the ramp is shaped by DESAT_DENSITY to
+    // give back as much of the still-intact chroma as smoothness allows.
+    if (mx > DESAT_START) {
+        float s1 = smoothstep(DESAT_START, 1.0, min(mx, 1.0));
+        s1 = pow(s1, DESAT_DENSITY);
+        rgb = rollToWhite(rgb / mx, s1 * DESAT_AMOUNT) * mx;
+    }
+
+    // Phase 2 - hue-preserving roll-off of over-range values.
+    if (mx > 1.0) {
+        vec3  base  = rgb / mx;
+        float bmin  = min(base.r, min(base.g, base.b));
+        // Clamp K away from 1.0: a perfectly neutral pixel gives bmin == 1.0,
+        // which would collapse the smoothstep interval and yield NaN.
+        float K     = max(1.0 / max(bmin, 1e-6), 1.02);
+        float start = max(0.97, 1.0 - (K - 1.0) * 0.3);
+        float s2    = smoothstep(start, K, mx);
+        rgb = rollToWhite(base, s2);
+    }
+
+    return max(rgb, vec3(0.0));
+}
+
+float sampleExposureCurve(float x) {
+    return texture(ExposureCurve, vec2(x, 0.5)).r;
+}
+
+// Raw-editor style curve application: only the min and max channels pass
+// through the curve, the mid channel is reconstructed at its original
+// proportion between them. A per-channel application of a non-linear curve
+// changes the channel ratios and drifts hue on saturated colours; this keeps
+// the in-pixel channel structure intact, so the curve bends luminance only.
+vec3 applyExposureCurve(vec3 rgb) {
+    float mn  = min(rgb.r, min(rgb.g, rgb.b));
+    float mx  = max(rgb.r, max(rgb.g, rgb.b));
+    float mid = dot(rgb, vec3(1.0)) - mn - mx;
+    float newMn  = sampleExposureCurve(mn);
+    float newMx  = sampleExposureCurve(mx);
+    float y      = (mid - mn) / max(mx - mn, 1e-6);
+    float newMid = newMn + (newMx - newMn) * y;
+    return vec3(
+        mix(mix(newMid, newMx, float(rgb.r == mx)), newMn, float(rgb.r == mn)),
+        mix(mix(newMid, newMx, float(rgb.g == mx)), newMn, float(rgb.g == mn)),
+        mix(mix(newMid, newMx, float(rgb.b == mx)), newMn, float(rgb.b == mn)));
+}
+
 void main() {
     ivec2 xy = ivec2(gl_FragCoord.xy);
     xy = mirrorCoords(xy,activeSize);
@@ -557,17 +695,17 @@ void main() {
     //float noiseO = (NOISEO*NOISEO)*0.25;
     //noiseO = min(noiseO,0.25);
     //Output = clamp((sRGB-noiseO)/(vec3(1.0)-noiseO),0.0,1.0);
-    Output = softClip(sRGB);
+    //Output = softClip(sRGB);
+    //Output = desaturateHighlights(sRGB);
+    Output = clamp(sRGB,0.0,1.0);
     #if POSTLUT == 1
         Output = postlookup(Output);
     #endif
     #if EXPOCURVE == 1
     // AutoExposureCurve response baked into a 1D LUT: gamma lift -> gain ->
     // extended Reinhard -> gamma lift -> adaptive highlight shoulder (the
-    // former AutoExposure pass, fused).
-    Output = vec3(
-        texture(ExposureCurve, vec2(Output.r, 0.5)).r,
-        texture(ExposureCurve, vec2(Output.g, 0.5)).r,
-        texture(ExposureCurve, vec2(Output.b, 0.5)).r);
+    // former AutoExposure pass, fused). Applied min/max through the curve with
+    // the mid channel interpolated in between (see applyExposureCurve).
+    Output.rgb = applyExposureCurve(Output.rgb);
     #endif
 }
