@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static android.opengl.GLES20.GL_CLAMP_TO_EDGE;
 import static android.opengl.GLES20.GL_LINEAR;
@@ -277,7 +278,9 @@ public class ESD4D extends GLOneScript {
     public Point brightMapCPUSize;
     /** KernelNet half-res parameter texture (s1, s2, rho in RGBA16F) for the anisotropic filter. */
     public GLTexture kernelsMap;
-    /** CPU copy of {@link #kernelsMap} (RGBA floats: s1, s2, rho, 1) for reuse in the post pipeline. */
+    /** CPU copy of the unpacked KernelNet params (RGBA floats: s1, s2, rho, 1 per
+     * texel, full fp32 — not the fp16 texture values) for reuse in the post
+     * pipeline. Set by {@link #createKernelsMap} alongside the texture upload. */
     public FloatBuffer kernelsMapCPU;
     /** Size of {@link #kernelsMapCPU}. */
     public Point kernelsMapCPUSize;
@@ -482,43 +485,10 @@ public class ESD4D extends GLOneScript {
             }
         }
 
-        if (alignmentTile != 16 && alignmentTile != parameters.tile) {
-            parameters.tile = alignmentTile;
-            parameters.alignmentSize = new Point((parameters.rawSize.x / alignmentTile) + 1,
-                    (parameters.rawSize.y / alignmentTile) + 1);
-            Log.d("ESD4D", "Alignment tile size overridden: " + alignmentTile
+        if (parameters.tile != 16) {
+            // Custom tile sizes (set upstream) keep their own alignmentSize.
+            Log.d("ESD4D", "Alignment tile size: " + parameters.tile
                     + " alignmentSize: " + parameters.alignmentSize.x + "x" + parameters.alignmentSize.y);
-        }
-        Point alignmentOutputSize = new Point(parameters.alignmentSize.x * parameters.tilesX,
-                parameters.alignmentSize.y * ((images.size()-1)/parameters.tilesX + 1));
-        Log.d("Alignment", "alignment pipeline size: " + alignmentOutputSize.x + " " + alignmentOutputSize.y);
-        useNcnnFlow = enableAlignment && useNcnnFlow;
-        if (enableAlignment && useNcnnFlow) {
-            FlowNetAlignment flowNetAlignmentTmp = new FlowNetAlignment(alignmentOutputSize, images, glProg, glUtils, this, minExpIdx);
-            flowNetAlignmentTmp.parameters = parameters;
-            long startTime = System.currentTimeMillis();
-            useNcnnFlow = flowNetAlignmentTmp.initFlow();
-            Log.d("ESD4D", "FlowNet alignment init time: " + (System.currentTimeMillis() - startTime) + "ms");
-            if (useNcnnFlow) {
-                flowNetAlignment = flowNetAlignmentTmp;
-                alignmentTex = flowNetAlignment.flowTex;
-            } else {
-                flowNetAlignmentTmp.close();
-            }
-        }
-        if (enableAlignment && !useNcnnFlow) {
-            PyramidAlignment pyramidAlignment = new PyramidAlignment(alignmentOutputSize, images, glProg, glUtils, this);
-            pyramidAlignment.parameters = parameters;
-            long startTime = System.currentTimeMillis();
-            pyramidAlignment.Run();
-            Log.d("ESD4D", "Alignment time: " + (System.currentTimeMillis() - startTime) + "ms");
-            alignmentTex = pyramidAlignment.Result;
-            pyramidAlignment.close();
-        } else if (!enableAlignment) {
-            alignmentTex = new GLTexture(alignmentOutputSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4),
-                    BufferUtils.getFrom(new float[alignmentOutputSize.x * alignmentOutputSize.y * 4]),
-                    GL_NEAREST, GL_CLAMP_TO_EDGE);
-            Log.d("ESD4D", "Alignment disabled, using identity alignment");
         }
         Point raw = parameters.rawSize;
         Point rawHalf = new Point(parameters.rawSize.x/2,parameters.rawSize.y/2);
@@ -630,10 +600,20 @@ public class ESD4D extends GLOneScript {
             // Model: variance = NoiseS * brightness + NoiseO  =>  sigma = sqrt(NoiseS*b + NoiseO)
             final int numBrightnessBins = 64;
             final int numVarianceBins = 64;
-            final int noiseScanBins = numBrightnessBins * numVarianceBins; // 1024
-            // Variance scale: max variance ~(numVarianceBins-0.5)/scale. Use 160 so we cover up to ~0.2 for noisy sensors.
-            final float varianceScale = 64.0f * 6.0f;
+            final int noiseScanBins = numBrightnessBins * numVarianceBins; // 4096
+            // Estimation input: progressive misaligned Gaussian blend of the
+            // burst (see buildNoiseBlendFrame). The blend blurs scene detail
+            // - the root cause of the old overestimation - while noise only
+            // drops by the calibrated factor varStat below.
+            int blendFrames = Math.min(Math.min(noiseBlendMaxFrames, BLEND_GRID.length), images.size());
+            final float varStat = NOISE_BLEND_VAR_STAT[blendFrames - 1] * noiseBlendCalMpy;
+            // Variance axis anchored so bin 63 = SIGMA_REF for every frame
+            // count (the old fixed 64*6 scale wasted most of the range at
+            // typical noise levels, quantizing low-ISO fits into 1-3 bins).
+            final float varianceScale = (numVarianceBins - 1) / (varStat * NOISE_BLEND_SIGMA_REF);
             final float brightnessScale = 64.0f * (float)Math.sqrt(3.0f);
+            float[] spatialKernel = new float[9];
+            GLTexture noiseInput = buildNoiseBlendFrame(blNorm, 8, spatialKernel);
             GLHistogram noiseHist = new GLHistogram(glProg, noiseScanBins);
             noiseHist.Custom = true;
             noiseHist.Rc = true;
@@ -647,39 +627,22 @@ public class ESD4D extends GLOneScript {
             noiseHist.CustomShader = "merge/noisehist";
             noiseHist.input1 = brightnessScale;
             noiseHist.input2 = varianceScale;
-            int[][] noiseRes = noiseHist.Compute(base);
+            noiseHist.resize = noiseScanSubsample;
+            noiseHist.customKernel = spatialKernel;
+            int[][] noiseRes = noiseHist.Compute(noiseInput);
+            if (noiseInput != baseAlter) noiseInput.close();
+            noiseHist.close();
             int[] hist = noiseRes[0];
-            int varCnt = 0;
-            float[] weights = new float[numVarianceBins];
-            float wSum = 0.0f;
-            float minBr = 0.0f;
-            for (int i = 0; i < noiseScanBins; i++) {
-                int count = hist[i];
-                var bin = i / numVarianceBins;
-                var vin = i % numVarianceBins;
-                if(vin == 0) {
-                    varCnt = 0;
-                }
-                if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > 45) continue;
-                varCnt++;
-                if(minBr == 0.0f) {
-                    minBr = ((float)bin + 0.5f) / brightnessScale;
-                    minBr = (float) Math.pow(minBr, 2.0);
-                }
-                double w = count;
-                weights[vin] += (float) w;
-                wSum += w;
-            }
-            float wWindow = Math.max(weights[0], weights[1]);
-            for (int i = 0; i < numVarianceBins; i++) {
-                wWindow = Math2.mix(Math.max(wWindow, weights[i]), weights[i], 0.025f);
-                weights[i] = 0.5f + wWindow / wSum;
-                Log.d("DynamicNoise", "Variance weight: " + weights[i]);
-            }
-            // Weighted linear regression: variance = NoiseS * brightness + NoiseO
+            // Weighted linear regression: variance = NoiseS * brightness + NoiseO,
+            // run in two passes. Pass 1 fits all bins kept by the per-row
+            // filter; pass 2 (adaptive gate, noiseFitGateMpy) keeps only bins
+            // whose implied variance is consistent with the pass-1 noise
+            // model - the per-brightness "lower part" that rejects texture
+            // and saturation-capped bins without a per-threshold
+            // calibration (see tools/noise-blend-calibration pct/gate runs).
             double sumW = 0, sumWb = 0, sumWv = 0, sumWb2 = 0, sumWbv = 0;
             int points = 0;
-            varCnt = 0;
+            int varCnt = 0;
             for (int i = 0; i < noiseScanBins; i++) {
                 int count = hist[i];
                 var bin = i / numVarianceBins;
@@ -687,19 +650,21 @@ public class ESD4D extends GLOneScript {
                 if(vin == 0) {
                     varCnt = 0;
                 }
-                if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > 45) continue;
+                if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > noiseFitVarBins) continue;
                 varCnt++;
+                // Fit in the absolute quad-mean brightness domain the
+                // consumers use. (The old (b-minBr)/(1-minBr) rescale fit in
+                // scene-relative brightness and inflated S by 1/(1-minBr) on
+                // any scene without near-black content - snow, sky, low-key.)
                 double brightness = ((double)(bin) + 0.5) / ((double)brightnessScale);
                 brightness = Math.pow(brightness, 2.0);
-                brightness = (brightness - minBr)/(1.0 - minBr);
                 double variance = (vin + 0.5) / varianceScale;
-                // Median-of-squared-deviations (shader "var") ≈ 0.6745*sigma, so a
-                // single 1.4826 (=1/0.6745) converts it to sigma, then squaring gives
-                // the true variance. (Double-multiplying previously biased S/O by ~2.2x.)
-                //variance *= 1.4826;
-                variance = Math.pow(variance, 2.0);
-
-                Log.d("DynamicNoise", "vin:"+ vin + " bin: " + bin + " Variance raw: " + variance + " brightness: " + brightness + " count: " + count);
+                // The shader's "var" statistic (|center - kernel mean| after
+                // the temporal blend) is calibrated end-to-end - see
+                // NOISE_BLEND_VAR_STAT and tools/noise-blend-calibration -
+                // to varStat * sigma, so squaring and dividing by varStat^2
+                // recovers the per-frame variance.
+                variance = variance * variance / ((double) varStat * varStat);
                 double w = count * 1.0f;
                 sumW += w;
                 sumWb += w * brightness;
@@ -712,8 +677,47 @@ public class ESD4D extends GLOneScript {
             if (points >= 1) {
                 double denom = sumW * sumWb2 - sumWb * sumWb;
                 if (denom > 1e-20) {
-                    double fitS = (sumW * sumWbv - sumWb * sumWv) / denom;
-                    double fitO = (sumWv - fitS * sumWb) / sumW;
+                    double passS = (sumW * sumWbv - sumWb * sumWv) / denom;
+                    double passO = (sumWv - passS * sumWb) / sumW;
+                    double fitS = passS;
+                    double fitO = passO;
+                    if (noiseFitGateMpy > 0.0f) {
+                        // Pass 2: keep only bins whose implied variance is
+                        // within the gate multiple of the pass-1 model.
+                        double gW = 0, gWb = 0, gWv = 0, gWb2 = 0, gWbv = 0;
+                        int gPoints = 0;
+                        varCnt = 0;
+                        for (int i = 0; i < noiseScanBins; i++) {
+                            int count = hist[i];
+                            var bin = i / numVarianceBins;
+                            var vin = i % numVarianceBins;
+                            if(vin == 0) {
+                                varCnt = 0;
+                            }
+                            if (count <= 0 || bin == numBrightnessBins-1 || (varCnt >= 30 && vin == 63) || varCnt > noiseFitVarBins) continue;
+                            varCnt++;
+                            double brightness = ((double)(bin) + 0.5) / ((double)brightnessScale);
+                            brightness = Math.pow(brightness, 2.0);
+                            double variance = (vin + 0.5) / varianceScale;
+                            variance = variance * variance / ((double) varStat * varStat);
+                            double gateVar = noiseFitGateMpy
+                                    * (Math.max(passS, 1e-12) * brightness + Math.max(passO, 0.0));
+                            if (variance > gateVar) continue;
+                            double w = count * 1.0f;
+                            gW += w;
+                            gWb += w * brightness;
+                            gWv += w * variance;
+                            gWb2 += w * brightness * brightness;
+                            gWbv += w * brightness * variance;
+                            gPoints++;
+                        }
+                        double gDenom = gW * gWb2 - gWb * gWb;
+                        if (gPoints >= 1 && gDenom > 1e-20) {
+                            fitS = (gW * gWbv - gWb * gWv) / gDenom;
+                            fitO = (gWv - fitS * gWb) / gW;
+                            Log.d("DynamicNoise", "Gate pass: " + gPoints + " bins kept of " + points);
+                        }
+                    }
                     fitS = Math.max(fitS, 1e-10);
                     Log.d("DynamicNoise",  "Fit S:" + fitS + " O:" + fitO);
                     // Keep at least 5% of original read noise so we don't collapse to zero on noisy sensors
@@ -723,9 +727,9 @@ public class ESD4D extends GLOneScript {
                     // estimator is unbiased (previously S carried a ~2.2x bias that made
                     // S/7 a sane proxy). S/20 keeps a guard against O collapsing while no
                     // longer dominating realistic sensors (O/S is typically < 0.05).
-                    fitO = Math.max(fitO, fitS/20);
-                    fitS = Math.max(fitS, parameters.noiseModeler.SPlace(parameters.iso));
-                    fitO = Math.max(fitO, parameters.noiseModeler.OPlace(parameters.iso)*3.0f);
+                    //fitO = Math.max(fitO, fitS/20);
+                    //fitS = Math.max(fitS, parameters.noiseModeler.SPlace(parameters.iso));
+                    //fitO = Math.max(fitO, parameters.noiseModeler.OPlace(parameters.iso) * noiseOFloorMpy);
                     // Commit the fitted S/O to the multisample noise map, then read
                     // back the blended (moving-average) value. Committing before
                     // reading makes the current estimation participate in the
@@ -750,7 +754,9 @@ public class ESD4D extends GLOneScript {
                         Log.d("DynamicNoise", "Blended noise model from store: S=" + fitS
                                 + " O=" + fitO + " for iso=" + parameters.iso);
                     }
-                    fitO += fitS*fitS * 3.0/8.0; // Correction factor
+                    // Legacy correction that compensated the old under-rescaled
+                    // fit; off by default now that the blend is calibrated.
+                    if (enableFitOCorrection) fitO += fitS*fitS * 3.0/8.0;
                     noiseS = (float) fitS;
                     noiseO = (float) fitO;
                     Log.d("DynamicNoise",  "Fitted noise model: NoiseS=" + noiseS + " NoiseO=" + noiseO + " Half=" + Math.sqrt(noiseS * 0.5 + noiseO) + " (points=" + points + ")");
@@ -768,14 +774,14 @@ public class ESD4D extends GLOneScript {
                     for (int i = 0; i < noiseScanBins; i++) {
                         int count = hist[i];
                         if (count <= 0) continue;
-                        double sigma = ((i % numVarianceBins + 0.5) / varianceScale) * 1.4826;
+                        double sigma = ((i % numVarianceBins + 0.5) / varianceScale) / varStat;
                         sumWeightedSigma += sigma * count;
                         sumWeightedCount += count;
                     }
                     if (sumWeightedCount > 0) {
                         double observedSigma = sumWeightedSigma / sumWeightedCount;
                         adaptiveNMpy = observedSigma / modelSigmaMid;
-                        adaptiveNMpy = Math2.clamp(adaptiveNMpy, 1.0, 4.0);
+                        adaptiveNMpy = Math2.clamp(adaptiveNMpy, adaptiveFallbackMin, adaptiveFallbackMax);
                     }
                 }
                 Log.d("DynamicNoise", "Adaptive Mpy (fallback): " + adaptiveNMpy + " (insufficient points=" + points + ")");
@@ -802,9 +808,59 @@ public class ESD4D extends GLOneScript {
         glProg.setTextureCompute("outTexture",brightMap, true);
         glProg.computeAuto(brightMap.mSize, 1);
         exportBrightMap();
-        KernelNetResult kernelParams = runKernelNetInference(kernelSigma * noiseMpy);
-        kernelsMap = createKernelsMap(kernelParams);
-        exportKernelsMap();
+        // KernelNet's input derives from the reference frame only, so its
+        // inference is independent of the alignment/merge loop below. Run it
+        // on a worker thread concurrently with alignment (merge00 / FlowNet /
+        // mergeAlign) and collect it just before the first combine pass needs
+        // kernelsMap. The inference (and the model load inside it) touches no
+        // GL state; the kernelsMap build/upload must rejoin the GL thread.
+        final float kernelSigmaArg = kernelSigma * noiseMpy;
+        final AtomicReference<KernelNetResult> kernelNetResult = new AtomicReference<>();
+        Thread kernelNetThread = new Thread(() -> {
+            try {
+                kernelNetResult.set(runKernelNetInference(kernelSigmaArg));
+            } catch (Throwable t) {
+                Log.e("ESD4D", "KernelNet worker failed", t);
+            }
+        }, "KernelNet-inference");
+        kernelNetThread.start();
+
+        // Alignment runs after the KernelNet worker is launched so the CPU
+        // ncnn inference overlaps the whole alignment pass (pyramid or FlowNet)
+        // instead of following it. Nothing between the worker start and the
+        // merge loop consumes alignmentTex, and this block only needs the
+        // reference-frame inputs already prepared above.
+        Point alignmentOutputSize = new Point(parameters.alignmentSize.x * parameters.tilesX,
+                parameters.alignmentSize.y * ((images.size()-1)/parameters.tilesX + 1));
+        Log.d("Alignment", "alignment pipeline size: " + alignmentOutputSize.x + " " + alignmentOutputSize.y);
+        useNcnnFlow = enableAlignment && useNcnnFlow;
+        if (enableAlignment && useNcnnFlow) {
+            FlowNetAlignment flowNetAlignmentTmp = new FlowNetAlignment(alignmentOutputSize, images, glProg, glUtils, this, minExpIdx);
+            flowNetAlignmentTmp.parameters = parameters;
+            long startTime = System.currentTimeMillis();
+            useNcnnFlow = flowNetAlignmentTmp.initFlow();
+            Log.d("ESD4D", "FlowNet alignment init time: " + (System.currentTimeMillis() - startTime) + "ms");
+            if (useNcnnFlow) {
+                flowNetAlignment = flowNetAlignmentTmp;
+                alignmentTex = flowNetAlignment.flowTex;
+            } else {
+                flowNetAlignmentTmp.close();
+            }
+        }
+        if (enableAlignment && !useNcnnFlow) {
+            PyramidAlignment pyramidAlignment = new PyramidAlignment(alignmentOutputSize, images, glProg, glUtils, this);
+            pyramidAlignment.parameters = parameters;
+            long startTime = System.currentTimeMillis();
+            pyramidAlignment.Run();
+            Log.d("ESD4D", "Alignment time: " + (System.currentTimeMillis() - startTime) + "ms");
+            alignmentTex = pyramidAlignment.Result;
+            pyramidAlignment.close();
+        } else if (!enableAlignment) {
+            alignmentTex = new GLTexture(alignmentOutputSize, new GLFormat(GLFormat.DataType.FLOAT_16, 4),
+                    BufferUtils.getFrom(new float[alignmentOutputSize.x * alignmentOutputSize.y * 4]),
+                    GL_NEAREST, GL_CLAMP_TO_EDGE);
+            Log.d("ESD4D", "Alignment disabled, using identity alignment");
+        }
 
         //Point aSize = new Point(parameters.rawSize.x/(2*parameters.tile) + 1, parameters.rawSize.y/(2*parameters.tile) + 1);
         Point border = new Point(16,16);
@@ -898,9 +954,22 @@ public class ESD4D extends GLOneScript {
 
             Log.d("ESD4D", "create diff");
 
+            // First combine pass: collect the KernelNet result that has been
+            // running concurrently with alignment and this frame's merge00 /
+            // mergeAlign work. Waits only for any inference remainder; the
+            // texture build below needs the GL thread anyway.
+            if (kernelNetThread != null) {
+                try {
+                    kernelNetThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                kernelNetThread = null;
+                kernelsMap = createKernelsMap(kernelNetResult.get());
+            }
 
             glProg.setLayout(tile, tile, 1);
-            glProg.useAssetProgram("merge/mergeCombineWeight", true);
+            glProg.useAssetProgram("merge/mergeCombineWeight0", true);
             glProg.setVar("cfaPattern", parameters.cfaPattern);
             glProg.setTexture("inTex", inputBase);
             glProg.setTexture("kernelsMap", kernelsMap);
@@ -939,7 +1008,7 @@ public class ESD4D extends GLOneScript {
             bl2[i] = blNorm[i]*(FAKE_WL / parameters.whiteLevel);
         }
         glProg.setDefine("WHITE_LEVEL", FAKE_WL);
-        glProg.setDefine("BLACK_LEVEL", bl2);
+        glProg.setDefine("BLACK_LEVEL", new float[]{0,0,0,0});
         glProg.setLayout(tile,tile,1);
         glProg.useAssetProgram("merge/merge2o");
         glProg.setVar("cfaShift", cfaShift); // uniform: GLProg clears defines after each load
@@ -970,7 +1039,10 @@ public class ESD4D extends GLOneScript {
      * Runs the KernelNet parameter model on the previously exported {@link #brightMapCPU}
      * (call {@link #exportBrightMap()} first). Returns half-resolution kernel params
      * (s1, s2, rho) as channel-major floats, or null if the model isn't available.
-     * NOTE: blocks the GL thread for the inference duration (~40-170ms at high res).
+     * Takes ~40-170ms at high res; Run() calls this on a worker thread in
+     * parallel with the alignment loop and collects the result before the
+     * first mergeCombineWeight0 pass. Touches no GL state, so it is safe to
+     * call off the GL thread.
      */
     public KernelNetResult runKernelNetInference(float sigma) {
         if (brightMapCPU == null || brightMapCPUSize == null) return null;
@@ -986,23 +1058,10 @@ public class ESD4D extends GLOneScript {
     }
 
     /**
-     * Reads kernelsMap back to CPU (RGBA floats, s1/s2/rho/1 per texel) so the
-     * post pipeline can reuse the merge-pass KernelNet parameters without a
-     * second inference. Must be called while the GL context is current,
-     * before AfterRun() closes kernelsMap.
-     */
-    public void exportKernelsMap() {
-        if (kernelsMap == null) return;
-        kernelsMap.BufferLoad();
-        ByteBuffer raw = kernelsMap.textureBuffer(new GLFormat(GLFormat.DataType.FLOAT_32, 4), true);
-        raw.order(ByteOrder.nativeOrder());
-        kernelsMapCPU = raw.asFloatBuffer();
-        kernelsMapCPUSize = new Point(kernelsMap.mSize.x, kernelsMap.mSize.y);
-    }
-
-    /**
      * Converts a KernelNet parameter map (channel-major s1, s2, rho floats at half-res)
      * into an RGBA16F texture for the anisotropic Gaussian filter: texel = (s1, s2, rho, 1).
+     * Also publishes the unpacked fp32 params as {@link #kernelsMapCPU} for the
+     * post pipeline, so no GPU readback of the texture is needed.
      * The texture is left open for downstream use; caller owns it.
      */
     public GLTexture createKernelsMap(KernelNetResult result) {
@@ -1024,6 +1083,10 @@ public class ESD4D extends GLOneScript {
         }
         GLTexture map = new GLTexture(new Point(w, h), new GLFormat(GLFormat.DataType.FLOAT_16, 4), null);
         map.loadData(FloatBuffer.wrap(rgba));
+        // The unpacked fp32 params are exactly what the post pipeline needs;
+        // keep them as the CPU copy instead of reading the fp16 texture back.
+        kernelsMapCPU = FloatBuffer.wrap(rgba);
+        kernelsMapCPUSize = new Point(w, h);
         return map;
     }
 
