@@ -44,7 +44,7 @@ public class AverageRaw extends GLOneScript {
         bLevel = new float[4];
         for(int i = 0; i<4;i++){
             bLevel[i] = parameters.blackLevel[i]/((float)parameters.whiteLevel);
-            bLevel[i] /= 1.4f;
+            //bLevel[i] /= 1.4f;
         }
         switch (parameters.cfaPattern){
             case 0: // RGGB
