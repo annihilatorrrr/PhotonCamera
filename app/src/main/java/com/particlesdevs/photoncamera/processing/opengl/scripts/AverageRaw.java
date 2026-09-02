@@ -146,7 +146,7 @@ public class AverageRaw extends GLOneScript {
             glProg.setTexture("InputBuffer", first);
         }
         glProg.setVar("whiteLevel",UnlimitedProcessor.FAKE_WL);
-        glProg.setVar("blackLevel", bLevel);
+        glProg.setVar("blackLevel", new float[]{0.0f,0.0f,0.0f,0.0f});
         glProg.setVar("WhiteBalance", 1.0f/wBalance[0], 1.0f/wBalance[1], 1.0f/wBalance[2], 1.0f/wBalance[3]);
         //in1 = WorkingTexture;
         finalTex.BufferLoad();
